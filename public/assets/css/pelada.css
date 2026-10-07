@@ -137,6 +137,9 @@ h1 { line-height: 1.12; }
 
 /* ================= formulário ================= */
 .form-wide { max-width: 860px; }
+.demo-card { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; border: 1.5px dashed var(--pl); background: linear-gradient(135deg, var(--pl-50), var(--surface) 70%); }
+.demo-card .demo-ico { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: var(--pl); color: #fff; flex: none; }
+.demo-card .demo-txt { flex: 1 1 260px; min-width: 0; }
 .card.stack { gap: 16px; }
 .img-row { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 720px) { .img-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); } }
