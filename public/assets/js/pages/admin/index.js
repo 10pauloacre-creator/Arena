@@ -90,7 +90,7 @@ export default async function (ctx) {
       <nav class="bottomnav" aria-label="Seções do torneio">${SECTIONS.map(s => html`<a href="/admin/${id}${s.path ? '/' + s.path : ''}" data-sec="${s.key}" ${s.key === sec.key ? 'aria-current="page"' : ''}>${ic(s.icon)}<span>${s.label}</span><span class="count" data-badge="${s.key}" hidden></span></a>`)}</nav>
     </div>`);
 
-  wireMenus(ctx.root);
+  wireMenus(ctx.root, ctx.signal);
 
   // ----- cabeçalho: notificações, avisos, selos
   function paintChrome() {
@@ -117,7 +117,7 @@ export default async function (ctx) {
     if (open) { markSeen(); $('#bellDot', ctx.root).hidden = true; }
     e.stopPropagation();
   });
-  document.addEventListener('click', e => { if (!e.target.closest('[data-bellwrap]')) { const p = $('#bellPop', ctx.root); if (p) p.hidden = true; } });
+  document.addEventListener('click', e => { if (!e.target.closest('[data-bellwrap]')) { const p = $('#bellPop', ctx.root); if (p) p.hidden = true; } }, { signal: ctx.signal });
   paintChrome();
 
   // topbar com borda ao rolar

@@ -11,6 +11,7 @@ import { fmtBRL, fmtNum } from '../../shared/format.js';
 export default function (app) {
   let draft = null;
   let savedFlash = false;
+  let forceReset = false;
   const lockReason = t => t.bracket ? 'O chaveamento já foi sorteado.' : (t.teams.some(x => x.status === 'confirmed' || x.status === 'pending_payment') ? 'Já existem times inscritos.' : '');
   const resetDraft = () => { const t = app.t; draft = { name: t.name, finalDate: t.finalDate, sport: t.sport }; };
   resetDraft();
@@ -126,7 +127,7 @@ export default function (app) {
         const btn = $('[data-save]', f); setBusy(btn, true);
         try {
           const r = await api.patch(`/tournaments/${app.t.id}`, body);
-          resetDraft(); savedFlash = true;
+          savedFlash = true; forceReset = true;
           app.set(r.tournament);
           toast('Alterações salvas.', { type: 'success', ms: 2500 });
         } catch (err) {
@@ -140,6 +141,7 @@ export default function (app) {
     discard: () => resetDraft(),
     update(t, { fromPoll } = {}) {
       const root = app.main; if (!root) return;
+      if (forceReset) { forceReset = false; resetDraft(); paint(root); return; }
       if (dirty() && fromPoll) { /* mantém edição em andamento */ return; }
       if (!dirty()) resetDraft();
       if (root.contains(document.activeElement) && document.activeElement.matches('input') && fromPoll) return;

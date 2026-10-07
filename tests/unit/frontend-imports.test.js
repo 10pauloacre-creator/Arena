@@ -25,7 +25,8 @@ test('todos os módulos do front-end importam sem erro', async () => {
 });
 
 test('páginas exportam uma função default', async () => {
-  const pages = walk(join(ROOT, 'pages'));
+  const helpers = new Set(['store.js', 'payment.js', 'tabs.js']);
+  const pages = walk(join(ROOT, 'pages')).filter(f => !helpers.has(f.split(/[\\/]/).pop()));
   for (const f of pages) {
     const m = await import(pathToFileURL(f).href);
     assert.equal(typeof m.default, 'function', f);

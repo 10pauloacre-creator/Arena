@@ -19,7 +19,7 @@ export function userMenuHTML() {
 }
 
 /** Liga os comportamentos dos menus dentro de `root`. */
-export function wireMenus(root) {
+export function wireMenus(root, signal) {
   const close = () => root.querySelectorAll('[data-menu] .menu-pop').forEach(p => { p.hidden = true; p.parentElement.querySelector('[data-menu-btn]')?.setAttribute('aria-expanded', 'false'); });
   root.addEventListener('click', async e => {
     const btn = e.target.closest('[data-menu-btn]');
@@ -27,6 +27,6 @@ export function wireMenus(root) {
     if (e.target.closest('[data-logout]')) { await logout(); navigate('/'); return; }
     if (!e.target.closest('.menu-pop')) close();
   });
-  document.addEventListener('click', e => { if (!e.target.closest('[data-menu]')) close(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  document.addEventListener('click', e => { if (!e.target.closest('[data-menu]')) close(); }, { signal });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); }, { signal });
 }

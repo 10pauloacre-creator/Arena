@@ -45,6 +45,11 @@ export function wireTeamFields(root, { withCaptain = true } = {}) {
   drop.addEventListener('drop', e => take(e.dataTransfer.files[0]));
 
   return {
+    setEmblem(url) {
+      emblem = url || null;
+      q('[data-emblemprev]').innerHTML = emblem ? `<img src="${emblem}" alt="Prévia do emblema">` : '';
+      q('[data-emblemtxt]').textContent = emblem ? 'Emblema carregado' : 'Enviar emblema';
+    },
     read() {
       const g = n => (q(`[name=${n}]`)?.value || '').trim();
       return {

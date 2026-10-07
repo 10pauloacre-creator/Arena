@@ -4,6 +4,7 @@ let current = null;
 let rootEl = null;
 let leaveFns = [];
 let token = 0;
+let abort = null;
 
 export function addRoute(pattern, loader) {
   const keys = [];
@@ -28,10 +29,16 @@ async function resolve() {
   }
   leaveFns.forEach(fn => { try { fn(); } catch { /* ignora */ } });
   leaveFns = [];
+  abort?.abort();
+  abort = new AbortController();
   if (!hit) hit = { r: routes.find(r => r.pattern === '*'), params: {} };
+  // cada rota ganha um container novo: listeners da página anterior desaparecem junto com o elemento antigo
+  const page = document.createElement('div');
+  page.className = 'route-root';
+  rootEl.replaceChildren(page);
   const ctx = {
-    root: rootEl, params: hit.params, query: Object.fromEntries(url.searchParams), path, navigate,
-    onLeave: fn => leaveFns.push(fn), isCurrent: () => my === token,
+    root: page, params: hit.params, query: Object.fromEntries(url.searchParams), path, navigate,
+    onLeave: fn => leaveFns.push(fn), isCurrent: () => my === token, signal: abort.signal,
   };
   current = ctx;
   window.scrollTo({ top: 0 });
@@ -42,7 +49,7 @@ async function resolve() {
   } catch (err) {
     if (my !== token) return;
     console.error(err);
-    rootEl.innerHTML = `<div class="page-loading"><div class="empty"><strong>Não foi possível carregar esta página.</strong><span>${String(err.message || err).replace(/[<>&]/g, '')}</span><a class="btn btn-primary" href="/">Voltar ao início</a></div></div>`;
+    ctx.root.innerHTML = `<div class="page-loading"><div class="empty"><strong>Não foi possível carregar esta página.</strong><span>${String(err.message || err).replace(/[<>&]/g, '')}</span><a class="btn btn-primary" href="/">Voltar ao início</a></div></div>`;
   }
 }
 

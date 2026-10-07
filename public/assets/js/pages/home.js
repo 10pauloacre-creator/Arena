@@ -104,7 +104,7 @@ function landing(ctx) {
 }
 
 function wire(ctx) {
-  wireMenus(ctx.root);
+  wireMenus(ctx.root, ctx.signal);
   on(ctx.root, 'click', '[data-new]', () => newTournamentDialog());
   ctx.root.addEventListener('submit', e => { const f = e.target.closest('[data-idform]'); if (f) { e.preventDefault(); goToTournament(f.id.value); } });
 }

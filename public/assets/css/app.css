@@ -415,3 +415,33 @@
 .hero h2 { font-size: clamp(26px, 3.4vw, 46px); }
 .hint { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .field > .hint { display: block; }
+
+/* ===== correções de layout (revisão visual) ===== */
+.stack > *, .stack-sm > *, .grow { min-width: 0; }
+.copy-field { min-width: 0; }
+.round { min-width: 224px; }
+.bracket { gap: 44px; }
+.v-tabs { background: var(--bg); backdrop-filter: none; }
+
+/* grids de coluna única nunca devem crescer além da tela */
+.stack, .stack-sm, .page, .v-wrap, .home, .settings, .live-grid, .mk-grid, .two, .charts, .kpis, .t-grid { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 640px) { .t-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 760px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1000px) { .t-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .charts, .two { grid-template-columns: repeat(2, minmax(0, 1fr)); } .two.wide-left { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } }
+@media (min-width: 1100px) { .live-grid { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); } .mk-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); } }
+@media (min-width: 1200px) { .kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (min-width: 1360px) { .t-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.v-tabs, .v-tabs .seg { min-width: 0; max-width: 100%; }
+
+/* ===== mobile: cartões de jogo e linhas de equipe ===== */
+.match-card .side b { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.2; overflow-wrap: anywhere; font-size: 14px; }
+@media (max-width: 560px) {
+  .match-card { padding: 12px 12px; gap: 6px; }
+  .match-card .side { gap: 8px; }
+  .match-card .side .emb { width: 34px; height: 34px; font-size: 12px; }
+  .match-card .mid { min-width: 62px; }
+  .match-card .mid .sc { font-size: 19px; }
+}
+.out-row .row { flex-wrap: wrap; }
+.out-row .row > .grow { flex: 1 1 150px; }
+@media (max-width: 639px) { .tiles.stack-mobile { grid-template-columns: minmax(0, 1fr); } }

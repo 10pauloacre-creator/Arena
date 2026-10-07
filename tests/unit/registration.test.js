@@ -341,6 +341,23 @@ test('capitão consulta o próprio time só com o código correto', async () => 
   assert.equal((await v.get(`/public/${t.id}/teams/${id}`)).status, 403);
 });
 
+test('capitão acessa o time em outro aparelho só com o código', async () => {
+  const org = await signup(S.base);
+  const t = await mk(org);
+  const r = await reg(visitor(), t.id, 'Outro Aparelho FC');
+  const v2 = visitor();
+  const ok = await v2.post(`/public/${t.id}/my-team`, { code: ' ' + r.data.team.accessCode.toLowerCase() + ' ' });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.data.team.id, r.data.team.id);
+  assert.ok(!JSON.stringify(ok.data).includes('capitao@teste.com'));
+  assert.equal((await v2.post(`/public/${t.id}/my-team`, { code: 'ZZZZZZZZ' })).status, 403);
+  assert.equal((await v2.post(`/public/${t.id}/my-team`, { code: '' })).status, 403);
+  // limite de tentativas
+  let last;
+  for (let i = 0; i < 16; i++) last = await v2.post(`/public/${t.id}/my-team`, { code: 'ABCDEFGH' });
+  assert.equal(last.status, 429);
+});
+
 test('webhook do Mercado Pago ignora requisições sem dados e provedor de teste', async () => {
   const v = visitor();
   const r = await v.post('/webhooks/mercadopago', { type: 'payment', data: { id: '123' } });
