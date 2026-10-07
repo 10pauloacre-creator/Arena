@@ -24,9 +24,9 @@ function userMenu() {
       <a href="/" data-external role="menuitem">${ic('trophy', { size: 18 })} Torneios (ArenaMaster)</a></div></div>`;
 }
 
-/** Aviso quando o servidor não tem banco persistente (ex.: Vercel sem Redis conectado). */
+/** Aviso quando o servidor não tem banco persistente (ex.: Vercel sem banco conectado). */
 const storageBanner = () => S.config?.storage?.persistent === false
-  ? html`<div class="storage-warn" role="status">⚠ Ambiente de demonstração sem banco de dados: contas e peladas podem ser apagadas a qualquer momento. O dono do site precisa conectar o Upstash Redis (veja o README).</div>` : '';
+  ? html`<div class="storage-warn" role="status">⚠ Ambiente de demonstração sem banco de dados: contas e peladas podem ser apagadas a qualquer momento. ${S.config.storage.note || 'O dono do site precisa conectar um banco (veja o README).'}</div>` : '';
 
 export const topbar = () => html`${storageBanner()}<header class="pl-top">${brand()}<span class="spacer"></span>
   <form class="id-form id-form-top" data-idform role="search"><input name="id" placeholder="ID da pelada" aria-label="ID da pelada" autocomplete="off" maxlength="80"><button class="btn btn-sm" type="submit">Entrar</button></form>
