@@ -1,5 +1,5 @@
 // Campos de identificação do time e do responsável (reutilizados no visitante e no administrador).
-import { html, ic, $, esc } from './dom.js';
+import { html, ic, $ } from './dom.js';
 import { setFieldError, bindPhoneMask, imageToDataUrl } from './forms.js';
 import { toast } from './toast.js';
 import { validEmail, validPhone, maskPhone } from '../shared/validators.js';
@@ -77,4 +77,3 @@ export function wireTeamFields(root, { withCaptain = true } = {}) {
     },
   };
 }
-export { esc };

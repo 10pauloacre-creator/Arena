@@ -1,7 +1,7 @@
 // Abas do visitante: Início, Jogos, Chaveamento e Times.
-import { html, render, ic, $, on } from '../../ui/dom.js';
+import { html, ic, $ } from '../../ui/dom.js';
 import { emblem, streamEmbedHTML } from '../../ui/util.js';
-import { scoreboardHTML, teamMap, minuteOf, openMatchDialog, mountBracket, startClockTicker, phaseBadge, scoreValues } from '../../ui/match.js';
+import { scoreboardHTML, teamMap, minuteOf, scoreValues } from '../../ui/match.js';
 import { SPORTS, TOURNAMENT_TYPES } from '../../shared/sports.js';
 import { fmtBRL, fmtDay, fmtDateTime } from '../../shared/format.js';
 
@@ -78,4 +78,3 @@ export function bracketTab(v) {
   return html`<div class="card flush" id="bracketCard"></div>`;
 }
 
-export { on, render, startClockTicker, mountBracket, openMatchDialog, phaseBadge, $ };

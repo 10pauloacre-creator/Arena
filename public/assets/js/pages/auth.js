@@ -1,5 +1,5 @@
 import { html, render, ic, $, setBusy } from '../ui/dom.js';
-import { brandMark } from '../ui/brand.js';
+import { brandMark, storageBanner } from '../ui/brand.js';
 import { setFieldError, clearErrors, applyApiError } from '../ui/forms.js';
 import { api } from '../api.js';
 import { session, setUser } from '../session.js';
@@ -14,7 +14,7 @@ export default function (ctx) {
   if (session.user) return navigate(next, { replace: true });
   const q = ctx.query.next ? `?next=${encodeURIComponent(next)}` : '';
   document.title = (signup ? 'Criar conta' : 'Entrar') + ' · ArenaMaster AI';
-  render(ctx.root, html`<div class="auth">
+  render(ctx.root, html`${storageBanner()}<div class="auth">
     <aside class="auth-side"><a class="brand" href="/" style="color:#fff">${brandMark(44)}<span><span class="brand-name">Arena<b>Master</b> AI</span><span class="brand-sub">TOURNAMENT OS</span></span></a>
       <div><h2>Organize torneios como um profissional.</h2><p>Inscrições com pagamento, sorteio justo, jogos ao vivo e divulgação — sem planilhas e sem confusão na mesa.</p></div>
       <span class="muted small" style="color:#8a97b1">© ArenaMaster AI</span></aside>

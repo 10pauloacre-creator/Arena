@@ -1,5 +1,5 @@
 // Página do visitante (sem login): /t/:id — início, jogos, chaveamento, times, inscrição e meu time.
-import { html, render, ic, $, $$, on } from '../../ui/dom.js';
+import { html, render, ic, $ } from '../../ui/dom.js';
 import { brand, userMenuHTML, wireMenus } from '../../ui/brand.js';
 import { heroArt, sportIcon, statusBadge } from '../../ui/util.js';
 import { openMatchDialog, mountBracket, startClockTicker } from '../../ui/match.js';
@@ -158,5 +158,4 @@ export default async function (ctx) {
   const vis = () => { if (!document.hidden) poll(); };
   document.addEventListener('visibilitychange', vis);
   ctx.onLeave(() => { clearInterval(cd); clearInterval(timer); clearInterval(retune); document.removeEventListener('visibilitychange', vis); state.section?.destroy?.(); state.matchDlg?.close?.(); });
-  void on; void $$;
 }

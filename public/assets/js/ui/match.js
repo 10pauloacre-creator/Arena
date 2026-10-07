@@ -196,7 +196,6 @@ export function drawConnectors(root, t) {
 export function mountBracket(container, getTournament, { onOpen } = {}) {
   let round = 0, ro = null;
   const pickRound = t => {
-    const R = t.bracket.rounds.length;
     if (t.champion) return R;
     const idx = t.bracket.rounds.findIndex(rd => rd.matches.some(m => !m.win));
     return idx < 0 ? R : idx;
@@ -206,11 +205,9 @@ export function mountBracket(container, getTournament, { onOpen } = {}) {
     const t = getTournament();
     if (!t?.bracket) { container.innerHTML = ''; return; }
     if (first) { round = pickRound(t); first = false; }
-    const R = t.bracket.rounds.length;
     const tabs = [...t.bracket.rounds.map(r => r.name), 'Campeão'];
     container.innerHTML = `<div class="seg round-tabs" role="group" aria-label="Fase exibida" style="margin:14px 14px 0">${tabs.map((n, i) => `<button type="button" data-round-tab="${i}" aria-pressed="${i === round}">${esc(n)}</button>`).join('')}</div><div class="bracket-scroll"><div class="bracket" id="bracketEl">${bracketHTML(t, { open: true, round }).s}</div></div>`;
     requestAnimationFrame(() => drawConnectors($('#bracketEl', container), t));
-    void R;
   };
   container.addEventListener('click', e => {
     const tab = e.target.closest('[data-round-tab]');

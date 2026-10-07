@@ -42,8 +42,9 @@ Os dados locais ficam em `.data/arena.json` (ignorado pelo git). Apague a pasta 
 ### Testes
 
 ```powershell
-npm test                         # 90 testes unitários e de API (node:test, sem dependências)
-cd e2e; npm install; node run.mjs   # 19 cenários E2E com Playwright (usa o Chromium instalado)
+npm test                         # 92 testes unitários e de API (node:test, sem dependências)
+npm run lint                     # verifica imports não utilizados
+cd e2e; npm install; node run.mjs   # 28 cenários E2E com Playwright (usa o Chromium instalado)
 ```
 
 ---

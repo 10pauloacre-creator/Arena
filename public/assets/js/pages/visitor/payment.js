@@ -6,7 +6,7 @@ import { bindCardMasks, setFieldError } from '../../ui/forms.js';
 import { api } from '../../api.js';
 import { session } from '../../session.js';
 import { fmtBRL } from '../../shared/format.js';
-import { luhn, cardBrand, validCPF, maskCPF } from '../../shared/validators.js';
+import { luhn, validCPF, maskCPF } from '../../shared/validators.js';
 
 let mpSdk = null;
 function loadMpSdk() {
@@ -132,7 +132,6 @@ export function mountPayment(root, opts) {
       const card = mock ? { number: v.number, name: v.name, expiry: v.expiry, cvv: v.cvv } : await tokenizeCard(v);
       handle(await post('card', card));
     } catch (e) { err(e.message || 'Não foi possível processar o cartão.'); } finally { busy = false; setBusy(btn, false); }
-    void cardBrand;
   }
 
   paintPick();

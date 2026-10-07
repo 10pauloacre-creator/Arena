@@ -1,5 +1,5 @@
 // Editor de elenco reutilizável (inscrição do visitante e cadastro manual do organizador).
-import { html, render, ic, $, $$, esc } from './dom.js';
+import { html, render, ic, $, esc } from './dom.js';
 import { toast } from './toast.js';
 import { setFieldError } from './forms.js';
 import { SPORTS } from '../shared/sports.js';

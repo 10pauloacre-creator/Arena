@@ -1,6 +1,6 @@
 // Jogos ao vivo: placar, relógio, lances, encerramento e transmissão.
 import { html, render, ic, $, on, setBusy } from '../../ui/dom.js';
-import { scoreboardHTML, timelineHTML, startClockTicker, minuteOf, teamMap } from '../../ui/match.js';
+import { scoreboardHTML, timelineHTML, startClockTicker, teamMap } from '../../ui/match.js';
 import { streamEmbedHTML } from '../../ui/util.js';
 import { openDialog, confirmDialog } from '../../ui/dialog.js';
 import { toast } from '../../ui/toast.js';
@@ -190,4 +190,3 @@ export default function (app, ctx) {
     destroy() { stopTicker?.(); },
   };
 }
-export { minuteOf };

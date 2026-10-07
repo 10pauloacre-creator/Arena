@@ -489,6 +489,92 @@ await test('prazo: ao chegar no horário limite a página do visitante encerra a
   await c.close();
 });
 
+// ---------------------------------------------------------------- interações adicionais da interface
+await test('chaveamento: visitante e admin abrem os detalhes da partida (lance a lance) e vão para o ao vivo', async () => {
+  const org = await apiSignup(app.base, 'Dono Detalhes');
+  const call = (m, p, b) => apiCall(app.base, org.cookie, m, p, b);
+  const t = (await call('POST', '/tournaments', { name: 'Copa Detalhes', sport: 'futebol', demo: true })).data.tournament;
+  const v = (await call('POST', `/tournaments/${t.id}/draw`)).data.tournament; const key = v.bracket.rounds[0].matches[0].key;
+  await call('POST', `/tournaments/${t.id}/matches/${key}`, { action: 'start' });
+  await call('POST', `/tournaments/${t.id}/matches/${key}`, { action: 'event', type: 'goal', team: 'a', num: 9 });
+  await call('POST', `/tournaments/${t.id}/matches/${key}`, { action: 'event', type: 'red', team: 'b', num: 4 });
+  const vc = await browser.newContext(DESKTOP); const vp = await vc.newPage(); watch(vp, 'detalhes-visitante');
+  await guard(vp, async () => {
+    await vp.goto(`${app.base}/t/${t.id}/chaveamento`);
+    await vp.locator('.match.live').first().click();
+    await seen(vp, 'Lance a lance'); await seen(vp, 'GOL!'); await seen(vp, 'Cartão vermelho');
+    await vp.keyboard.press('Escape');
+    await vp.goto(`${app.base}/t/${t.id}`); await vp.locator('[data-open]').first().click(); await seen(vp, 'Lance a lance');
+  });
+  const octx = await loginContext(browser, app.base, org); const op = await octx.newPage(); watch(op, 'detalhes-admin');
+  await guard(op, async () => {
+    await op.goto(`${app.base}/admin/${t.id}/chaveamento`);
+    await op.locator('#bracketCard .match.live').first().click();
+    await op.getByRole('link', { name: 'Gerenciar ao vivo' }).click();
+    await op.waitForURL(/\/ao-vivo\?m=/); await op.locator('.scoreboard').waitFor();
+  });
+  await vc.close(); await octx.close();
+});
+
+await test('times: admin edita (nome, força) e remove um time pela interface', async () => {
+  const org = await apiSignup(app.base, 'Dona Edição');
+  const call = (m, p, b) => apiCall(app.base, org.cookie, m, p, b);
+  const t = (await call('POST', '/tournaments', { name: 'Copa Edição', sport: 'futsal' })).data.tournament;
+  for (const n of ['Alfa FC', 'Beta FC']) await call('POST', `/tournaments/${t.id}/teams`, { name: n, origin: 'Vila', captain: { name: 'Cap ' + n, phone: '11988887777', email: 'c@x.com' }, players: Array.from({ length: 5 }, (_, i) => ({ name: `Jogador ${n} ${i + 1}`, number: i + 1 })) });
+  const octx = await loginContext(browser, app.base, org); const p = await octx.newPage(); watch(p, 'edicao');
+  await guard(p, async () => {
+    await p.goto(`${app.base}/admin/${t.id}/times`); await seen(p, 'Alfa FC');
+    await p.locator('.team-row', { hasText: 'Alfa FC' }).getByRole('button', { name: 'Detalhes' }).click();
+    await p.locator('dialog [data-act=edit]').click();
+    await p.fill('#e-name', 'Alfa Campeões'); await p.fill('#e-rating', '1800');
+    await p.locator('dialog [data-pid]').first().locator('[data-act=del]').click();
+    await p.locator('#etGo').click(); await seen(p, 'O elenco precisa de ao menos 5 atletas');
+    await p.locator('dialog [data-act=demo]').click(); await p.locator('#etGo').click();
+    await seen(p, 'Time atualizado'); await p.waitForSelector('dialog', { state: 'detached' });
+    await seen(p, 'Alfa Campeões');
+    await p.locator('.team-row', { hasText: 'Beta FC' }).getByRole('button', { name: 'Detalhes' }).click();
+    await p.locator('dialog [data-act=remove]').click();
+    await p.locator('dialog').getByRole('button', { name: 'Remover' }).click();
+    await seen(p, 'Time removido'); await p.waitForTimeout(300);
+    assert(await p.locator('.team-row', { hasText: 'Beta FC' }).count() === 0, 'Beta FC removido da lista');
+  });
+  await octx.close();
+});
+
+await test('marketing: troca o formato do flyer e baixa o PNG', async () => {
+  const org = await apiSignup(app.base, 'Dona Marketing');
+  const t = (await apiCall(app.base, org.cookie, 'POST', '/tournaments', { name: 'Copa Marketing', sport: 'volei' })).data.tournament;
+  const octx = await loginContext(browser, app.base, org); const p = await octx.newPage(); watch(p, 'marketing');
+  await guard(p, async () => {
+    await p.goto(`${app.base}/admin/${t.id}/marketing`); await p.locator('#flyer').waitFor();
+    await p.getByRole('button', { name: 'Stories 9:16' }).click();
+    await p.waitForFunction(() => document.querySelector('#flyer')?.height === 1920, null, { timeout: 8000 });
+    await p.getByRole('button', { name: 'Capa 16:9' }).click();
+    await p.waitForFunction(() => document.querySelector('#flyer')?.width === 1600, null, { timeout: 8000 });
+    const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 10000 }), p.getByRole('button', { name: 'Baixar PNG' }).click()]);
+    assert(/^flyer-am-\d{4}-\d+-wide\.png$/.test(dl.suggestedFilename()), 'nome do arquivo: ' + dl.suggestedFilename());
+    assert(await p.locator('.qr-box svg').count() === 1, 'QR do link exibido');
+    const cap = await p.locator('#caption').innerText(); assert(cap.includes(t.id) && cap.includes('Copa Marketing'), 'texto de divulgação');
+  });
+  await octx.close();
+});
+
+await test('configurações: encerrar inscrições manualmente reflete para o visitante e some o botão', async () => {
+  const org = await apiSignup(app.base, 'Dono Encerra');
+  const t = (await apiCall(app.base, org.cookie, 'POST', '/tournaments', { name: 'Copa Encerra', sport: 'futsal' })).data.tournament;
+  const octx = await loginContext(browser, app.base, org); const p = await octx.newPage(); watch(p, 'encerra');
+  const vc = await browser.newContext(DESKTOP); const vp = await vc.newPage(); watch(vp, 'encerra-visitante');
+  await guard(p, async () => {
+    await vp.goto(`${app.base}/t/${t.id}`); await seen(vp, 'Inscrever meu time');
+    await p.goto(`${app.base}/admin/${t.id}/configuracoes`); await seen(p, 'Inscrições abertas');
+    await p.locator('input[name=registrationOpen]').evaluate(el => el.click());
+    await p.locator('#saveBtn').click(); await seen(p, 'Configurações salvas');
+    await vp.getByText('encerradas pelo organizador').first().waitFor({ timeout: 14000 });
+    assert(await vp.getByRole('link', { name: 'Inscrever meu time' }).count() === 0, 'sem botão de inscrição');
+  });
+  await octx.close(); await vc.close();
+});
+
 // ---------------------------------------------------------------- mobile
 await test('mobile: inscrição gratuita completa sem rolagem horizontal', async () => {
   const org = await apiSignup(app.base, 'Dona Mobile');

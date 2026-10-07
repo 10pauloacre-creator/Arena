@@ -1,5 +1,5 @@
 import { html, render, ic, $, on, setBusy } from '../ui/dom.js';
-import { brand, userMenuHTML, wireMenus } from '../ui/brand.js';
+import { brand, userMenuHTML, wireMenus, storageBanner } from '../ui/brand.js';
 import { heroArt, sportIcon, statusBadge } from '../ui/util.js';
 import { openDialog } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
@@ -11,7 +11,7 @@ import { SPORTS } from '../shared/sports.js';
 import { fmtDayShort, normalizeTournamentId, TOURNAMENT_ID_RE } from '../shared/format.js';
 import { isoDay } from '../shared/dates.js';
 
-const topbar = () => html`<header class="public-top">${brand()}<span class="spacer"></span>
+const topbar = () => html`${storageBanner()}<header class="public-top">${brand()}<span class="spacer"></span>
   <form class="id-form id-form-top" data-idform role="search"><input name="id" placeholder="ID do torneio" aria-label="ID do torneio" autocomplete="off" maxlength="20"><button class="btn btn-sm" type="submit">Acessar</button></form>
   ${userMenuHTML()}</header>`;
 

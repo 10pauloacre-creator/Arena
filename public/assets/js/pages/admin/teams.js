@@ -7,7 +7,7 @@ import { teamFieldsHTML, wireTeamFields } from '../../ui/teamform.js';
 import { createRosterEditor } from '../../ui/roster.js';
 import { api } from '../../api.js';
 import { fmtBRL, fmtDateTime } from '../../shared/format.js';
-import { SPORTS } from '../../shared/sports.js';
+
 
 export default function (app) {
   let filter = 'confirmed';
@@ -112,7 +112,7 @@ export default function (app) {
   }
 
   function openAddDialog() {
-    const t = app.t, sport = SPORTS[t.sport];
+    const t = app.t;
     const d = openDialog({
       title: 'Adicionar time', wide: true,
       body: html`<form id="addTeam" class="stack" novalidate>
@@ -125,7 +125,6 @@ export default function (app) {
     const form = $('#addTeam', d.el);
     const fields = wireTeamFields(form);
     const roster = createRosterEditor($('#rosterBox', d.el), { sport: t.sport, official: t.type === 'oficial' });
-    void sport;
     form.addEventListener('submit', async e => {
       e.preventDefault();
       const okF = fields.validate(), okR = roster.validate();
@@ -150,10 +149,9 @@ export default function (app) {
         if (act === 'refunded') await app.act(() => api.post(`/tournaments/${app.t.id}/payments/${el.dataset.pid}/refunded`), { ok: 'Reembolso registrado.' }).catch(() => {});
       });
     },
-    update(t, { fromPoll } = {}) {
+    update() {
       const root = app.main; if (!root || document.querySelector('dialog[open]')) return;
       render(root, view());
-      void fromPoll;
     },
   };
 }

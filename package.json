@@ -10,6 +10,7 @@
     "start": "node server.js",
     "test": "node --test --test-concurrency=1 \"tests/unit/*.test.js\"",
     "test:e2e": "node e2e/run.mjs",
-    "icons": "node scripts/gen-icons.mjs node_modules/lucide-static/icons"
+    "icons": "node scripts/gen-icons.mjs node_modules/lucide-static/icons",
+    "lint": "node scripts/lint-imports.mjs"
   }
 }

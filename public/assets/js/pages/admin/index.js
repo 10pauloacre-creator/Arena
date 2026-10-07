@@ -1,5 +1,5 @@
 // Shell do administrador: sidebar, topbar, notificações, sincronização e roteamento de seções.
-import { html, render, ic, $, $$, on, copyText, esc } from '../../ui/dom.js';
+import { html, render, ic, $, $$, esc } from '../../ui/dom.js';
 import { brand, userMenuHTML, wireMenus } from '../../ui/brand.js';
 import { confirmDialog } from '../../ui/dialog.js';
 import { toast } from '../../ui/toast.js';
@@ -165,4 +165,3 @@ export default async function (ctx) {
   ctx.onLeave(() => { clearInterval(timer); document.removeEventListener('visibilitychange', poll); state.section?.destroy?.(); });
 }
 
-export { copyText, on };

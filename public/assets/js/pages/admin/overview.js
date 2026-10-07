@@ -1,6 +1,6 @@
 // Painel: hero com edição (nome, data, modalidade) + botão Salvar, link do visitante, indicadores e gráficos.
-import { html, render, ic, $, $$, on, copyText, setBusy } from '../../ui/dom.js';
-import { heroArt, statusBadge, relTime } from '../../ui/util.js';
+import { html, render, ic, $, on, copyText, setBusy } from '../../ui/dom.js';
+import { heroArt, relTime } from '../../ui/util.js';
 import { lineChart, barChart } from '../../ui/charts.js';
 import { toast } from '../../ui/toast.js';
 import { setFieldError } from '../../ui/forms.js';
@@ -20,7 +20,6 @@ export default function (app) {
   const doneRounds = t => t.bracket ? t.bracket.rounds.map(r => r.name.replace(' de final', '').replace('Semifinais', 'semi').replace('Quartas', 'quartas').replace('Oitavas', 'oitavas').replace('Final', 'final')).join(', ') : 'quartas, semi e final';
 
   function nextSteps(t) {
-    const feeSet = t.fee > 0 || true;
     const steps = [
       { done: !!t.regDeadline, label: 'Definir prazo, valor e vagas das inscrições', go: 'configuracoes', cta: 'Configurar' },
       { done: t.teamsConfirmed >= 2, label: `Receber inscrições (${t.teamsConfirmed} de ${t.maxTeams} times)`, go: null, cta: 'Copiar link', copy: true },
@@ -28,7 +27,6 @@ export default function (app) {
       { done: !!t.bracket && t.stats.matchesDone > 0, label: 'Conduzir os jogos ao vivo', go: 'ao-vivo', cta: 'Abrir' },
       { done: !!t.champion, label: 'Coroar o campeão', go: null },
     ];
-    void feeSet;
     return steps;
   }
 

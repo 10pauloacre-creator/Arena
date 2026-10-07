@@ -1,4 +1,4 @@
-import { html, render, ic, $, $$ } from './dom.js';
+import { html, render, ic, $ } from './dom.js';
 
 /**
  * Abre um modal. `body`/`foot` são templates html``. Retorna { el, close, closed }.
@@ -32,4 +32,3 @@ export async function confirmDialog({ title, text, ok = 'Confirmar', cancel = 'C
   return (await d.closed) === 'ok';
 }
 
-export { $, $$ };

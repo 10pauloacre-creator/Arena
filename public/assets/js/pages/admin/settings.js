@@ -1,5 +1,5 @@
 // Configurações: inscrições (prazo, valor, vagas), repescagem, administradores e convites, exclusão.
-import { html, render, ic, $, $$, on, copyText, setBusy } from '../../ui/dom.js';
+import { html, render, ic, $, on, copyText, setBusy } from '../../ui/dom.js';
 import { openDialog, confirmDialog } from '../../ui/dialog.js';
 import { toast } from '../../ui/toast.js';
 import { setFieldError, clearErrors, parseMoney, centsToInput, isoToLocalParts, localPartsToIso } from '../../ui/forms.js';
@@ -7,7 +7,7 @@ import { api } from '../../api.js';
 import { session } from '../../session.js';
 import { navigate } from '../../router.js';
 import { BRACKET_SIZES, TOURNAMENT_TYPES } from '../../shared/sports.js';
-import { fmtBRL, fmtDateTime } from '../../shared/format.js';
+import { fmtDateTime } from '../../shared/format.js';
 
 export default function (app) {
   let draft = null, lastInvite = null, forceReset = false;

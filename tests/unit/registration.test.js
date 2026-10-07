@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { startServer, Client, signup, teamInput, roster, genCpf } from './helpers.js';
+import { startServer, Client, signup, teamInput, roster } from './helpers.js';
 import { setClock } from '../../lib/clock.js';
 
 let S;
