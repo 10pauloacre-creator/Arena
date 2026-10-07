@@ -15,7 +15,9 @@ before(async () => {
     const u = new URL(req.url, 'http://x');
     // 1) reescrita
     // (vercel.json) /pelada-img/:path* → /api/index?__p=pelada/img/:path*
-    const path = u.pathname.startsWith('/pelada-img/') ? 'pelada/img/' + u.pathname.slice('/pelada-img/'.length) : u.pathname.replace(/^\/api\/?/, '');
+    // (vercel.json) /pelada/p/:id → /api/index?__p=pelada/page/:id
+    const invite = /^\/pelada\/p\/([^/]+)\/?$/.exec(u.pathname);
+    const path = u.pathname.startsWith('/pelada-img/') ? 'pelada/img/' + u.pathname.slice('/pelada-img/'.length) : invite ? 'pelada/page/' + invite[1] : u.pathname.replace(/^\/api\/?/, '');
     const q = new URLSearchParams(u.search); q.set('__p', path);
     req.url = `/api/index?${q.toString()}`;
     // 2) corpo já interpretado, como no runtime da Vercel
@@ -71,5 +73,11 @@ test('app Pelada: conta, pelada e imagem funcionam com a reescrita da Vercel (/p
   // a URL pública das imagens é /pelada-img/...; a Vercel reescreve para /api/index?__p=pelada/img/...
   const res = await fetch(`${base}/pelada-img/u/${su.data.player.id}?v=1`);
   assert.equal(res.status, 200); assert.equal(res.headers.get('content-type'), 'image/png');
+  // link de convite: a reescrita entrega o app com as metatags da pelada
+  const page = await fetch(`${base}/pelada/p/${id}`);
+  assert.equal(page.status, 200); assert.match(page.headers.get('content-type'), /text\/html/);
+  const html = await page.text();
+  assert.match(html, /og:title" content="Pelada Vercel · Pelada"/); assert.match(html, /main\.js/);
+  assert.equal((await fetch(`${base}/pelada/p/PL-AAAAAA`)).status, 404);
   assert.equal((await call('POST', '/pelada/auth/logout', undefined, su.cookie)).status, 200);
 });

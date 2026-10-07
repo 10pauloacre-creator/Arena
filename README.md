@@ -132,27 +132,53 @@ A interface é pré-carregada pelo service worker e abre sem internet; os dados 
 | Página da pelada (jogos, histórico público, artilharia, jogadores) | `/pelada/p/PL-XXXXXX` (link de convite) |
 | Dia de jogo (presença, sorteio, partidas, artilharia) | `/pelada/p/PL-XXXXXX/d/DIA` |
 
-- **Conta ultra-rápida**: *Nome* (usuário) + *Data de nascimento* (senha inicial), foto opcional com recorte/zoom. A sessão dura 1 ano
-  (cookie) e o perfil fica salvo no aparelho. A senha pode ser trocada no perfil (isso encerra as outras sessões). A data de nascimento é
-  uma senha fraca por definição: há limite de tentativas por nome/IP e a data nunca é guardada (só o hash scrypt).
+- **Conta ultra-rápida**: *Nome* (usuário) + *Data de nascimento* (senha inicial), foto opcional com recorte/zoom. **O login fica salvo no
+  aparelho**: a sessão dura 1 ano (cookie, renovado a cada abertura do app), o perfil fica no `localStorage` e uma *chave do aparelho*
+  (token assinado, `POST /api/pelada/auth/resume`) refaz a sessão se o navegador apagar o cookie — o jogador não precisa entrar de novo ao
+  abrir o site ou o app. Sair da conta (perfil) apaga a chave. A senha pode ser trocada no perfil (isso encerra as outras sessões e invalida
+  as chaves antigas). A data de nascimento é uma senha fraca por definição: há limite de tentativas por nome/IP e a data nunca é guardada
+  (só o hash scrypt).
 - **Pelada**: nome, foto, capa, categoria (feminino/masculino), mínimo por time, calendário de datas, **organização por data**
   (igual ao padrão ou personalizada), partidas por dia (adicionar/excluir) e a opção **"Sem formação de times"** (só presença e gols individuais).
-  Cada pelada tem um ID (`PL-XXXXXX`) e um **link de convite que só o criador vê**.
+  Cada pelada tem um ID (`PL-XXXXXX`) e um **link de convite que só o criador vê**. O link compartilhado tem **pré-visualização**
+  (WhatsApp, Telegram…): o servidor entrega o `index.html` do app com as metatags Open Graph da pelada (`/pelada/p/ID` →
+  `lib/domain/pelada-share.js`) — título, descrição com os dados (categoria, organizador, participantes, mínimo por time, próximo jogo) e a
+  imagem: uma **prévia 1200×630 montada no navegador do organizador** com a capa, a foto de perfil e o nome (refeita ao editar a pelada;
+  peladas antigas ganham a prévia quando o organizador as abre). Sem prévia: capa → foto de perfil → ícone do app.
+  Na Vercel o rewrite `/pelada/p/:id` → `/api/index?__p=pelada/page/:id` e o `includeFiles` do `vercel.json` cuidam disso.
+- **Sair da pelada / excluir jogador**: quem participa (menos o organizador) tem um ícone de sair no canto superior direito da página da
+  pelada, com confirmação; a pelada some do painel dele e ele sai das listas de hoje em diante. O **organizador exclui jogadores** na aba
+  *Jogadores*. Em ambos os casos **os gols já marcados continuam somando na artilharia** (dia e geral) e o histórico de datas passadas não muda.
 - **Pelada demo**: na tela de criação, o botão **"Criar pelada demo"** monta o jogo de hoje com **17 jogadores já confirmados** (nome e
   sobrenome + foto de perfil), para ver a organização de um dia de jogo sem convidar ninguém: 17 ÷ 5 = 3 times, com as 2 sobras
-  distribuídas. O elenco é sorteado a cada clique entre 40 jogadores fictícios e **não é gravado no banco** (ficam só dentro da pelada;
+  na **Cerca**. O elenco é sorteado a cada clique entre 40 jogadores fictícios e **não é gravado no banco** (ficam só dentro da pelada;
   as contas demo não têm senha nem reservam nomes). As fotos são avatares ilustrados gerados em código (`lib/domain/pelada-demo.js`),
   sem arquivos nem rede; ao mudar o desenho, suba `DEMO_ART_VERSION` (as imagens ficam 1 ano em cache). A pelada recebe o selo
   "Demonstração" e pode ser excluída normalmente (limite de 10 por hora por pessoa).
 - **Presença**: qualquer jogador logado marca/retira a presença no dia; o nome e a foto aparecem na hora (o criador também marca).
-- **Sorteio** (botão "Sortear Times", animação de 5 s): divide os confirmados pelo mínimo por time. Sobra de **3 ou mais** → o último time
-  fica incompleto e pode pegar jogadores de fora; sobra de **1 ou 2** → o time incompleto é desfeito e os jogadores são distribuídos nos
-  outros times (ex.: 6 jogadores). Cada time é "Time 2 - Valéria" (capitão sorteado); clicar no nome mostra as jogadoras. O criador pode
-  adicionar **convidados** (entram no sorteio, ou depois: inteiram um time ou ficam avulsos). Refazer o sorteio só até começar uma partida.
-  O primeiro sorteio do dia pode ser feito por qualquer confirmado; refazer é só do criador.
+- **Configuração do sorteio** (padrão da pelada e, se quiser, por data): *Sorteio automático de jogadores* (liga/desliga) e *de quantas em
+  quantas partidas* sortear — **a cada 1, 2 ou 3 partidas, ou nunca** (`autoDraw` / `autoEvery`, `0` = nunca).
+- **Sorteio** (botão "Sortear Times", animação de 5 s, **só o organizador**; os demais veem apenas o resultado): divide os confirmados em
+  times **completos** de exatamente o mínimo por time (precisa de 2 times: 2 × mínimo presentes). **Quem sobra é a Cerca** (antes: "time
+  incompleto"/jogadores distribuídos): fica aguardando a próxima partida e entra no time que perder. Quem chega depois do sorteio e os
+  convidados também entram na Cerca (o organizador pode encaixá-los num time). Cada time é "Time 2 - Valéria" (capitão sorteado); clicar
+  no nome mostra as jogadoras. A Cerca aparece na lista dos times e **no rodapé de toda partida que ainda não terminou**.
+- **O sorteio fica sempre ativo**, inclusive com partida em andamento: é a parte *manual* do sorteio automático. Os times em quadra (e o
+  vencedor que continua na próxima partida) se mantêm; os demais jogadores e a Cerca são sorteados para a próxima partida. Antes de
+  qualquer partida começar, o sorteio simplesmente é refeito do zero.
+- **Sorteio automático** (quando marcado): ao encerrar a partida de ordem N, N-ésima desde o último sorteio (1, 2 ou 3), **o time vencedor
+  se mantém com seus jogadores** e o resto é sorteado de novo: o **time que perdeu é sorteado adicionando quem estava na Cerca**, e **quem
+  estava jogando e foi substituído vira a nova Cerca** da próxima partida. Com o sorteio automático marcado, **quem está na Cerca entra
+  obrigatoriamente na próxima partida** (tanto no automático quanto no manual). Com **mais de dois times**, a Cerca entra como um time
+  formado e é completada com jogadores sorteados dos times que estão fora (o que perdeu e os que esperavam); o time completado ganha o
+  número (o do time que perdeu) e o nome do capitão — sorteado entre os integrantes principais (quem veio da Cerca) —, e quem sobra do sorteio
+  é a nova Cerca. Fora dos momentos de sorteio vale a fila clássica (quem ganha fica; o perdedor vai para o fim da fila; no empate sai
+  quem está há mais partidas seguidas). O "Assistente do sorteio" e a lista "Últimas rotações da Cerca" explicam cada decisão.
 - **Partidas e súmula**: botão "Adicionar partida", escolha dos dois times, cronômetro configurável, gols por jogador (lista de presentes,
-  "jogador de fora" e "sem autor"). Ao encerrar (ou quando o tempo acaba), a **próxima partida é criada sozinha**: quem ganha fica, o perdedor
-  vai para o fim da fila; no empate sai quem está há mais partidas seguidas na quadra.
+  "jogador de fora" e "sem autor"). Ao encerrar (ou quando o tempo acaba), a **próxima partida é criada sozinha**. A partida encerrada
+  guarda os elencos de quem jogou (os times mudam de jogadores nos sorteios). **Só o organizador pode corrigir uma partida encerrada**
+  ("Editar placar e gols": soma/tira gols de cada jogador ou "sem autor"); o placar e a artilharia se ajustam sozinhos, mas a próxima
+  partida já montada não é refeita.
 - **Histórico e artilharia**: resultados públicos; pódio *do dia* e *geral* com medalhas ouro/prata/bronze (empates dividem a colocação);
   **Compartilhar Resultados** abre a tela de compartilhamento e copia para a área de transferência a imagem do **modelo exato do Canva**
   em alta resolução (2172×2896, `public/pelada/share/modelo-compartilhamento.webp`). O sistema só troca o que varia: o **período**

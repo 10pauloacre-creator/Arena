@@ -57,8 +57,17 @@ export function installDialog() {
   });
 }
 
-/** Liga os comportamentos do topo dentro de `root`. `signal` é do roteador (limpa listeners ao sair da tela). */
+// Containers já ligados. As telas redesenham o CONTEÚDO várias vezes (e chamam wireShell de novo), mas o container é o mesmo:
+// ligar os eventos a cada chamada empilhava vários ouvintes, e o clique no menu da conta abria e fechava na mesma hora
+// (o botão de perfil parecia travado).
+const wired = new WeakSet();
+
+/** Liga os comportamentos do topo dentro de `root`. `signal` é do roteador (limpa listeners ao sair da tela). Pode ser chamada de novo após redesenhar. */
 export function wireShell(root, signal) {
+  const sync = () => { const b = $('[data-install]', root); if (b) b.hidden = isStandalone(); };
+  sync();
+  if (wired.has(root)) return;
+  wired.add(root);
   const closeMenus = () => root.querySelectorAll('[data-menu] .menu-pop').forEach(p => { p.hidden = true; p.parentElement.querySelector('[data-menu-btn]')?.setAttribute('aria-expanded', 'false'); });
   root.addEventListener('click', async e => {
     const btn = e.target.closest('[data-menu-btn]');
@@ -72,8 +81,6 @@ export function wireShell(root, signal) {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenus(); }, { signal });
   root.addEventListener('submit', e => { const f = e.target.closest('[data-idform]'); if (f) { e.preventDefault(); goToPelada(f.id.value); } });
 
-  const sync = () => { const b = $('[data-install]', root); if (b) b.hidden = isStandalone(); };
-  sync();
   const off = onInstallChange(sync);
   signal?.addEventListener('abort', off);
 }

@@ -60,6 +60,10 @@ test('vercel.json: reescritas do app Pelada vêm antes do catch-all e arquivos d
   assert.ok(idx('/pelada/:path*') < idx('/((?!api/|assets/).*)'));
   assert.equal(v.rewrites[idx('/pelada/:path*')].destination, '/pelada/index.html');
   assert.equal(v.rewrites[idx('/pelada-img/:path*')].destination, '/api/index?__p=pelada/img/:path*');
+  // o link de convite passa pelo servidor (metatags da pré-visualização) e vem antes do app genérico
+  assert.ok(idx('/pelada/p/:id') >= 0 && idx('/pelada/p/:id') < idx('/pelada/:path*'));
+  assert.equal(v.rewrites[idx('/pelada/p/:id')].destination, '/api/index?__p=pelada/page/:id');
+  assert.match(v.functions['api/index.js'].includeFiles, /public\/pelada\/index\.html/); // a função lê o index.html do app
   const h = v.headers.find(x => x.source.includes('sw.js'));
   assert.ok(h && h.headers.some(x => x.key === 'Cache-Control' && x.value === 'no-cache'));
 });
