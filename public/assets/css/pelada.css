@@ -1,5 +1,10 @@
 /* Pelada — app instalável (PWA). Usa os tokens e componentes de base.css; aqui ficam a identidade verde e as telas. */
 
+/* Fontes do modelo de compartilhamento (SIL OFL 1.1, veja assets/fonts/OFL-LICENSE.txt) */
+@font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 700; font-display: swap; src: url('../fonts/barlow-condensed-700.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 800; font-display: swap; src: url('../fonts/barlow-condensed-800.woff2') format('woff2'); }
+@font-face { font-family: 'League Spartan'; font-style: normal; font-weight: 800; font-display: swap; src: url('../fonts/league-spartan-800.woff2') format('woff2'); }
+
 body.pl {
   --pl: #0b7a3b; --pl-600: #096a33; --pl-700: #07582a; --pl-900: #0b3d24; --pl-950: #052e1a; --pl-50: #e7f6ee; --pl-100: #cdeedb;
   --pink: #d6336c; --pink-50: #ffe8f0;
@@ -409,3 +414,8 @@ dialog { z-index: 500; }
 }
 
 .storage-warn { background: #fff4dd; color: #7a4f06; border-bottom: 1px solid #f3dca4; padding: 8px 16px; font-size: 13px; font-weight: 600; text-align: center; }
+
+/* tela de compartilhamento: prévia da arte do modelo */
+.share-screen { display: grid; gap: 10px; justify-items: center; }
+.share-prev { width: 100%; display: grid; place-items: center; min-height: 160px; }
+.share-canvas { display: block; width: auto; max-width: 100%; max-height: min(68dvh, 760px); height: auto; border-radius: 14px; box-shadow: 0 12px 34px rgb(0 0 0 / .28); }

@@ -15,6 +15,7 @@ Este arquivo existe para que uma sessão interrompida possa continuar de onde pa
   e `public/assets/js/shared/pelada.js`; telas em `public/assets/js/pelada/`; CSS em `public/assets/css/pelada.css`.
 - Botão "Organize a pelada" na home do ArenaMaster (`/pelada/organizar`: sem conta → autenticação rápida; com conta → Dashboard).
 - Testes: `tests/unit/pelada-*.test.js` (regras, API, domínio, PWA), `e2e/pelada.mjs` (19 cenários) e `e2e/pelada-a11y.mjs`.
+- Tela de compartilhamento: arte exata do modelo do Canva (cópia limpa, sem os textos variáveis: `DAHXVxxikls`; original `DAHXVw36EII` intocado) em alta resolução + textos dinâmicos (período, nomes, gols) calibrados sobre o modelo. O rodapé "arenamaster.skin" faz parte da arte.
 - Ao criar novos arquivos JS em `public/assets/js/pelada/`, inclua-os no `SHELL` de `public/pelada/sw.js` (há teste que confere).
 
 ## Pendências / ideias

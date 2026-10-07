@@ -208,3 +208,23 @@ export function rankGoals(goals, nameOf = x => x) {
   return entries;
 }
 export const MEDALS = { gold: { emoji: '🥇', label: 'Ouro' }, silver: { emoji: '🥈', label: 'Prata' }, bronze: { emoji: '🥉', label: 'Bronze' } };
+
+// ---------------------------------------------------------------- período exibido na imagem de compartilhamento
+const dm = iso => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+const dmy = iso => `${dm(iso)}/${iso.slice(0, 4)}`;
+
+/** "07/09 - 20/10" (mesmo ano), "07/09/2025 - 20/10/2026" (anos diferentes) ou "07/10/2026" (um dia só). */
+export function rangeLabel(from, to) {
+  if (!from || !to || from === to) return dmy(to || from);
+  return from.slice(0, 4) === to.slice(0, 4) ? `${dm(from)} - ${dm(to)}` : `${dmy(from)} - ${dmy(to)}`;
+}
+
+/**
+ * Período do compartilhamento. Geral: do início da pelada (primeira data de jogo) até o dia da emissão (hoje);
+ * se a pelada ainda não começou, mostra só o dia da emissão. Do dia: a data do jogo.
+ */
+export function sharePeriod({ general, firstDay, dayDate, today }) {
+  if (!general && dayDate) return { from: dayDate, to: dayDate, label: rangeLabel(dayDate, dayDate) };
+  const from = firstDay && firstDay < today ? firstDay : today;
+  return { from, to: today, label: rangeLabel(from, today) };
+}

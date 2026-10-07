@@ -366,15 +366,21 @@ await test('artilharia: abas Dia × Geral, medalhas ouro/prata/bronze e comparti
     await owner.getByRole('button', { name: 'Artilharia do Dia' }).click();
     await owner.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: app.base });
     await owner.getByRole('button', { name: 'Compartilhar Resultados' }).click();
+    // tela de compartilhamento: modelo do Canva em alta resolução (2172×2896) com data, nomes e gols; já copia a imagem
+    const dlg = owner.locator('dialog[open]').filter({ hasText: 'Compartilhar resultados' }).last();
+    await dlg.locator('canvas.share-canvas').waitFor({ timeout: 15000 });
+    const size = await dlg.locator('canvas.share-canvas').evaluate(c => [c.width, c.height]);
+    assert(size[0] === 2172 && size[1] === 2896, 'imagem em alta resolução do modelo: ' + size.join('x'));
     await seen(owner, 'Imagem copiada');
+    await shot(owner, '12b-compartilhar');
     const types = await owner.evaluate(async () => (await navigator.clipboard.read()).flatMap(i => i.types));
     assert(types.includes('image/png'), 'imagem PNG na área de transferência: ' + types.join(','));
     // texto formatado com emojis de futebol e medalhas
-    await owner.getByRole('button', { name: 'Copiar texto' }).click();
+    await dlg.getByRole('button', { name: 'Copiar texto' }).click();
     const text = await owner.evaluate(() => navigator.clipboard.readText());
-    assert(text.includes('⚽') && text.includes('🥇') && text.includes('🥈'), 'texto com emojis: ' + text);
+    assert(text.includes('⚽') && text.includes('🥇') && text.includes('🥈') && text.includes('🗓'), 'texto com emojis e período: ' + text);
     // baixar imagem
-    const [dl] = await Promise.all([owner.waitForEvent('download'), owner.getByRole('button', { name: 'Baixar imagem' }).click()]);
+    const [dl] = await Promise.all([owner.waitForEvent('download'), dlg.getByRole('button', { name: 'Baixar imagem' }).click()]);
     assert(/^artilharia-pl-.*\.png$/.test(dl.suggestedFilename()), 'arquivo baixado: ' + dl.suggestedFilename());
     await dl.saveAs(`${SHOTS}pel_flyer_resultado.png`);
   });

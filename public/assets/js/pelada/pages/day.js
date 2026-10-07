@@ -9,7 +9,7 @@ import { avatar } from '../ui/img.js';
 import { teamsHTML } from '../ui/teams.js';
 import { matchCard, teamOf, isRunning } from '../ui/match.js';
 import { podiumPanel } from '../ui/podium.js';
-import { resultsData, shareResults } from '../ui/share.js';
+import { resultsData, runShare } from '../ui/share.js';
 import { playShuffle } from '../ui/shuffle.js';
 import { fetchPelada } from '../data.js';
 import { poll } from '../ui/poll.js';
@@ -337,15 +337,7 @@ export default async function (ctx) {
     const pt = t.closest('[data-pod-tab]');
     if (pt) { ui.podScope = pt.dataset.podTab; patch(sec('podium'), podiumSec().s); return; }
     const sh = t.closest('[data-share]');
-    if (sh) {
-      sh.disabled = true;
-      try {
-        const out = await shareResults(resultsData(pel(), { scope: ui.podScope, dayId }), sh.dataset.share);
-        const msg = { copied: 'Imagem copiada! Cole no grupo do WhatsApp.', shared: 'Compartilhado!', downloaded: 'Imagem baixada (e texto copiado).', text: 'Texto copiado! Cole no WhatsApp.', fail: 'Não foi possível copiar.' }[out];
-        if (msg) toast(msg, { type: out === 'fail' ? 'error' : 'success' });
-      } catch (err) { toast(err.message || 'Não foi possível gerar a imagem.', { type: 'error' }); }
-      sh.disabled = false;
-    }
+    if (sh) { sh.disabled = true; await runShare(resultsData(pel(), { scope: ui.podScope, dayId }), sh.dataset.share); sh.disabled = false; }
   });
 
   ctx.root.addEventListener('change', async e => {
