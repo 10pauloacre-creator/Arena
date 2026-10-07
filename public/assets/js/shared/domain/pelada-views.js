@@ -1,6 +1,6 @@
 // Visões (JSON enviado ao navegador) da pelada: pública + dados do espectador (dono, participante, presença).
 
-import { matchScore, rankGoals, teamLabel } from '../../public/assets/js/shared/pelada.js';
+import { matchScore, rankGoals, teamLabel } from '../pelada.js';
 import { orgOf, userPid, freePids, dayGoals, allGoals } from './pelada.js';
 
 const pad = n => String(n).padStart(2, '0');

@@ -1,6 +1,6 @@
 // Projeções dos dados: o que o visitante vê (sem dados pessoais) e o que o organizador vê.
 
-import { SPORTS, roundName, matchLabel } from '../../public/assets/js/shared/sports.js';
+import { SPORTS, roundName, matchLabel } from '../sports.js';
 import { canRepesc, isBlocked, teamById, totalRounds } from './bracket.js';
 import { matchPhase, replayVolley, scoreOf } from './live.js';
 import { confirmedTeams, registrationState, statusOf, STATUS_LABELS, isReservationActive } from './tournament.js';

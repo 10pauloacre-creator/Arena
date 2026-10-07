@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   newPelada, addDay, setPresence, addGuest, performDraw, createMatch, timerAction, addGoal, finishMatch, deleteMatch,
   assignPlayer, normalizeQueue, MAX_ATTENDANCE, MAX_MEMBERS, orgOf,
-} from '../../lib/domain/pelada.js';
+} from '../../public/assets/js/shared/domain/pelada.js';
 import { mulberry32 } from '../../public/assets/js/shared/pelada.js';
 
 const NOW = Date.parse('2026-10-07T15:00:00Z');

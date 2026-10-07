@@ -1,10 +1,10 @@
 // Inscrição de times: validação de elenco, reservas, confirmação e remoção.
 
-import { SPORTS } from '../../public/assets/js/shared/sports.js';
-import { hash } from '../../public/assets/js/shared/format.js';
-import { validCPF, cpfDigits, validEmail, normEmail, validPhone } from '../../public/assets/js/shared/validators.js';
+import { SPORTS } from '../sports.js';
+import { hash } from '../format.js';
+import { validCPF, cpfDigits, validEmail, normEmail, validPhone } from '../validators.js';
 import { badRequest, conflict } from '../errors.js';
-import { randomId, shortCode } from '../auth.js';
+import { randomId, shortCode } from '../rand.js';
 import { cleanText, registrationState, RESERVATION_MS, isReservationActive, pushActivity } from './tournament.js';
 
 export const DEFAULT_RATING = 1500;

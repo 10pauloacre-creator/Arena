@@ -258,7 +258,7 @@ test('pagamento aprovado depois da reserva vencer: confirma se houver vaga, sen�
   }
   setClock(null);
   // o dono do PIX paga "tarde" (webhook/simulação direta no store): sem vaga → reembolso
-  const { applyStatus } = await import('../../lib/domain/payments.js');
+  const { applyStatus } = await import('../../public/assets/js/shared/domain/payments.js');
   const { withTournament } = await import('../../lib/repo.js');
   await withTournament(S.store, t.id, (tt, now) => { applyStatus(tt, tt.payments.find(p => p.id === pay.id), 'approved', now); });
   const adm = (await org.get(`/tournaments/${t.id}`)).data.tournament;

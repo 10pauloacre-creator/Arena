@@ -1,8 +1,9 @@
 // Modelo de torneio: criação, validação de configurações, status e regras de inscrição.
 
-import { SPORTS, SPORT_KEYS, BRACKET_SIZES, TOURNAMENT_TYPES, DEFAULT_CAUSES } from '../../public/assets/js/shared/sports.js';
-import { parseDay } from '../../public/assets/js/shared/format.js';
+import { SPORTS, SPORT_KEYS, BRACKET_SIZES, TOURNAMENT_TYPES, DEFAULT_CAUSES } from '../sports.js';
+import { parseDay } from '../format.js';
 import { badRequest } from '../errors.js';
+import { randomCode } from '../rand.js';
 
 export const RESERVATION_MS = 30 * 60 * 1000; // vaga reservada enquanto o pagamento é feito
 export const TZ_OFFSET = '-03:00'; // padrão Brasil (Brasília) para prazos criados sem fuso
@@ -181,7 +182,7 @@ export function statusOf(t, now) {
 }
 
 export function pushActivity(t, type, text, now) {
-  t.activity.unshift({ id: now.toString(36) + Math.random().toString(36).slice(2, 6), at: now, type, text });
+  t.activity.unshift({ id: now.toString(36) + randomCode(3).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 4), at: now, type, text });
   if (t.activity.length > 60) t.activity.length = 60;
 }
 
