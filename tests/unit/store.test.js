@@ -1,0 +1,114 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { MemoryStore } from '../../lib/store/memory.js';
+import { FileStore } from '../../lib/store/file.js';
+import { RedisStore } from '../../lib/store/redis.js';
+
+async function exerciseStore(s) {
+  assert.equal(await s.get('x'), null);
+  await s.set('x', { a: 1, b: [1, 2] });
+  assert.deepEqual(await s.get('x'), { a: 1, b: [1, 2] });
+  const copy = await s.get('x'); copy.a = 99;
+  assert.equal((await s.get('x')).a, 1, 'get devolve cópia');
+  assert.equal(await s.setNX('x', 'outro'), false);
+  assert.equal(await s.setNX('novo', 'v'), true);
+  assert.equal(await s.get('novo'), 'v');
+  await s.del('x');
+  assert.equal(await s.get('x'), null);
+  await s.set('ttl', 'v', { ttlMs: 40 });
+  assert.equal(await s.get('ttl'), 'v');
+  await new Promise(r => setTimeout(r, 70));
+  assert.equal(await s.get('ttl'), null);
+}
+
+async function exerciseLock(s) {
+  let active = 0, maxActive = 0, counter = 0;
+  const work = async () => {
+    const release = await s.lock('k');
+    try {
+      active++; maxActive = Math.max(maxActive, active);
+      const v = counter; await new Promise(r => setTimeout(r, 5)); counter = v + 1;
+      active--;
+    } finally { await release(); }
+  };
+  await Promise.all(Array.from({ length: 12 }, work));
+  assert.equal(maxActive, 1, 'exclusão mútua');
+  assert.equal(counter, 12);
+}
+
+test('MemoryStore: get/set/del/setNX/ttl e locks', async () => {
+  const s = new MemoryStore();
+  await exerciseStore(s);
+  await exerciseLock(s);
+});
+
+test('FileStore: persiste em disco e recarrega', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arena-'));
+  const file = join(dir, 'db.json');
+  try {
+    const s = new FileStore(file);
+    await exerciseStore(s);
+    await exerciseLock(s);
+    await s.set('persist', { ok: true });
+    await s.set('lock:fake', 'x');
+    const s2 = new FileStore(file);
+    assert.deepEqual(await s2.get('persist'), { ok: true });
+    assert.equal(await s2.get('lock:fake'), null, 'locks não são persistidos');
+    assert.ok(JSON.parse(readFileSync(file, 'utf8')).persist);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+/** Servidor Redis-REST falso (suporta GET/SET[NX,PX,EX]/DEL). */
+function fakeRedisRest({ failFirst = 0 } = {}) {
+  const data = new Map();
+  let calls = 0, failures = failFirst;
+  const server = createServer((req, res) => {
+    let body = '';
+    req.on('data', c => { body += c; });
+    req.on('end', () => {
+      calls++;
+      if (req.headers.authorization !== 'Bearer tok') { res.statusCode = 401; return res.end(JSON.stringify({ error: 'Unauthorized' })); }
+      if (failures > 0) { failures--; res.statusCode = 503; return res.end('{}'); }
+      const [cmd, key, val, ...rest] = JSON.parse(body);
+      const now = Date.now();
+      const live = () => { const e = data.get(key); if (e && e.exp && e.exp <= now) { data.delete(key); return null; } return e || null; };
+      let result = null;
+      if (cmd === 'GET') result = live()?.v ?? null;
+      else if (cmd === 'DEL') { result = data.delete(key) ? 1 : 0; }
+      else if (cmd === 'SET') {
+        const nx = rest.includes('NX'); const pi = rest.indexOf('PX');
+        if (nx && live()) result = null;
+        else { data.set(key, { v: val, exp: pi >= 0 ? now + rest[pi + 1] : 0 }); result = 'OK'; }
+      } else { res.statusCode = 400; return res.end(JSON.stringify({ error: 'ERR unknown command' })); }
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ result }));
+    });
+  });
+  return new Promise(r => server.listen(0, '127.0.0.1', () => r({ url: `http://127.0.0.1:${server.address().port}`, close: () => new Promise(x => server.close(x)), calls: () => calls })));
+}
+
+test('RedisStore (API REST Upstash/Vercel KV): comandos, TTL, NX e locks', async () => {
+  const fake = await fakeRedisRest();
+  try {
+    const s = new RedisStore({ url: fake.url, token: 'tok' });
+    await exerciseStore(s);
+    await exerciseLock(s);
+    assert.equal(s.describe().persistent, true);
+  } finally { await fake.close(); }
+});
+
+test('RedisStore: repete em falhas temporárias e falha com token inválido', async () => {
+  const flaky = await fakeRedisRest({ failFirst: 2 });
+  try {
+    const s = new RedisStore({ url: flaky.url, token: 'tok' });
+    await s.set('a', 1);
+    assert.equal(await s.get('a'), 1);
+    assert.ok(flaky.calls() >= 4);
+    const bad = new RedisStore({ url: flaky.url, token: 'errado' });
+    await assert.rejects(() => bad.get('a'), /Redis REST 401/);
+  } finally { await flaky.close(); }
+});
