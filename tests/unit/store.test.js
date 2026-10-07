@@ -8,6 +8,7 @@ import { MemoryStore } from '../../lib/store/memory.js';
 import { FileStore } from '../../lib/store/file.js';
 import { RedisStore } from '../../lib/store/redis.js';
 import { SupabaseStore } from '../../lib/store/supabase.js';
+import { pickEnv, storageNote } from '../../lib/store/index.js';
 
 async function exerciseStore(s) {
   assert.equal(await s.get('x'), null);
@@ -169,4 +170,15 @@ test('SupabaseStore: chave inválida e tabela ausente dão erro claro (sem repet
     await assert.rejects(() => new SupabaseStore({ url: ok.url, key: 'errada' }).get('a'), /Supabase REST 401/);
     await assert.rejects(() => new SupabaseStore({ url: missing.url, key: 'sb_secret_x' }).get('a'), /arena_kv.*não existe.*arena_kv\.sql/s);
   } finally { await ok.close(); await missing.close(); }
+});
+
+test('variáveis do banco: aceita nomes padrão e com prefixo da Vercel; aviso diz o que falta', () => {
+  assert.equal(pickEnv({ SUPABASE_URL: 'a' }, ['SUPABASE_URL'], ['SUPABASE_URL']), 'a');
+  assert.equal(pickEnv({ STORAGE_SUPABASE_URL: 'b' }, ['SUPABASE_URL'], ['SUPABASE_URL']), 'b', 'prefixo personalizado');
+  assert.equal(pickEnv({ NEXT_PUBLIC_SUPABASE_URL: 'c' }, ['SUPABASE_URL'], ['SUPABASE_URL']), '', 'NEXT_PUBLIC_ só pelo nome exato');
+  assert.match(storageNote({}), /supabase\/arena_kv\.sql.*Redeploy/s);
+  assert.match(storageNote({ SUPABASE_URL: 'x' }), /falta a chave de servidor/);
+  assert.match(storageNote({ STORAGE_SUPABASE_SERVICE_ROLE_KEY: 'k' }), /SUPABASE_URL/);
+  assert.match(storageNote({ KV_REST_API_URL: 'x' }), /token/);
+  assert.ok(!storageNote({ SUPABASE_URL: 'segredo-url' }).includes('segredo-url'), 'não revela valores');
 });
