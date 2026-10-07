@@ -370,7 +370,7 @@ export default async function (ctx) {
     for (const m of d.matches) {
       const rem = timerRemaining(m.timer, now);
       const el = ctx.root.querySelector(`[data-clock="${m.id}"]`);
-      if (el) { const txt = fmtClock(rem); if (el.textContent !== txt) el.textContent = txt; }
+      if (el && isRunning(m)) { const txt = fmtClock(rem); if (el.textContent !== txt) el.textContent = txt; } // só o que está rodando muda na tela
       if (rem > 0) { ui.ended.delete(m.id); continue; }
       if (isRunning(m) && !ui.ended.has(m.id)) {
         ui.ended.add(m.id); beep();

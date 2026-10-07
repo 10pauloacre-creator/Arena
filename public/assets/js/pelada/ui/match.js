@@ -75,8 +75,8 @@ export function matchCard(pel, day, m, { isOwner, now, index }) {
       <span class="vs" aria-hidden="true">×</span>
       <div class="side">${slot(day, m, 'b', isOwner)}<output class="big-score" aria-label="Gols do time B">${ready ? m.score.b : '–'}</output></div>
     </div>
-    ${ready || !finished ? html`<div class="match-clock ${timeUp ? 'up' : ''}"><span class="clock" data-clock="${m.id}" role="timer" aria-label="Tempo restante">${fmtClock(remaining)}</span>
-      ${finished ? html`<span class="muted small">Tempo regulamentar: ${mins} min</span>` : timeUp ? html`<span class="muted small">Tempo esgotado!</span>` : html`<span class="muted small">${m.status === 'scheduled' ? `Cronômetro de ${mins} min` : running ? 'Rodando…' : 'Cronômetro pausado'}</span>`}
+    ${ready || !finished ? html`<div class="match-clock ${timeUp ? 'up' : ''}"><span class="clock" data-clock="${m.id}" role="timer" aria-label="${finished ? 'Tempo jogado' : 'Tempo restante'}">${fmtClock(finished ? m.timer.elapsedMs : remaining)}</span>
+      ${finished ? html`<span class="muted small">Tempo jogado · tempo regulamentar de ${mins} min</span>` : timeUp ? html`<span class="muted small">Tempo esgotado!</span>` : html`<span class="muted small">${m.status === 'scheduled' ? `Cronômetro de ${mins} min` : running ? 'Rodando…' : 'Cronômetro pausado'}</span>`}
       ${isOwner && !finished ? html`<div class="clock-ctl">
         ${running ? html`<button class="btn btn-sm" data-timer="pause" data-match="${m.id}">${ic('pause', { size: 15 })} Pausar</button>` : html`<button class="btn btn-sm btn-primary" data-timer="start" data-match="${m.id}" ${ready && !timeUp ? '' : 'disabled'}>${ic('play', { size: 15 })} ${m.status === 'scheduled' ? 'Iniciar' : 'Continuar'}</button>`}
         <button class="btn btn-sm" data-timer="reset" data-match="${m.id}" ${m.timer.elapsedMs || running ? '' : 'disabled'}>${ic('rotate-ccw', { size: 15 })} Zerar</button>
