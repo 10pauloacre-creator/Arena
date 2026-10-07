@@ -1,15 +1,11 @@
-import { html, render, ic, $, on, setBusy } from '../ui/dom.js';
+import { html, render, ic, $, on } from '../ui/dom.js';
 import { brand, userMenuHTML, wireMenus, storageBanner } from '../ui/brand.js';
 import { heroArt, sportIcon, statusBadge } from '../ui/util.js';
-import { openDialog } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
-import { setFieldError, clearErrors } from '../ui/forms.js';
 import { api } from '../api.js';
 import { session } from '../session.js';
 import { navigate } from '../router.js';
-import { SPORTS } from '../shared/sports.js';
 import { fmtDayShort, normalizeTournamentId, TOURNAMENT_ID_RE } from '../shared/format.js';
-import { isoDay } from '../shared/dates.js';
 
 const topbar = () => html`${storageBanner()}<header class="public-top">${brand()}<span class="spacer"></span>
   <form class="id-form id-form-top" data-idform role="search"><input name="id" placeholder="ID do torneio" aria-label="ID do torneio" autocomplete="off" maxlength="20"><button class="btn btn-sm" type="submit">Acessar</button></form>
@@ -20,39 +16,6 @@ function goToTournament(raw) {
   if (!TOURNAMENT_ID_RE.test(id)) { toast('Digite o ID completo, por exemplo AM-2026-9843.', { type: 'warn' }); return false; }
   navigate('/t/' + id);
   return true;
-}
-
-function newTournamentDialog() {
-  const d = openDialog({
-    title: 'Novo torneio',
-    body: html`<form id="newT" class="stack" novalidate>
-      <div class="field" data-f="name"><label for="nt-name">Nome do torneio <span class="req">*</span></label><input id="nt-name" name="name" maxlength="60" autocomplete="off" placeholder="Ex.: Copa de Futsal Amigos da Vila 2026"><span class="field-error"></span></div>
-      <fieldset style="border:0;padding:0;margin:0"><legend class="label" style="margin-bottom:8px">Modalidade</legend>
-        <div class="tiles c2">${Object.values(SPORTS).map((s, i) => html`<div class="tile sm"><input type="radio" name="sport" id="nt-${s.key}" value="${s.key}" ${i === 1 ? 'checked' : ''}><label for="nt-${s.key}"><span class="t-ico">${ic(s.icon, { size: 22 })}</span><span><span class="t-title">${s.label}</span><span class="t-sub">${s.sub}</span></span></label></div>`)}</div></fieldset>
-      <div class="field" data-f="finalDate"><label for="nt-date">Data da grande final</label><input id="nt-date" type="date" name="finalDate" value="${isoDay(new Date(Date.now() + 30 * 86400_000))}"><span class="field-error"></span></div>
-      <label class="check"><input type="checkbox" name="demo"><span><b>Torneio de demonstração</b><br><span class="muted small">Já vem com 8 times de exemplo para você testar sorteio, jogos ao vivo e repescagem sem inscrições reais.</span></span></label>
-      <div class="form-error" hidden></div>
-    </form>`,
-    foot: html`<button class="btn" data-close>Cancelar</button><button class="btn btn-primary" type="submit" form="newT" id="ntGo">${ic('plus', { size: 18 })} Criar torneio</button>`,
-  });
-  const form = $('#newT', d.el);
-  $('#nt-name', d.el).focus();
-  form.addEventListener('submit', async e => {
-    e.preventDefault(); clearErrors(form);
-    const body = { name: form.name.value.trim(), sport: form.sport.value, finalDate: form.finalDate.value, demo: form.demo.checked };
-    if (body.name.length < 3) { setFieldError($('[data-f=name]', form), 'Informe o nome do torneio (mínimo 3 letras).'); form.name.focus(); return; }
-    if (!body.finalDate) { setFieldError($('[data-f=finalDate]', form), 'Escolha a data da final.'); return; }
-    const btn = $('#ntGo', d.el); setBusy(btn, true);
-    try {
-      const r = await api.post('/tournaments', body);
-      d.close('ok');
-      toast('Torneio criado! Ajuste as configurações e abra as inscrições.', { type: 'success' });
-      navigate('/admin/' + r.tournament.id);
-    } catch (err) {
-      setBusy(btn, false);
-      const box = $('.form-error', form); box.hidden = false; box.textContent = err.message;
-    }
-  });
 }
 
 function tournamentCard(t) {
@@ -96,7 +59,7 @@ function landing(ctx) {
         <button class="btn btn-primary btn-block" type="submit">Acessar torneio ${ic('arrow-right', { size: 18 })}</button></form>
     </section>
     <section class="features">
-      <div class="card feature"><span class="f-ico">${ic('qr-code', { size: 22 })}</span><h3>Inscrição com pagamento</h3><p>Cada time se inscreve pelo link, paga por PIX ou cartão e entra na lista assim que o pagamento é confirmado.</p></div>
+      <div class="card feature"><span class="f-ico">${ic('qr-code', { size: 22 })}</span><h3>Inscrição paga ou gratuita</h3><p>Cada time se inscreve pelo link. Com valor, paga por PIX ou cartão e entra na lista assim que o pagamento é confirmado; se for gratuita, entra na hora.</p></div>
       <div class="card feature"><span class="f-ico">${ic('network', { size: 22 })}</span><h3>Chaveamento justo</h3><p>Sorteio que equilibra as chaves, evita confrontos entre times do mesmo bairro e registra uma semente auditável.</p></div>
       <div class="card feature"><span class="f-ico">${ic('radio', { size: 22 })}</span><h3>Jogos ao vivo</h3><p>Placar, relógio e lances em tempo real para os visitantes, mais transmissão do YouTube ou Twitch.</p></div>
     </section></main>`);
@@ -105,7 +68,7 @@ function landing(ctx) {
 
 function wire(ctx) {
   wireMenus(ctx.root, ctx.signal);
-  on(ctx.root, 'click', '[data-new]', () => newTournamentDialog());
+  on(ctx.root, 'click', '[data-new]', () => navigate('/novo-torneio'));
   ctx.root.addEventListener('submit', e => { const f = e.target.closest('[data-idform]'); if (f) { e.preventDefault(); goToTournament(f.id.value); } });
 }
 

@@ -7,11 +7,12 @@ import { toast } from '../../ui/toast.js';
 import { api } from '../../api.js';
 import { mountPayment } from './payment.js';
 import { saveMyTeam } from './store.js';
-import { SPORTS } from '../../shared/sports.js';
+import { rulesChecklistHTML } from '../../ui/tourneyinfo.js';
+import { ruleList, needsAcceptance } from '../../shared/rules.js';
 import { fmtBRL } from '../../shared/format.js';
 
 export default function (v) {
-  let step = 1, data = null, players = [], created = null, fieldsCtl = null, rosterCtl = null, payCtl = null;
+  let step = 1, data = null, players = [], created = null, fieldsCtl = null, rosterCtl = null, payCtl = null, accepted = false;
   const STEPS = ['Time e responsável', 'Elenco', 'Revisão e pagamento'];
 
   const stepper = () => html`<div class="stepper" aria-label="Etapas da inscrição">${STEPS.map((s, i) => html`<div class="st ${step === i + 1 ? 'on' : step > i + 1 ? 'done' : ''}"><i></i><span>${i + 1}. ${s}</span></div>`)}</div>`;
@@ -21,26 +22,28 @@ export default function (v) {
   }
 
   function paintStep(root) {
-    const t = v.t, sp = SPORTS[t.sport];
+    const t = v.t, rules = t.rules, nRules = ruleList(rules).length;
     payCtl?.destroy(); payCtl = null;
     if (step === 1) {
       render(root, html`<div class="card stack">${stepper()}<div><h2 style="font-size:20px">Dados do time e do responsável</h2><p class="muted small">${t.fee ? `Inscrição de ${fmtBRL(t.fee)} por time · a vaga fica reservada por 30 minutos enquanto você paga.` : 'Inscrição gratuita.'}</p></div>
-        <form id="step1" class="stack" novalidate>${teamFieldsHTML({ values: data || {} })}<div class="row between wrap"><a class="btn btn-ghost" href="/t/${t.id}">Cancelar</a><button class="btn btn-primary btn-lg" type="submit">Continuar ${ic('arrow-right', { size: 18 })}</button></div></form></div>`);
+        ${nRules ? html`<details class="rules-peek"><summary>${ic('list-checks', { size: 16 })} Regras do torneio (${nRules})</summary>${rulesChecklistHTML(t)}<p class="hint" style="margin-top:8px">${needsAcceptance(rules) ? 'Você vai aceitar estas regras no último passo.' : 'Estas regras serão conferidas na inscrição.'}</p></details>` : ''}
+        <form id="step1" class="stack" novalidate>${teamFieldsHTML({ values: data || {}, emblemRequired: rules.emblemRequired })}<div class="row between wrap"><a class="btn btn-ghost" href="/t/${t.id}">Cancelar</a><button class="btn btn-primary btn-lg" type="submit">Continuar ${ic('arrow-right', { size: 18 })}</button></div></form></div>`);
       const form = $('#step1', root);
-      fieldsCtl = wireTeamFields(form);
+      fieldsCtl = wireTeamFields(form, { emblemRequired: rules.emblemRequired });
       if (data?.emblem) fieldsCtl.setEmblem(data.emblem);
       form.addEventListener('submit', e => { e.preventDefault(); if (!fieldsCtl.validate()) return; data = fieldsCtl.read(); step = 2; paintStep(root); window.scrollTo({ top: 0, behavior: 'smooth' }); });
     } else if (step === 2) {
-      render(root, html`<div class="card stack">${stepper()}<div><h2 style="font-size:20px">Elenco de ${data.name}</h2><p class="muted small">${t.type === 'oficial' ? 'Torneio oficial: CPF, RG e documento de identidade em PDF de cada atleta são obrigatórios.' : 'Informe o nome e o número da camisa de cada atleta.'}</p></div><div id="rosterBox"></div><div class="row between wrap"><button class="btn btn-ghost" data-act="back">${ic('arrow-left', { size: 18 })} Voltar</button><button class="btn btn-primary btn-lg" data-act="next2">Continuar ${ic('arrow-right', { size: 18 })}</button></div></div>`);
-      rosterCtl = createRosterEditor($('#rosterBox', root), { sport: t.sport, official: t.type === 'oficial', players });
+      render(root, html`<div class="card stack">${stepper()}<div><h2 style="font-size:20px">Elenco de ${data.name}</h2><p class="muted small">${t.type === 'oficial' ? 'Torneio oficial: CPF, RG e documento de identidade em PDF de cada atleta são obrigatórios.' : rules.shirtNumbers ? 'Informe o nome e o número da camisa de cada atleta.' : 'Informe o nome de cada atleta. O número da camisa é opcional.'} Mínimo de ${t.rosterRules.min} atletas.</p></div><div id="rosterBox"></div><div class="row between wrap"><button class="btn btn-ghost" data-act="back">${ic('arrow-left', { size: 18 })} Voltar</button><button class="btn btn-primary btn-lg" data-act="next2">Continuar ${ic('arrow-right', { size: 18 })}</button></div></div>`);
+      rosterCtl = createRosterEditor($('#rosterBox', root), { sport: t.sport, official: t.type === 'oficial', players, min: t.rosterRules.min, numberRequired: rules.shirtNumbers });
     } else paintReview(root);
   }
 
   function paintReview(root) {
-    const t = v.t;
+    const t = v.t, must = needsAcceptance(t.rules);
     render(root, html`<div class="card stack">${stepper()}<div><h2 style="font-size:20px">Revise e conclua</h2></div>
       <div class="summary-box"><div class="line"><span class="muted">Time</span><b>${data.name}</b></div><div class="line"><span class="muted">Bairro / clube</span><span>${data.origin || '—'}</span></div><div class="line"><span class="muted">Responsável</span><span>${data.captain.name}</span></div><div class="line"><span class="muted">Atletas</span><span>${players.length}</span></div>
         <div class="line total"><span>${t.fee ? 'Total a pagar' : 'Inscrição'}</span><span>${t.fee ? fmtBRL(t.fee) : 'Gratuita'}</span></div></div>
+      ${ruleList(t.rules).length ? html`<div class="rules-accept"><span class="label">Regras do torneio</span>${rulesChecklistHTML(t)}${must ? html`<label class="check" style="margin-top:12px"><input type="checkbox" name="accept" ${accepted ? 'checked' : ''}><span><b>Li e aceito as regras do torneio.</b><br><span class="muted small">Declaro que o time cumprirá todas as regras acima.</span></span></label>` : ''}</div>` : ''}
       <div class="form-error" data-err hidden></div>
       <div class="row between wrap"><button class="btn btn-ghost" data-act="back">${ic('arrow-left', { size: 18 })} Voltar</button><button class="btn btn-primary btn-lg" data-act="submit">${ic(t.fee ? 'credit-card' : 'check', { size: 18 })} ${t.fee ? 'Ir para o pagamento' : 'Concluir inscrição'}</button></div></div>`);
   }
@@ -68,10 +71,14 @@ export default function (v) {
   }
 
   async function submit(root, btn) {
-    const t = v.t;
+    const t = v.t, must = needsAcceptance(t.rules);
+    if (must) {
+      accepted = !!$('[name=accept]', root)?.checked;
+      if (!accepted) { const box = $('[data-err]', root); box.hidden = false; box.textContent = 'Aceite as regras do torneio para concluir a inscrição.'; $('[name=accept]', root)?.focus(); return; }
+    }
     setBusy(btn, true);
     try {
-      const r = await api.post(`/public/${encodeURIComponent(t.id)}/teams`, { ...data, players });
+      const r = await api.post(`/public/${encodeURIComponent(t.id)}/teams`, { ...data, players, ...(must ? { rulesAccepted: true } : {}) });
       created = { team: r.team, code: r.team.accessCode };
       paintCreated(root, created);
     } catch (err) {
@@ -90,7 +97,7 @@ export default function (v) {
       paintStep(root);
       on(root, 'click', '[data-act]', async (e, el) => {
         const act = el.dataset.act;
-        if (act === 'back') { if (step === 2) players = rosterCtl.getPlayers(); step--; paintStep(root); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+        if (act === 'back') { if (step === 2) players = rosterCtl.getPlayers(); if (step === 3) accepted = !!$('[name=accept]', root)?.checked; step--; paintStep(root); window.scrollTo({ top: 0, behavior: 'smooth' }); }
         if (act === 'next2') { if (!rosterCtl.validate()) return; players = rosterCtl.getPlayers(); step = 3; paintStep(root); window.scrollTo({ top: 0, behavior: 'smooth' }); }
         if (act === 'submit') await submit(root, el);
         if (act === 'copy-code') toast((await copyText(el.dataset.code)) ? 'Código copiado!' : 'Anote o código.', { type: 'success', ms: 2000 });

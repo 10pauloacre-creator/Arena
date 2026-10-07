@@ -42,10 +42,10 @@ Os dados locais ficam em `.data/arena.json` (ignorado pelo git). Apague a pasta 
 ### Testes
 
 ```powershell
-npm test                         # 93 testes unitários e de API (node:test, sem dependências)
+npm test                         # 109 testes unitários e de API (node:test, sem dependências)
 npm run lint                     # verifica imports não utilizados
 cd e2e; node a11y.mjs            # auditoria de acessibilidade (axe-core) nas principais telas
-cd e2e; npm install; node run.mjs   # 29 cenários E2E com Playwright (usa o Chromium instalado)
+cd e2e; npm install; node run.mjs   # 32 cenários E2E com Playwright (usa o Chromium instalado)
 ```
 
 ---
@@ -90,7 +90,7 @@ Quando o provedor confirma o pagamento, o time é confirmado automaticamente. Se
 
 ## Como usar (resumo)
 
-1. **Criar conta** → na home, **Novo torneio** (nome, modalidade, data da final). O ID (`AM-2026-XXXX`) é gerado.
+1. **Criar conta** → na home, **Novo torneio**. A página de criação reúne: nome, modalidade e data da final; **inscrição gratuita** (ou o valor por time); **regras** (checklist); **detalhes** e **premiação**. O ID (`AM-2026-XXXX`) é gerado.
 2. No **Painel**, edite nome/data/modalidade e clique em **Salvar alterações**.
 3. Em **Configurações**: prazo (data e hora), valor da inscrição, vagas (4/8/16/32), tipo (amador/oficial), repescagem e
    **convites de administrador** (link de uso único, válido por 7 dias).
@@ -102,6 +102,25 @@ Quando o provedor confirma o pagamento, o time é confirmado automaticamente. Se
 8. **Repescagem beneficente**: time eliminado doa (PIX/cartão) e disputa uma revanche contra quem o eliminou.
 
 Dica: marque **"Torneio de demonstração"** ao criar para ganhar 8 times de exemplo e testar tudo sem inscrições reais.
+
+### Inscrição gratuita, regras, detalhes e premiação
+
+Tudo isso é definido na criação do torneio e pode ser alterado depois em **Configurações** (botão *Salvar alterações*).
+
+- **Inscrição gratuita**: ativada, o time se inscreve sem pagar e já entra na lista. Desativada, é preciso informar o valor
+  (mínimo R$ 5,00) e o time só entra depois de pagar por PIX ou cartão. Ao ativar a gratuidade em um torneio que já tinha
+  reservas aguardando pagamento, quem ainda não iniciou nenhum pagamento é confirmado na hora.
+- **Regras do torneio (checklist)**: o organizador marca o que vale.
+  - *Conferidas pelo sistema* (barram a inscrição): quantidade mínima de jogadores, cada jogador com seu número de camisa
+    (desligada, o número vira opcional) e emblema do time obrigatório.
+  - *Aceite do capitão* (o capitão marca "li e aceito" no último passo; a data do aceite aparece para o organizador):
+    uniforme padronizado, documento oficial com foto, idade mínima, chegar 15 minutos antes e capitão presente — além de
+    até 8 regras livres escritas pelo organizador.
+  - A inscrição manual feita pelo organizador respeita o mínimo de jogadores e o número da camisa, mas não exige emblema nem aceite.
+  - Mudar uma regra vale para novas inscrições; times já inscritos não são afetados.
+- **Detalhes**: texto livre (até 4.000 caracteres, com quebras de linha) para avisos e regras gerais, exibido na página do visitante.
+- **Premiação**: colocações 1º, 2º, 3º… (até 10) em três categorias — *Geral*, *Masculino* e *Feminino* — cada uma com
+  texto, valor em dinheiro ou os dois. O visitante vê tudo na aba Início e o texto de divulgação cita o prêmio do 1º lugar.
 
 ---
 
@@ -131,6 +150,9 @@ legacy/                 protótipo original
 - Todo texto de usuário é escapado no front-end; CSP restritiva (`vercel.json` e `server.js`).
 
 ## Limitações conhecidas / próximos passos
+
+- A premiação masculina/feminina é só informativa: o torneio tem **um único chaveamento**. Não há ainda times com categoria
+  (masculino/feminino) nem chaves separadas por categoria.
 
 - **Recuperação de senha por e-mail** ainda não existe (exige provedor de e-mail, ex.: Resend).
 - **Documentos em PDF** (torneio oficial): só nome/tamanho do arquivo são registrados; o arquivo não é armazenado (exigiria Vercel Blob/S3). CPF e RG são validados e exibidos ao organizador.
