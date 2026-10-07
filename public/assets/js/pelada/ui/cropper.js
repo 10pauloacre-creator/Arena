@@ -3,16 +3,21 @@
 import { html, ic, $ } from '../../ui/dom.js';
 import { openDialog } from '../../ui/dialog.js';
 
-async function loadBitmap(file) {
-  if (!/^image\//.test(file.type)) throw new Error('Escolha um arquivo de imagem (PNG, JPG ou WEBP).');
-  if (file.size > 12 * 1024 * 1024) throw new Error('Imagem muito grande (máx. 12 MB).');
-  try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); }
-  catch {
-    const url = URL.createObjectURL(file);
-    try {
-      return await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('Não foi possível ler esta imagem.')); i.src = url; });
-    } finally { setTimeout(() => URL.revokeObjectURL(url), 5000); }
-  }
+// Lê a foto com <img> e não com createImageBitmap: no Safari (iPhone), createImageBitmap a partir de um arquivo
+// não aplica direito a orientação EXIF, e fotos tiradas em pé saem deitadas. O <img> respeita a orientação
+// em todos os navegadores (naturalWidth/Height e drawImage já vêm na posição certa).
+async function loadImage(file) {
+  // o iOS às vezes entrega arquivos (do app Arquivos/iCloud) sem tipo: nesse caso tenta abrir mesmo assim
+  if (file.type && !/^image\//.test(file.type)) throw new Error('Escolha um arquivo de imagem (PNG, JPG ou WEBP).');
+  // fotos de 48 MP do iPhone, convertidas para JPG pelo seletor, podem passar de 12 MB
+  if (file.size > 40 * 1024 * 1024) throw new Error('Imagem muito grande (máx. 40 MB).');
+  const url = URL.createObjectURL(file);
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Não foi possível abrir esta imagem. Escolha uma foto em JPG, PNG ou WEBP.')); };
+    img.src = url;
+  });
 }
 
 function encode(cv, maxBytes) {
@@ -36,8 +41,8 @@ function encode(cv, maxBytes) {
  * Lança Error (para o chamador mostrar) se o arquivo não for uma imagem utilizável.
  */
 export async function openCropper(file, { aspect = 1, outW = 256, circle = false, title = 'Ajustar foto', maxBytes = 80_000 } = {}) {
-  const bmp = await loadBitmap(file);
-  const iw = bmp.width, ih = bmp.height, outH = Math.round(outW / aspect);
+  const img = await loadImage(file);
+  const iw = img.naturalWidth, ih = img.naturalHeight, outH = Math.round(outW / aspect);
   const st = { z: 1, cx: iw / 2, cy: ih / 2 };
   const base = Math.max(outW / iw, outH / ih);
   const half = () => ({ x: outW / (2 * base * st.z), y: outH / (2 * base * st.z) });
@@ -65,7 +70,7 @@ export async function openCropper(file, { aspect = 1, outW = 256, circle = false
     const h = half();
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, outW, outH);
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(bmp, st.cx - h.x, st.cy - h.y, h.x * 2, h.y * 2, 0, 0, outW, outH);
+    ctx.drawImage(img, st.cx - h.x, st.cy - h.y, h.x * 2, h.y * 2, 0, 0, outW, outH);
     range.value = String(st.z);
   };
   const setZoom = z => { st.z = Math.min(4, Math.max(1, z)); draw(); };
@@ -97,23 +102,35 @@ export async function openCropper(file, { aspect = 1, outW = 256, circle = false
   d.el.addEventListener('click', e => { const z = e.target.closest('[data-zoom]'); if (z) setZoom(st.z + Number(z.dataset.zoom)); });
 
   const result = await d.closed;
-  if (result !== 'ok') { bmp.close?.(); return null; }
-  const url = encode(cv, maxBytes);
-  bmp.close?.();
-  return url;
+  URL.revokeObjectURL(img.src);
+  return result === 'ok' ? encode(cv, maxBytes) : null;
 }
+
+let picking = null; // seletor aberto: encerra um anterior que o navegador nunca avisou ter sido cancelado
 
 /** Abre o seletor de arquivos e depois o recorte. Resolve com data URL ou null (cancelou). */
 export function pickAndCrop(opts) {
+  picking?.(null);
   return new Promise((resolve, reject) => {
     const input = document.createElement('input');
     input.type = 'file'; input.accept = 'image/png,image/jpeg,image/webp,image/*';
+    input.tabIndex = -1; input.setAttribute('aria-hidden', 'true');
+    input.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none';
+    const release = () => { input.remove(); if (picking === finish) picking = null; };
+    const finish = v => { release(); resolve(v); };
+    input.addEventListener('click', e => e.stopPropagation());
     input.addEventListener('change', async () => {
       const f = input.files?.[0];
+      release();
       if (!f) return resolve(null);
       try { resolve(await openCropper(f, opts)); } catch (err) { reject(err); }
     });
-    input.addEventListener('cancel', () => resolve(null));
+    input.addEventListener('cancel', () => finish(null));
+    // No iPhone, um <input type=file> solto (fora da página) pode ser descartado enquanto a galeria ou a câmera
+    // está aberta: o "change" nunca chega e a foto escolhida some sem aviso. Por isso ele fica na página até a
+    // escolha, dentro do diálogo aberto (fora dele, o modal deixaria o campo inerte).
+    ([...document.querySelectorAll('dialog[open]')].pop() || document.body).append(input);
+    picking = finish;
     input.click();
   });
 }

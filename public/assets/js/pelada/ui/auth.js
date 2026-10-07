@@ -10,7 +10,9 @@ import { pickAndCrop } from './cropper.js';
 
 /** Monta o formulário (abas Criar conta / Entrar) dentro de `root`. `onDone(player)` é chamado após o sucesso. */
 export function mountAuth(root, { mode = 'signup', onDone, intro = '' } = {}) {
-  let current = mode, avatar = null, name = '';
+  let current = mode, avatar = null, name = '', birth = '';
+  // guarda o que já foi digitado antes de redesenhar o formulário (trocar de aba, escolher ou remover a foto)
+  const keep = () => { name = $('input[name=name]', root)?.value ?? name; birth = $('input[name=birth]', root)?.value ?? birth; };
 
   function render() {
     const signup = current === 'signup';
@@ -27,7 +29,7 @@ export function mountAuth(root, { mode = 'signup', onDone, intro = '' } = {}) {
         <div class="field" data-f="name"><label for="au-name">Nome</label><input id="au-name" name="name" autocomplete="username" maxlength="40" placeholder="Seu nome e sobrenome" value="${name}"><span class="field-error"></span>
           <span class="hint">${signup ? 'Seu nome é o seu usuário. Use nome e sobrenome para não repetir com outra pessoa.' : 'O mesmo nome que você usou ao criar a conta.'}</span></div>
         ${signup
-          ? html`<div class="field" data-f="birth"><label for="au-birth">Data de nascimento</label><input id="au-birth" name="birth" inputmode="numeric" autocomplete="bday" placeholder="DD/MM/AAAA" maxlength="10"><span class="field-error"></span>
+          ? html`<div class="field" data-f="birth"><label for="au-birth">Data de nascimento</label><input id="au-birth" name="birth" inputmode="numeric" autocomplete="bday" placeholder="DD/MM/AAAA" maxlength="10" value="${birth}"><span class="field-error"></span>
               <span class="hint">É a sua senha. Você pode trocá-la depois, no seu perfil.</span></div>`
           : html`<div class="field" data-f="secret"><label for="au-secret">Data de nascimento (ou a senha que você criou)</label><div style="position:relative"><input id="au-secret" name="secret" type="password" autocomplete="current-password" placeholder="DD/MM/AAAA" maxlength="100" style="padding-right:46px"><button type="button" class="icon-btn" data-eye aria-label="Mostrar senha" style="position:absolute;right:2px;top:2px">${ic('eye', { size: 18 })}</button></div><span class="field-error"></span></div>`}
         <div class="form-error" hidden role="alert"></div>
@@ -39,21 +41,21 @@ export function mountAuth(root, { mode = 'signup', onDone, intro = '' } = {}) {
 
   root.addEventListener('click', async e => {
     const tab = e.target.closest('[data-mode]');
-    if (tab && tab.dataset.mode !== current) { name = $('input[name=name]', root)?.value || name; current = tab.dataset.mode; render(); return; }
+    if (tab && tab.dataset.mode !== current) { keep(); current = tab.dataset.mode; render(); return; }
     if (e.target.closest('[data-eye]')) {
       const inp = $('input[name=secret]', root), show = inp.type === 'password';
       inp.type = show ? 'text' : 'password';
       e.target.closest('[data-eye]').innerHTML = ic(show ? 'eye-off' : 'eye', { size: 18 }).s;
       return;
     }
-    if (e.target.closest('[data-photo-remove]')) { name = $('input[name=name]', root).value; avatar = null; render(); return; }
+    if (e.target.closest('[data-photo-remove]')) { keep(); avatar = null; render(); return; }
     if (e.target.closest('[data-photo]')) {
       try {
         const url = await pickAndCrop({ aspect: 1, outW: 256, circle: true, title: 'Foto de perfil', maxBytes: 70_000 });
-        if (url) { name = $('input[name=name]', root).value; avatar = url; render(); }
+        if (url) { keep(); avatar = url; render(); }
       } catch (err) { toast(err.message, { type: 'error' }); }
     }
-    if (e.target.closest('[data-switch-login]')) { name = $('input[name=name]', root).value; current = 'login'; render(); }
+    if (e.target.closest('[data-switch-login]')) { keep(); current = 'login'; render(); }
   });
   root.addEventListener('input', e => {
     if (e.target.name === 'birth') e.target.value = maskDate(e.target.value);
