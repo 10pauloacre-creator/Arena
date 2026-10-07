@@ -73,3 +73,18 @@ test('todos os arquivos JS da interface do app estão sob assets/js/pelada', () 
   const count = d => readdirSync(d).reduce((n, f) => n + (statSync(join(d, f)).isDirectory() ? count(join(d, f)) : f.endsWith('.js') ? 1 : 0), 0);
   assert.ok(count(dir) >= 20);
 });
+
+test('celular: viewport correta, manifesto em tela cheia e CSS que evita o zoom do iOS e o "modo desktop"', () => {
+  const html = read('pelada/index.html');
+  assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1[^"]*viewport-fit=cover/);
+  assert.ok(!/maximum-scale|user-scalable/.test(html), 'não desativar o zoom (acessibilidade)');
+  const m = JSON.parse(read('pelada/manifest.webmanifest'));
+  assert.deepEqual(m.display_override.slice(0, 1), ['standalone']);
+  const css = read('assets/css/pelada.css');
+  assert.match(css, /\.pl input:not\(\[type=checkbox\]\)[^{]*\{ font-size: 16px; \}/, 'campos com 16px no celular');
+  assert.match(css, /\.pl-bnav \{[^}]*position: fixed/, 'barra de navegação inferior');
+  assert.match(css, /@media \(display-mode: standalone\)/);
+  assert.match(css, /\.pl dialog \{[^}]*border-radius: 22px 22px 0 0/, 'modais como folha no celular');
+  const sw = read('pelada/sw.js');
+  assert.match(sw, /const VERSION = 'pelada-v(\d+)'/);
+});

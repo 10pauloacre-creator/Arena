@@ -682,11 +682,32 @@ await test('mobile: sem rolagem horizontal nas telas principais (dia, pelada, pa
   const p0 = await apiPlayer(`Mobile ${stamp}`);
   const ctx = await playerContext(p0, MOBILE); const p = await ctx.newPage(); watch(p, 'mobile');
   await guard(p, async () => {
-    for (const path of ['/pelada/painel', `/pelada/p/${peladaId}`, new URL(dayUrl).pathname, '/pelada/nova']) {
+    const paths = ['/pelada/painel', `/pelada/p/${peladaId}`, new URL(dayUrl).pathname, '/pelada/nova'];
+    for (const path of paths) {
       await p.goto(app.base + path);
       await p.waitForTimeout(700);
       await noOverflow(p, path);
     }
+    // celulares estreitos: se algo estoura a largura, o Chrome mobile encolhe a página inteira (parece "versão desktop")
+    for (const w of [360, 320]) {
+      await p.setViewportSize({ width: w, height: 700 });
+      for (const path of paths) {
+        await p.goto(app.base + path);
+        await p.waitForTimeout(500);
+        const [inner, scroll] = await p.evaluate(() => [innerWidth, document.documentElement.scrollWidth]);
+        assert(inner === w && scroll <= w, `${path} em ${w}px: viewport ${inner}, conteúdo ${scroll}`);
+      }
+    }
+    // barra de navegação inferior no celular (com conta)
+    await p.setViewportSize({ width: 390, height: 800 });
+    await p.goto(app.base + '/pelada/painel');
+    await p.locator('.pl-bnav').waitFor(T);
+    assert(await p.locator('.pl-bnav a[aria-current="page"]').count() === 1, 'item ativo na barra inferior');
+    await p.locator('[data-bn-id]').click();
+    await p.locator('dialog #bn-id').waitFor(T);
+    const fs = await p.locator('dialog #bn-id').evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+    assert(fs >= 16, 'campos com 16px+ (evita zoom automático do iOS): ' + fs);
+    await p.keyboard.press('Escape');
   });
   await ctx.close();
 });

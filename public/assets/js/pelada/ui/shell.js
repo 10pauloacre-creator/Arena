@@ -28,21 +28,52 @@ function userMenu() {
 const storageBanner = () => S.config?.storage?.persistent === false
   ? html`<div class="storage-warn" role="status">⚠ Ambiente de demonstração sem banco de dados: contas e peladas podem ser apagadas a qualquer momento. ${S.config.storage.note || 'O dono do site precisa conectar um banco (veja o README).'}</div>` : '';
 
+const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark';
+const themeGlyph = () => (isDark() ? '☀️' : '🌙');
+const themeLabel = () => (isDark() ? 'Mudar para o modo claro' : 'Mudar para o modo escuro');
+
 export const topbar = () => html`${storageBanner()}<header class="pl-top">${brand()}<span class="spacer"></span>
   <form class="id-form id-form-top" data-idform role="search"><input name="id" placeholder="ID da pelada" aria-label="ID da pelada" autocomplete="off" maxlength="80"><button class="btn btn-sm" type="submit">Entrar</button></form>
+  <button type="button" class="icon-btn theme-btn" data-theme-btn aria-label="${themeLabel()}" title="${themeLabel()}">${themeGlyph()}</button>
   <button type="button" class="btn btn-sm install-btn" data-install hidden aria-label="Instalar app">${ic('smartphone', { size: 16 })} <span>Instalar app</span></button>
   ${userMenu()}</header>`;
 
 export const footer = () => html`<footer class="pl-foot"><span>⚽ Pelada · parte da plataforma <a href="/" data-external>ArenaMaster AI</a></span></footer>`;
 
-/** Página padrão: topo + conteúdo + rodapé. */
-export const page = (content, { cls = '' } = {}) => html`${topbar()}<main class="pl-main ${cls}" id="main">${content}</main>${footer()}`;
+/** Barra de navegação inferior (só no celular, só com conta): o polegar alcança tudo sem subir até o topo. */
+function bottomNav() {
+  if (!S.player) return '';
+  const path = location.pathname.replace(/\/+$/, '');
+  const item = (href, icon, label, on) => html`<a href="${href}" aria-current="${on ? 'page' : 'false'}">${ic(icon, { size: 22 })}<span>${label}</span></a>`;
+  return html`<nav class="pl-bnav" aria-label="Navegação principal">
+    ${item('/pelada/painel', 'layout-grid', 'Peladas', path === '/pelada/painel' || path.startsWith('/pelada/p/'))}
+    ${item('/pelada/nova', 'plus', 'Criar', path === '/pelada/nova')}
+    <button type="button" data-bn-id>${ic('ticket', { size: 22 })}<span>Entrar com ID</span></button>
+    <button type="button" data-bn-profile>${ic('user-round', { size: 22 })}<span>Perfil</span></button></nav>`;
+}
+
+/** Página padrão: topo + conteúdo + rodapé (+ barra inferior no celular). `nav: false` esconde a barra (ex.: formulários longos). */
+export const page = (content, { cls = '', nav = true } = {}) => {
+  const bn = nav ? bottomNav() : '';
+  return html`${topbar()}<main class="pl-main ${cls} ${bn ? 'has-bnav' : ''}" id="main">${content}</main>${footer()}${bn}`;
+};
 
 export function goToPelada(raw) {
   const id = normalizePeladaId(raw);
   if (!PELADA_ID_RE.test(id)) { toast('Digite o ID completo da pelada, por exemplo PL-7K3M9Q (ou cole o link de convite).', { type: 'warn' }); return false; }
   navigate('/pelada/p/' + id);
   return true;
+}
+
+function idDialog() {
+  const d = openDialog({
+    title: 'Entrar numa pelada',
+    body: html`<form class="stack" data-id-dialog novalidate><p class="muted small" style="margin:0">Cole o ID que o organizador compartilhou (ex.: PL-7K3M9Q) ou o link de convite.</p>
+      <div class="field"><label for="bn-id" class="sr-only">ID da pelada</label><input id="bn-id" name="id" placeholder="PL-7K3M9Q" autocomplete="off" autocapitalize="characters" maxlength="80" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em"></div>
+      <button class="btn btn-primary btn-block btn-lg" type="submit">Acessar pelada ${ic('arrow-right', { size: 18 })}</button></form>`,
+    onOpen: dlg => $('#bn-id', dlg)?.focus(),
+  });
+  d.el.addEventListener('submit', e => { e.preventDefault(); if (goToPelada(e.target.id.value)) d.close(); });
 }
 
 export function installDialog() {
@@ -72,7 +103,10 @@ export function wireShell(root, signal) {
   root.addEventListener('click', async e => {
     const btn = e.target.closest('[data-menu-btn]');
     if (btn) { const pop = btn.parentElement.querySelector('.menu-pop'), open = pop.hidden; closeMenus(); pop.hidden = !open; btn.setAttribute('aria-expanded', String(open)); e.stopPropagation(); return; }
-    if (e.target.closest('[data-profile]')) { closeMenus(); openProfile(); return; }
+    if (e.target.closest('[data-profile], [data-bn-profile]')) { closeMenus(); openProfile(); return; }
+    if (e.target.closest('[data-bn-id]')) { idDialog(); return; }
+    const tb = e.target.closest('[data-theme-btn]');
+    if (tb) { document.getElementById('theme-toggle')?.click(); tb.textContent = themeGlyph(); tb.setAttribute('aria-label', themeLabel()); tb.title = themeLabel(); return; }
     if (e.target.closest('[data-login]')) { const p = await openAuthDialog({ mode: 'login', title: 'Entrar na sua conta' }); if (p) location.reload(); return; }
     if (e.target.closest('[data-install]')) { if (canInstall()) await promptInstall(); else installDialog(); return; }
     if (!e.target.closest('.menu-pop')) closeMenus();

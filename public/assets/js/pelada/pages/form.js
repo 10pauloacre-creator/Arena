@@ -114,8 +114,8 @@ export default async function (ctx) {
           <div class="field" data-f="days"><div data-cal></div><span class="field-error"></span></div>
           <div data-days class="day-list">${st.days.length ? st.days.map(dayCard) : html`<div class="empty">${ic('calendar')}<strong>Nenhuma data escolhida</strong><span>Marque ao menos um dia no calendário.</span></div>`}</div></section>
         <div class="form-error" hidden role="alert"></div>
-        <div class="row wrap" style="justify-content:flex-end"><a class="btn" href="${editId ? '/pelada/p/' + editId : '/pelada/painel'}">Cancelar</a><button class="btn btn-gold btn-lg" type="submit" id="pf-go">${ic(editId ? 'save' : 'trophy', { size: 20 })} ${editId ? 'Salvar alterações' : 'Criar pelada'}</button></div>
-      </form>`);
+        <div class="form-actions"><a class="btn" href="${editId ? '/pelada/p/' + editId : '/pelada/painel'}">Cancelar</a><button class="btn btn-gold btn-lg" type="submit" id="pf-go">${ic(editId ? 'save' : 'trophy', { size: 20 })} ${editId ? 'Salvar alterações' : 'Criar pelada'}</button></div>
+      </form>`, { nav: false });
   }
 
   let cal = null;

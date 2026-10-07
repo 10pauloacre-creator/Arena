@@ -10,7 +10,8 @@ function walk(dir) {
   return readdirSync(dir).flatMap(n => {
     const p = join(dir, n);
     if (statSync(p).isDirectory()) return n === 'vendor' ? [] : walk(p);
-    return p.endsWith('.js') && n !== 'main.js' && n !== 'theme.js' ? [p] : []; // theme.js é um script clássico (roda no <head>), não um módulo
+    // main.js (ponto de entrada) e theme.js (script clássico que mexe no DOM) não são módulos importáveis sem navegador
+    return p.endsWith('.js') && n !== 'main.js' && n !== 'theme.js' ? [p] : [];
   });
 }
 
