@@ -419,6 +419,36 @@ await test('data "Sem formação de times": lista de presença e gols individuai
   });
 });
 
+// ------------------------------------------------------------------ pelada demo
+await test('criação: "Criar pelada demo" monta o jogo de hoje com 17 jogadores com foto; dá para sortear e o painel marca como demonstração', async () => {
+  const p0 = await apiPlayer(`Demo ${stamp}`);
+  const ctx = await playerContext(p0, MOBILE); const p = await ctx.newPage(); watch(p, 'demo');
+  await guard(p, async () => {
+    await p.goto(app.base + '/pelada/nova');
+    await seen(p, 'Quer ver como funciona antes de criar a sua?');
+    await noOverflow(p, 'criar pelada com o cartão demo');
+    await p.locator('[data-demo]').click();
+    await p.waitForURL(/\/pelada\/p\/PL-[A-Z0-9]{6}\/d\/d_/, T);
+    await p.locator('ul.confirmed li').nth(16).waitFor(T);
+    assert(await p.locator('ul.confirmed li').count() === 17, '17 confirmados na lista');
+    const names = await p.locator('ul.confirmed li .grow b').allTextContents();
+    assert(names.length === 17 && names.every(n => /^\S+ \S+$/u.test(n.trim())), 'nomes com 2 palavras: ' + names.join(', '));
+    await p.waitForFunction(() => [...document.querySelectorAll('ul.confirmed li img')].every(i => i.complete && i.naturalWidth > 0), null, T);
+    assert(await p.locator('ul.confirmed li img').count() === 17, 'foto de perfil para os 17');
+    await seen(p, 'Demonstração');
+    await shot(p, '16-demo-dia');
+    await p.getByRole('button', { name: 'Sortear Times' }).click();
+    await p.locator('[data-team-toggle]').first().waitFor({ timeout: 15000 });
+    assert(await p.locator('[data-team-toggle]').count() === 3, '17 jogadores com mínimo de 5 = 3 times');
+    await shot(p, '17-demo-sorteio');
+    await noOverflow(p, 'dia da pelada demo');
+    await p.goto(app.base + '/pelada/painel');
+    await p.locator('.pel-card').first().waitFor(T);
+    await seen(p, 'Demonstração');
+  });
+  await ctx.close();
+});
+
 // ------------------------------------------------------------------ PWA
 await test('PWA: manifesto próprio (escopo /pelada/), ícones, service worker e abertura offline', async () => {
   const ctx = await browser.newContext(MOBILE); const p = await ctx.newPage(); watch(p, 'pwa');

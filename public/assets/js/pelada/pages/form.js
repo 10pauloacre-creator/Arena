@@ -18,6 +18,12 @@ const MAX_NEW_MATCHES = 20;
 
 const stepper = (name, value, { min, max, label, id }) => html`<div class="stepper" role="group" aria-label="${label}"><button type="button" class="icon-btn" data-step="${name}" data-d="-1" aria-label="Diminuir">${ic('minus')}</button><input id="${id}" type="number" name="${name}" inputmode="numeric" min="${min}" max="${max}" value="${value}" aria-label="${label}"><button type="button" class="icon-btn" data-step="${name}" data-d="1" aria-label="Aumentar">${ic('plus')}</button></div>`;
 
+const demoCard = () => html`<section class="card demo-card form-wide" aria-label="Pelada demo">
+  <span class="demo-ico" aria-hidden="true">${ic('sparkles', { size: 26 })}</span>
+  <div class="demo-txt"><h2 class="card-title" style="margin:0 0 4px">Quer ver como funciona antes de criar a sua?</h2>
+    <p class="muted small" style="margin:0">Crie uma <b>pelada demo</b>: o jogo de hoje com <b>17 jogadores já confirmados</b>, cada um com nome e foto de perfil. É só sortear os times, montar as partidas e anotar os gols.</p></div>
+  <button type="button" class="btn btn-gold" data-demo>${ic('users', { size: 18 })} Criar pelada demo</button></section>`;
+
 export default async function (ctx) {
   const editId = ctx.params.id || null;
   if (!S.player) return navigate('/pelada/entrar?next=' + encodeURIComponent(ctx.path), { replace: true });
@@ -79,6 +85,7 @@ export default async function (ctx) {
     return page(html`
       <div class="row between wrap"><div><h1 style="font-size:28px">${editId ? 'Editar pelada' : 'Criar pelada'}</h1><p class="muted">${editId ? 'Ajuste as regras, a imagem e as datas.' : 'Defina a identidade, as regras e os dias de jogo. Leva menos de um minuto.'}</p></div>
         <a class="btn btn-ghost" href="${editId ? '/pelada/p/' + editId : '/pelada/painel'}">${ic('arrow-left', { size: 18 })} Voltar</a></div>
+      ${editId ? '' : demoCard()}
       <form id="pf" class="stack form-wide" novalidate>
         <section class="card stack"><h2 class="card-title">${ic('shirt')} Identidade</h2>
           <div class="field" data-f="name"><label for="pf-name">Nome da pelada <span class="req">*</span></label><input id="pf-name" name="name" maxlength="50" autocomplete="off" placeholder="Ex.: Pelada das Quintas" value="${st.name}"><span class="field-error"></span></div>
@@ -118,6 +125,16 @@ export default async function (ctx) {
   const day = date => st.days.find(d => d.date === date);
 
   ctx.root.addEventListener('click', async e => {
+    const demo = e.target.closest('[data-demo]');
+    if (demo) {
+      setBusy(demo, true);
+      try {
+        const r = await api.post('/pelada/peladas/demo');
+        toast('Pelada demo criada! 17 jogadores já confirmaram presença: é só sortear os times.', { type: 'success' });
+        navigate(`/pelada/p/${r.pelada.id}/d/${r.dayId}`);
+      } catch (err) { setBusy(demo, false); toast(err.message, { type: 'error' }); }
+      return;
+    }
     const step = e.target.closest('[data-step]');
     if (step) {
       const inp = $(`[name="${step.dataset.step}"]`, ctx.root);

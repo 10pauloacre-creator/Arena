@@ -49,7 +49,7 @@ npm test                         # 177 testes unitários e de API (node:test, se
 npm run lint                     # verifica imports não utilizados
 cd e2e; node a11y.mjs            # auditoria de acessibilidade (axe-core) nas principais telas
 cd e2e; npm install; node run.mjs   # 28 cenários E2E do ArenaMaster com Playwright (usa o Chromium instalado)
-cd e2e; node pelada.mjs          # 19 cenários E2E do app Pelada (conta, criação, sorteio, súmula, pódio, PWA offline)
+cd e2e; node pelada.mjs          # 20 cenários E2E do app Pelada (conta, criação, pelada demo, sorteio, súmula, pódio, PWA offline)
 cd e2e; node offline.mjs         # 7 cenários E2E do modo offline (internet cortada no navegador: Pelada, painel do organizador, visitante)
 cd e2e; node pelada-a11y.mjs     # auditoria de acessibilidade (axe-core) nas telas do app Pelada
 ```
@@ -139,6 +139,12 @@ A interface é pré-carregada pelo service worker e **o app inteiro funciona sem
 - **Pelada**: nome, foto, capa, categoria (feminino/masculino), mínimo por time, calendário de datas, **organização por data**
   (igual ao padrão ou personalizada), partidas por dia (adicionar/excluir) e a opção **"Sem formação de times"** (só presença e gols individuais).
   Cada pelada tem um ID (`PL-XXXXXX`) e um **link de convite que só o criador vê**.
+- **Pelada demo**: na tela de criação, o botão **"Criar pelada demo"** monta o jogo de hoje com **17 jogadores já confirmados** (nome e
+  sobrenome + foto de perfil), para ver a organização de um dia de jogo sem convidar ninguém: 17 ÷ 5 = 3 times, com as 2 sobras
+  distribuídas. O elenco é sorteado a cada clique entre 40 jogadores fictícios e **não é gravado no banco** (ficam só dentro da pelada;
+  as contas demo não têm senha nem reservam nomes). As fotos são avatares ilustrados gerados em código (`lib/domain/pelada-demo.js`),
+  sem arquivos nem rede; ao mudar o desenho, suba `DEMO_ART_VERSION` (as imagens ficam 1 ano em cache). A pelada recebe o selo
+  "Demonstração" e pode ser excluída normalmente (limite de 10 por hora por pessoa).
 - **Presença**: qualquer jogador logado marca/retira a presença no dia; o nome e a foto aparecem na hora (o criador também marca).
 - **Sorteio** (botão "Sortear Times", animação de 5 s): divide os confirmados pelo mínimo por time. Sobra de **3 ou mais** → o último time
   fica incompleto e pode pegar jogadores de fora; sobra de **1 ou 2** → o time incompleto é desfeito e os jogadores são distribuídos nos

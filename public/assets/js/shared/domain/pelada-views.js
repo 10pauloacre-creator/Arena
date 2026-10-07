@@ -69,7 +69,7 @@ export function peladaView(p, { users, viewer, now, base = '' }) {
   const people = personMap(p, users);
   const isOwner = !!viewer && viewer.id === p.ownerId;
   const view = {
-    id: p.id, name: p.name, gender: p.gender, minPerTeam: p.minPerTeam, noTeams: !!p.noTeams, matchMinutes: p.matchMinutes,
+    id: p.id, name: p.name, gender: p.gender, minPerTeam: p.minPerTeam, noTeams: !!p.noTeams, matchMinutes: p.matchMinutes, demo: !!p.demo,
     owner: userPid(p.ownerId), img: p.img, createdAt: p.createdAt,
     people, members: p.members.map(m => userPid(m.userId)),
     days: p.days.map(d => dayView(p, d, { people, viewer, now })),
@@ -86,7 +86,7 @@ export function peladaSummary(p, role, now, owner) {
   const today = todayBR(now);
   const next = p.days.find(d => d.date >= today);
   return {
-    id: p.id, name: p.name, gender: p.gender, role, img: p.img, members: p.members.length, days: p.days.length,
+    id: p.id, name: p.name, gender: p.gender, role, demo: !!p.demo, img: p.img, members: p.members.length, days: p.days.length,
     nextDate: next?.date || null, lastDate: p.days.length ? p.days[p.days.length - 1].date : null, owner: owner?.name || null,
   };
 }
