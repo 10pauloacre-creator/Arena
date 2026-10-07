@@ -72,6 +72,14 @@ Para usar de verdade (2 minutos):
    `KV_REST_API_URL` e `KV_REST_API_TOKEN` (também aceitamos `UPSTASH_REDIS_REST_URL/TOKEN`).
 3. Faça um novo deploy (**Redeploy**). Pronto: contas, torneios e pagamentos passam a ser persistentes.
 
+**Já usa o Supabase na Vercel?** Também funciona, sem Redis:
+
+1. No Supabase do projeto (Vercel → Storage → seu Supabase → *Open in Supabase*), abra **SQL Editor**, cole o conteúdo de
+   [`supabase/arena_kv.sql`](supabase/arena_kv.sql) e clique em **Run** (cria a tabela `arena_kv`, só o servidor acessa).
+2. Garanta que o projeto da Vercel tenha `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` (a integração cria; aceitamos também
+   `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SECRET_KEY`). Marque Production **e** Preview.
+3. **Redeploy**. Se houver Redis e Supabase ao mesmo tempo, o Redis tem prioridade.
+
 Opcional: defina `AUTH_SECRET` (qualquer texto longo e aleatório). Se não definir, um segredo aleatório é gerado e guardado no banco.
 
 ---

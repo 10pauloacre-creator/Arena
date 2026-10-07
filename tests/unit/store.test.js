@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { MemoryStore } from '../../lib/store/memory.js';
 import { FileStore } from '../../lib/store/file.js';
 import { RedisStore } from '../../lib/store/redis.js';
+import { SupabaseStore } from '../../lib/store/supabase.js';
 
 async function exerciseStore(s) {
   assert.equal(await s.get('x'), null);
@@ -111,4 +112,61 @@ test('RedisStore: repete em falhas temporárias e falha com token inválido', as
     const bad = new RedisStore({ url: flaky.url, token: 'errado' });
     await assert.rejects(() => bad.get('a'), /Redis REST 401/);
   } finally { await flaky.close(); }
+});
+
+/** PostgREST falso da tabela arena_kv (filtros key=eq., expires_at=lt.; Prefer: merge/ignore-duplicates). */
+function fakePostgrest({ missingTable = false } = {}) {
+  const rows = new Map();
+  const server = createServer((req, res) => {
+    let body = '';
+    req.on('data', c => { body += c; });
+    req.on('end', () => {
+      const u = new URL(req.url, 'http://x');
+      res.setHeader('Content-Type', 'application/json');
+      if (req.headers.apikey !== 'sb_secret_x') { res.statusCode = 401; return res.end(JSON.stringify({ message: 'Invalid API key' })); }
+      if (missingTable) { res.statusCode = 404; return res.end(JSON.stringify({ code: 'PGRST205', message: 'Could not find the table' })); }
+      const prefer = req.headers.prefer || '';
+      const key = u.searchParams.get('key')?.replace(/^eq\./, '');
+      const lt = u.searchParams.get('expires_at')?.replace(/^lt\./, '');
+      if (req.method === 'GET') {
+        const r = rows.get(key);
+        return res.end(JSON.stringify(r ? [{ value: r.value, expires_at: r.expires_at }] : []));
+      }
+      if (req.method === 'DELETE') {
+        const r = rows.get(key);
+        if (r && (!lt || (r.expires_at && r.expires_at < lt))) rows.delete(key);
+        res.statusCode = 204; return res.end();
+      }
+      if (req.method === 'POST') {
+        const row = JSON.parse(body); const exists = rows.has(row.key);
+        if (exists && prefer.includes('ignore-duplicates')) { res.statusCode = 201; return res.end('[]'); }
+        rows.set(row.key, { value: row.value, expires_at: row.expires_at });
+        res.statusCode = 201;
+        return res.end(prefer.includes('return=representation') ? JSON.stringify([row]) : '');
+      }
+      res.statusCode = 405; res.end('{}');
+    });
+  });
+  return new Promise(r => server.listen(0, '127.0.0.1', () => r({ url: `http://127.0.0.1:${server.address().port}`, close: () => new Promise(x => server.close(x)) })));
+}
+
+test('SupabaseStore (PostgREST): get/set/del/setNX/ttl e locks', async () => {
+  const fake = await fakePostgrest();
+  try {
+    const s = new SupabaseStore({ url: fake.url, key: 'sb_secret_x' });
+    await exerciseStore(s);
+    await exerciseLock(s);
+    assert.equal(s.describe().persistent, true);
+    assert.equal(s.headers.Authorization, undefined, 'chave nova só em apikey');
+    assert.equal(new SupabaseStore({ url: fake.url, key: 'eyJabc' }).headers.Authorization, 'Bearer eyJabc');
+  } finally { await fake.close(); }
+});
+
+test('SupabaseStore: chave inválida e tabela ausente dão erro claro (sem repetir)', async () => {
+  const ok = await fakePostgrest();
+  const missing = await fakePostgrest({ missingTable: true });
+  try {
+    await assert.rejects(() => new SupabaseStore({ url: ok.url, key: 'errada' }).get('a'), /Supabase REST 401/);
+    await assert.rejects(() => new SupabaseStore({ url: missing.url, key: 'sb_secret_x' }).get('a'), /arena_kv.*não existe.*arena_kv\.sql/s);
+  } finally { await ok.close(); await missing.close(); }
 });
