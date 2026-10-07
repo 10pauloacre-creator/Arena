@@ -1,0 +1,2007 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ArenaMaster AI — Plataforma de Torneios</title>
+<meta name="description" content="Front-end modelo da ArenaMaster AI: inscrição de times com FaceMatch, gerenciador de jogos ao vivo, chaveamento com agentes de IA, repescagem beneficente e gerador de flyers.">
+<meta name="theme-color" content="#05070d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='9' fill='%2305070d'/%3E%3Cpath d='M20 4l14 8v16l-14 8-14-8V12z' fill='none' stroke='%2300e5ff' stroke-width='2.5'/%3E%3Cpath d='M14 27l6-14 6 14M16.5 22h7' fill='none' stroke='%2300e5ff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Russo+One&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+
+<style>
+/* ============ Design tokens ============ */
+:root{
+  --bg:#05070d; --bg-2:#080d18; --surface:#0b1322; --surface-2:#101a2e; --graphite:#1a2438; --graphite-2:#243049;
+  --border:#22304d; --border-strong:#33486f;
+  --text:#e8eef9; --muted:#9fb0cc; --faint:#7385a6;
+  --cyan:#00e5ff; --cyan-600:#00b8d4; --cyan-soft:rgb(0 229 255 / .12); --blue:#2563eb; --blue-deep:#0a1f4d;
+  --green:#2dff9b; --green-soft:rgb(45 255 155 / .12);
+  --red:#ff5470; --red-soft:rgb(255 84 112 / .14);
+  --amber:#ffb020; --amber-soft:rgb(255 176 32 / .14);
+  --gold:#ffc857; --gold-soft:rgb(255 200 87 / .15);
+  --font-display:'Russo One','Chakra Petch',system-ui,sans-serif;
+  --font-body:'Chakra Petch',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --r-sm:8px; --r-md:14px; --r-lg:20px;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px; --sp-7:48px;
+  --ease:cubic-bezier(.2,.8,.2,1); --t-fast:150ms; --t-med:250ms;
+  --z-sticky:40; --z-nav:50; --z-modal:100; --z-toast:200;
+  --nav-h:68px;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-padding-top:16px}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+body{
+  margin:0;background:var(--bg);color:var(--text);font:400 1rem/1.6 var(--font-body);
+  min-height:100dvh;-webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(1200px 600px at 85% -10%,rgb(0 229 255 / .07),transparent 60%),radial-gradient(900px 500px at -10% 30%,rgb(37 99 235 / .09),transparent 60%);
+  background-attachment:fixed;
+}
+[hidden]{display:none!important}
+h1,h2,h3,h4{margin:0;font-family:var(--font-display);font-weight:400;line-height:1.15;letter-spacing:.01em}
+p{margin:0}
+ul,ol{margin:0;padding:0;list-style:none}
+img{max-width:100%;display:block}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--cyan)}
+.sr-only{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.num{font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:3px;border-radius:6px}
+.skip{position:absolute;left:12px;top:-60px;background:var(--cyan);color:#001018;padding:10px 16px;border-radius:var(--r-sm);font-weight:700;z-index:var(--z-toast);text-decoration:none}
+.skip:focus{top:12px}
+
+/* ============ App shell ============ */
+.app{min-height:100dvh}
+.brand{
+  display:flex;align-items:center;gap:var(--sp-3);padding:10px var(--sp-4);text-decoration:none;color:var(--text);
+  position:sticky;top:0;z-index:var(--z-sticky);background:rgb(5 7 13 / .86);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);
+}
+.brand-name{font-family:var(--font-display);font-size:1.15rem;letter-spacing:.04em}
+.brand-name b{color:var(--cyan);font-weight:400}
+.brand-sub{display:block;font-size:.72rem;color:var(--muted);letter-spacing:.14em;text-transform:uppercase}
+.rail{display:contents}
+.rail-foot{display:none}
+.mainnav{
+  position:fixed;left:0;right:0;bottom:0;z-index:var(--z-nav);display:flex;justify-content:space-around;
+  background:rgb(8 13 24 / .94);backdrop-filter:blur(12px);border-top:1px solid var(--border);
+  padding:6px 6px calc(6px + env(safe-area-inset-bottom));
+}
+.mainnav a{
+  flex:1;min-width:0;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  color:var(--muted);text-decoration:none;font-size:.7rem;font-weight:600;border-radius:var(--r-sm);
+  transition:color var(--t-fast),background var(--t-fast);
+}
+.mainnav a i{font-size:1.15rem}
+.mainnav a:hover{color:var(--text);background:var(--graphite)}
+.mainnav a[aria-current="true"]{color:var(--cyan);background:var(--cyan-soft)}
+.mainnav a span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+main{padding:var(--sp-4) var(--sp-4) calc(var(--nav-h) + var(--sp-6) + env(safe-area-inset-bottom));width:100%;min-width:0;max-width:1280px;margin-inline:auto}
+
+@media (min-width:1024px){
+  .app{display:grid;grid-template-columns:268px minmax(0,1fr)}
+  .rail{display:flex;flex-direction:column;position:sticky;top:0;height:100dvh;padding:var(--sp-5) var(--sp-4);border-right:1px solid var(--border);background:linear-gradient(180deg,var(--bg-2),var(--bg))}
+  .brand{position:static;background:none;backdrop-filter:none;border:0;padding:0 var(--sp-2) var(--sp-5)}
+  .mainnav{position:static;flex-direction:column;justify-content:flex-start;gap:4px;background:none;backdrop-filter:none;border:0;padding:0}
+  .mainnav a{flex:none;flex-direction:row;justify-content:flex-start;gap:var(--sp-3);padding:10px var(--sp-3);font-size:.95rem;min-height:46px}
+  .mainnav a i{width:22px;text-align:center}
+  .rail-foot{display:block;margin-top:auto;padding:var(--sp-3);border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);font-size:.8rem;color:var(--muted)}
+  main{padding:var(--sp-6) var(--sp-6) var(--sp-7)}
+}
+.pulse-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgb(45 255 155 / .6);animation:pulse 2s infinite;margin-right:6px}
+@keyframes pulse{70%{box-shadow:0 0 0 8px rgb(45 255 155 / 0)}100%{box-shadow:0 0 0 0 rgb(45 255 155 / 0)}}
+
+/* ============ Sections & cards ============ */
+.section{padding-top:var(--sp-6);scroll-margin-top:72px}
+.section + .section{margin-top:var(--sp-5);border-top:1px solid var(--border);padding-top:var(--sp-7)}
+.section-head{margin-bottom:var(--sp-5);max-width:760px}
+.section-head h2{font-size:clamp(1.5rem,1.1rem + 1.6vw,2.2rem);margin:6px 0 8px}
+.lead{color:var(--muted);max-width:68ch}
+.kicker{display:inline-flex;align-items:center;gap:8px;font-size:.78rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan);background:var(--cyan-soft);border:1px solid rgb(0 229 255 / .25);padding:4px 12px;border-radius:999px}
+.card{background:linear-gradient(180deg,var(--surface-2),var(--surface));border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-5)}
+.card h3{font-size:1.1rem;margin-bottom:var(--sp-3);display:flex;align-items:center;gap:10px}
+.card h3 i{color:var(--cyan)}
+.grid{display:grid;gap:var(--sp-4)}
+/* single-column grids: minmax(0,1fr) keeps tracks from growing to min-content (no horizontal scroll on phones) */
+.grid,.player-list,.reg-list,.how,.dlg-body,.steps,.timeline,.agents,.playins,.pool,.out-row,.range-row,.export-grid{grid-template-columns:minmax(0,1fr)}
+.grad{background:linear-gradient(90deg,var(--cyan),#6aa6ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.muted{color:var(--muted)}
+.small{font-size:.85rem}
+
+/* ============ Buttons ============ */
+.btn{
+  --bg-b:var(--graphite);--fg-b:var(--text);--bd-b:var(--border-strong);
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 18px;border-radius:var(--r-md);
+  border:1px solid var(--bd-b);background:var(--bg-b);color:var(--fg-b);font-weight:600;font-size:.95rem;cursor:pointer;text-decoration:none;
+  transition:background var(--t-fast),border-color var(--t-fast),transform var(--t-fast),box-shadow var(--t-fast);
+  touch-action:manipulation;position:relative;
+}
+.btn:hover{background:var(--graphite-2);border-color:var(--cyan-600)}
+.btn:active{transform:scale(.98)}
+.btn-primary{--bg-b:var(--cyan);--fg-b:#001018;--bd-b:var(--cyan);box-shadow:0 0 22px rgb(0 229 255 / .28)}
+.btn-primary:hover{background:#4df0ff;border-color:#4df0ff;box-shadow:0 0 30px rgb(0 229 255 / .45)}
+.btn-danger{--bg-b:var(--red);--fg-b:#18030a;--bd-b:var(--red)}
+.btn-danger:hover{background:#ff7b91;border-color:#ff7b91}
+.btn-ghost{--bg-b:transparent;--bd-b:var(--border)}
+.btn-gold{--bg-b:var(--gold);--fg-b:#1c1300;--bd-b:var(--gold)}
+.btn-gold:hover{background:#ffd783;border-color:#ffd783}
+.btn-sm{min-height:44px;padding:8px 14px;font-size:.88rem}
+.btn[disabled],.btn[aria-disabled="true"]{opacity:.45;cursor:not-allowed;box-shadow:none;transform:none}
+.btn.is-loading{pointer-events:none;color:transparent!important}
+.btn.is-loading::after{content:"";position:absolute;width:18px;height:18px;border:2px solid currentColor;border-color:var(--fg-b) transparent var(--fg-b) transparent;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.icon-btn{width:44px;height:44px;display:inline-grid;place-items:center;border-radius:var(--r-sm);border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;transition:background var(--t-fast),color var(--t-fast)}
+.icon-btn:hover{background:var(--graphite);color:var(--text)}
+.btn-row{display:flex;flex-wrap:wrap;gap:var(--sp-3)}
+
+/* ============ Forms ============ */
+fieldset{border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-4) var(--sp-4) var(--sp-5);margin:0 0 var(--sp-4);min-width:0}
+legend{padding:0 10px;font-family:var(--font-display);font-size:.95rem;color:var(--cyan)}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field label,.label{font-size:.88rem;font-weight:600;color:var(--text)}
+.req{color:var(--cyan)}
+.field input[type=text],.field input[type=number],.field input[type=date],.field input[type=url],.field select,.field textarea{
+  width:100%;min-height:46px;padding:10px 14px;border-radius:var(--r-sm);border:1px solid var(--border-strong);background:var(--bg-2);color:var(--text);
+  transition:border-color var(--t-fast),box-shadow var(--t-fast);
+}
+.field input::placeholder{color:var(--faint)}
+.field input:hover,.field select:hover{border-color:var(--cyan-600)}
+.field input:focus-visible,.field select:focus-visible,.field textarea:focus-visible{outline:none;border-color:var(--cyan);box-shadow:0 0 0 3px rgb(0 229 255 / .25)}
+.field.has-error input,.field.has-error select{border-color:var(--red)}
+.hint{font-size:.8rem;color:var(--muted)}
+.field-error{display:none;font-size:.82rem;color:#ff8da1;gap:6px;align-items:flex-start}
+.field.has-error .field-error{display:flex}
+.cols-2{display:grid;gap:var(--sp-4);grid-template-columns:minmax(0,1fr)}
+.cols-3{display:grid;gap:var(--sp-4);grid-template-columns:minmax(0,1fr)}
+@media (min-width:640px){.cols-2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.error-summary{border:1px solid var(--red);background:var(--red-soft);border-radius:var(--r-md);padding:var(--sp-4);margin-bottom:var(--sp-4)}
+.error-summary h4{font-size:.95rem;margin-bottom:6px;color:#ff9fb0}
+.error-summary ul{list-style:disc;padding-left:20px;font-size:.9rem}
+.error-summary a{color:var(--text)}
+.callout{display:flex;gap:12px;align-items:flex-start;padding:var(--sp-3) var(--sp-4);border-radius:var(--r-md);border:1px solid rgb(0 229 255 / .3);background:var(--cyan-soft);font-size:.9rem}
+.callout i{color:var(--cyan);margin-top:4px}
+.callout.gold{border-color:rgb(255 200 87 / .4);background:var(--gold-soft)}
+.callout.gold i{color:var(--gold)}
+.reveal-in{animation:revealIn var(--t-med) var(--ease)}
+@keyframes revealIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+/* choice cards (radio) */
+.choice-grid{display:grid;gap:var(--sp-3);grid-template-columns:minmax(0,1fr)}
+@media (min-width:560px){.choice-grid.c2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.choice-grid.c4{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.choice-grid.c4{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (min-width:900px){.choice-grid.c4{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.choice input{position:absolute;opacity:0;width:1px;height:1px}
+.choice label{
+  display:flex;gap:12px;align-items:center;min-height:64px;padding:var(--sp-3) var(--sp-4);border-radius:var(--r-md);cursor:pointer;
+  border:1px solid var(--border);background:var(--bg-2);transition:border-color var(--t-fast),background var(--t-fast),box-shadow var(--t-fast);
+}
+.choice label:hover{border-color:var(--cyan-600)}
+.choice .ico{width:42px;height:42px;display:grid;place-items:center;border-radius:12px;background:var(--graphite);color:var(--muted);font-size:1.2rem;flex:none;transition:inherit}
+.choice .t{font-weight:700;display:block;line-height:1.2}
+.choice .d{font-size:.78rem;color:var(--muted);display:block;margin-top:2px}
+.choice input:checked + label{border-color:var(--cyan);background:linear-gradient(135deg,rgb(0 229 255 / .14),rgb(37 99 235 / .10));box-shadow:0 0 0 1px var(--cyan) inset,0 0 24px rgb(0 229 255 / .15)}
+.choice input:checked + label .ico{background:var(--cyan);color:#001018}
+.choice input:focus-visible + label{outline:2px solid var(--cyan);outline-offset:3px}
+
+/* file drop */
+.drop{display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-3) var(--sp-4);border:1.5px dashed var(--border-strong);border-radius:var(--r-md);cursor:pointer;background:var(--bg-2);transition:border-color var(--t-fast),background var(--t-fast);min-height:76px}
+.drop:hover,.drop.drag{border-color:var(--cyan);background:var(--cyan-soft)}
+.drop:focus-within{outline:2px solid var(--cyan);outline-offset:3px}
+.drop input{position:absolute;opacity:0;width:1px;height:1px}
+.drop .prev{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--graphite);color:var(--muted);overflow:hidden;flex:none;border:1px solid var(--border-strong)}
+.drop .prev img{width:100%;height:100%;object-fit:cover}
+.drop .txt strong{display:block}
+.file-pill{display:flex;align-items:center;gap:10px;min-height:46px;padding:8px 14px;border-radius:var(--r-sm);border:1px dashed var(--border-strong);background:var(--bg-2);cursor:pointer;font-size:.9rem;color:var(--muted)}
+.file-pill:hover{border-color:var(--cyan)}
+.file-pill:focus-within{outline:2px solid var(--cyan);outline-offset:3px}
+.file-pill input{position:absolute;opacity:0;width:1px;height:1px}
+.file-pill span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ============ Badges / chips ============ */
+.badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:.74rem;font-weight:700;letter-spacing:.04em;border:1px solid var(--border-strong);background:var(--graphite);color:var(--text);white-space:nowrap}
+.badge.ok{color:var(--green);border-color:rgb(45 255 155 / .4);background:var(--green-soft)}
+.badge.warn{color:var(--amber);border-color:rgb(255 176 32 / .45);background:var(--amber-soft)}
+.badge.bad{color:#ff8da1;border-color:rgb(255 84 112 / .45);background:var(--red-soft)}
+.badge.info{color:var(--cyan);border-color:rgb(0 229 255 / .4);background:var(--cyan-soft)}
+.tag-benef{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:.68rem;font-weight:700;color:#1c1300;background:linear-gradient(90deg,var(--gold),#ffb36b);box-shadow:0 0 14px rgb(255 200 87 / .35);white-space:nowrap}
+.live-badge{display:inline-flex;align-items:center;gap:7px;padding:4px 12px;border-radius:6px;font-weight:700;font-size:.78rem;letter-spacing:.14em;color:#fff;background:var(--red);box-shadow:0 0 18px rgb(255 84 112 / .5)}
+.live-badge .dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:blink 1.1s steps(2,start) infinite}
+.live-badge.off{background:var(--graphite);color:var(--muted);box-shadow:none}
+.live-badge.off .dot{background:var(--faint);animation:none}
+@keyframes blink{50%{opacity:.15}}
+
+/* emblem */
+.emb{--h:200;display:inline-grid;place-items:center;width:36px;height:36px;border-radius:50%;flex:none;overflow:hidden;
+  font:400 .78rem var(--font-display);color:#fff;text-shadow:0 1px 2px rgb(0 0 0 / .5);
+  background:radial-gradient(circle at 30% 25%,hsl(var(--h) 90% 62%),hsl(var(--h) 80% 30%));border:1px solid hsl(var(--h) 90% 70% / .6)}
+.emb img{width:100%;height:100%;object-fit:cover}
+.emb.lg{width:68px;height:68px;font-size:1.2rem}
+.emb.md{width:46px;height:46px;font-size:.95rem}
+
+/* ============ Dashboard ============ */
+.hero{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-5);background:
+  linear-gradient(135deg,rgb(0 229 255 / .08),transparent 45%),
+  linear-gradient(180deg,var(--surface-2),var(--surface))}
+.hero::before{content:"";position:absolute;inset:0;opacity:.5;pointer-events:none;
+  background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:44px 44px;
+  mask-image:radial-gradient(ellipse at 100% 0,#000,transparent 65%);-webkit-mask-image:radial-gradient(ellipse at 100% 0,#000,transparent 65%)}
+.hero > *{position:relative}
+.hero h1{font-size:clamp(2rem,1.2rem + 3.6vw,3.4rem);margin:12px 0 10px}
+@media (min-width:900px){.hero{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);align-items:center}}
+.idrow{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-3);margin-top:var(--sp-4)}
+.tid{display:flex;flex-direction:column;padding:8px 16px;border-radius:var(--r-md);border:1px solid rgb(0 229 255 / .4);background:rgb(0 229 255 / .07);box-shadow:0 0 28px rgb(0 229 255 / .12)}
+.tid-label{font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.tid strong{font-family:var(--font-display);font-weight:400;font-size:1.5rem;color:var(--cyan);letter-spacing:.04em;text-shadow:0 0 14px rgb(0 229 255 / .5)}
+.kpis{display:grid;gap:var(--sp-3);grid-template-columns:repeat(2,minmax(0,1fr));margin-top:var(--sp-4)}
+@media (min-width:900px){.kpis{grid-template-columns:repeat(5,minmax(0,1fr))}}
+.kpi{padding:var(--sp-4);border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface)}
+.kpi .k-l{font-size:.76rem;color:var(--muted);display:flex;align-items:center;gap:8px}
+.kpi .k-l i{color:var(--cyan)}
+.kpi .k-v{font-family:var(--font-display);font-size:1.7rem;line-height:1.2;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .k-s{font-size:.75rem;color:var(--muted)}
+.charts{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-4);margin-top:var(--sp-4)}
+@media (min-width:900px){.charts{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.chart-box{position:relative;height:250px}
+.chart-box.no-chart::after{content:"Gráfico indisponível (Chart.js não carregou). Veja a tabela de dados.";position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);text-align:center;padding:16px}
+.alt-data{margin-top:var(--sp-3);font-size:.85rem;color:var(--muted)}
+.alt-data summary{cursor:pointer;min-height:32px;display:flex;align-items:center}
+.alt-data table{width:100%;border-collapse:collapse;margin-top:8px}
+.alt-data th,.alt-data td{padding:6px 10px;text-align:left;border-bottom:1px solid var(--border)}
+
+/* ============ Captain ============ */
+.cap-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-4)}
+@media (min-width:1100px){.cap-grid{grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);align-items:start}}
+.player-list{display:grid;gap:var(--sp-2);margin-top:var(--sp-4)}
+.player{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 12px;align-items:center;padding:var(--sp-3);border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-2)}
+.player .jersey{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;background:var(--graphite);font-family:var(--font-display);font-size:1.1rem;color:var(--cyan);border:1px solid var(--border-strong)}
+.player .p-main{min-width:0}
+.player .p-name{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.player .p-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.player .p-act{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px}
+@media (min-width:720px){.player{grid-template-columns:auto minmax(0,1fr) auto}.player .p-act{grid-column:auto;justify-content:flex-end}}
+.empty{display:grid;place-items:center;gap:8px;text-align:center;padding:var(--sp-5) var(--sp-4);border:1px dashed var(--border-strong);border-radius:var(--r-md);color:var(--muted);font-size:.92rem}
+.empty i{font-size:1.6rem;color:var(--faint)}
+.progress{height:8px;border-radius:99px;background:var(--graphite);overflow:hidden}
+.progress > span{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--blue));border-radius:99px;transition:width var(--t-med) var(--ease)}
+.reg-list{display:grid;gap:8px;margin-top:var(--sp-3)}
+.reg{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-2)}
+.reg .r-main{flex:1;min-width:0}
+.reg .r-name{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reg .r-sub{font-size:.78rem;color:var(--muted)}
+.how{display:grid;gap:10px;margin-top:var(--sp-3);counter-reset:s}
+.how li{display:flex;gap:12px;font-size:.88rem;color:var(--muted)}
+.how li::before{counter-increment:s;content:counter(s);flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:.8rem;font-weight:700;color:#001018;background:var(--cyan)}
+
+/* ============ Dialog ============ */
+dialog{border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:var(--r-lg);padding:0;width:min(580px,calc(100% - 32px));max-height:calc(100dvh - 32px);overflow:auto;box-shadow:0 30px 80px rgb(0 0 0 / .6)}
+dialog::backdrop{background:rgb(2 4 10 / .72);backdrop-filter:blur(4px)}
+dialog[open]{animation:dlgIn var(--t-med) var(--ease)}
+@keyframes dlgIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.dlg-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:var(--sp-4) var(--sp-4) var(--sp-3) var(--sp-5);border-bottom:1px solid var(--border)}
+.dlg-head h3{font-size:1.1rem;margin:0}
+.dlg-body{padding:var(--sp-5);display:grid;gap:var(--sp-4)}
+.dlg-foot{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:var(--sp-3);padding:0 var(--sp-5) var(--sp-5)}
+
+/* FaceMatch */
+.scan{position:relative;width:min(240px,70%);aspect-ratio:3/4;margin:0 auto;border-radius:18px;background:radial-gradient(circle at 50% 35%,#16314f,#08111f 70%);border:1px solid var(--border-strong);overflow:hidden}
+.scan svg{position:absolute;inset:0;width:100%;height:100%}
+.scan .corner{position:absolute;width:34px;height:34px;border:3px solid var(--cyan);filter:drop-shadow(0 0 6px var(--cyan))}
+.scan .c1{top:10px;left:10px;border-right:0;border-bottom:0;border-radius:8px 0 0 0}
+.scan .c2{top:10px;right:10px;border-left:0;border-bottom:0;border-radius:0 8px 0 0}
+.scan .c3{bottom:10px;left:10px;border-right:0;border-top:0;border-radius:0 0 0 8px}
+.scan .c4{bottom:10px;right:10px;border-left:0;border-top:0;border-radius:0 0 8px 0}
+.scan .beam{position:absolute;left:8%;right:8%;top:10%;height:3px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);box-shadow:0 0 18px var(--cyan);opacity:0}
+.scan.running .beam{opacity:1;animation:beam 1.8s ease-in-out infinite alternate}
+@keyframes beam{to{top:88%}}
+.scan.ok{border-color:var(--green);box-shadow:0 0 30px rgb(45 255 155 / .3)}
+.scan.review{border-color:var(--amber);box-shadow:0 0 30px rgb(255 176 32 / .3)}
+.steps{display:grid;gap:8px;font-size:.9rem}
+.steps li{display:flex;align-items:center;gap:10px;color:var(--faint)}
+.steps li i{width:18px;text-align:center}
+.steps li.active{color:var(--text)}
+.steps li.active i{color:var(--cyan)}
+.steps li.done{color:var(--muted)}
+.steps li.done i{color:var(--green)}
+.verdict{padding:var(--sp-4);border-radius:var(--r-md);border:1px solid var(--border);display:flex;gap:14px;align-items:flex-start}
+.verdict.ok{border-color:rgb(45 255 155 / .45);background:var(--green-soft)}
+.verdict.review{border-color:rgb(255 176 32 / .5);background:var(--amber-soft)}
+.verdict i{font-size:1.4rem;margin-top:2px}
+.verdict.ok i{color:var(--green)}
+.verdict.review i{color:var(--amber)}
+
+/* ============ Live ============ */
+.live-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-4)}
+@media (min-width:1100px){.live-grid{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);grid-template-areas:"sb tl" "st tl"}.sb-card{grid-area:sb}.tl-card{grid-area:tl}.st-card{grid-area:st}}
+.sb-top{display:flex;flex-wrap:wrap;gap:var(--sp-3);align-items:end;justify-content:space-between;margin-bottom:var(--sp-4)}
+.sb-top .field{flex:1;min-width:220px}
+.sb-main{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:var(--sp-3);align-items:center;padding:var(--sp-4) 0}
+.sb-team{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;min-width:0}
+.sb-team .nm{font-weight:700;font-size:.95rem;overflow-wrap:anywhere;line-height:1.2}
+.sb-mid{display:flex;flex-direction:column;align-items:center;gap:4px}
+.sb-score{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-size:clamp(2.4rem,1.4rem + 5vw,4.4rem);line-height:1;font-variant-numeric:tabular-nums;text-shadow:0 0 24px rgb(0 229 255 / .4)}
+.sb-score span.sep{color:var(--cyan);opacity:.7}
+.sb-score output{min-width:1.1ch;text-align:center;display:block}
+.sb-clock{font-weight:700;color:var(--cyan);font-variant-numeric:tabular-nums}
+.sb-sets{font-size:.8rem;color:var(--muted)}
+.ctrls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--sp-3);padding-top:var(--sp-3);border-top:1px solid var(--border)}
+.ctrl-team{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.btn-score{min-width:56px;font-family:var(--font-display);font-size:1.05rem}
+.btn-score.plus{--bg-b:rgb(0 229 255 / .14);--bd-b:rgb(0 229 255 / .5);--fg-b:var(--cyan)}
+.btn-score.plus:hover{background:var(--cyan);color:#001018}
+.clock-ctrl{display:flex;flex-wrap:wrap;gap:var(--sp-3);margin-top:var(--sp-4);padding-top:var(--sp-4);border-top:1px solid var(--border)}
+.timeline{display:grid;gap:0;margin-top:var(--sp-4);max-height:440px;overflow:auto;padding-right:4px}
+.ev{display:grid;grid-template-columns:54px 34px minmax(0,1fr);gap:10px;align-items:start;padding:10px 0;position:relative}
+.ev + .ev{border-top:1px dashed var(--border)}
+.ev .m{font-family:var(--font-display);color:var(--cyan);font-size:.95rem;font-variant-numeric:tabular-nums;padding-top:4px}
+.ev .i{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--graphite);color:var(--text);font-size:.9rem}
+.ev .i.goal{background:var(--cyan-soft);color:var(--cyan)}
+.ev .i.yellow{background:var(--amber-soft)}
+.ev .i.red{background:var(--red-soft)}
+.cardshape{display:block;width:12px;height:17px;border-radius:2px}
+.cardshape.y{background:#ffd43b}.cardshape.r{background:#ff3b5c}
+.ev .tx{font-size:.92rem;line-height:1.35}
+.ev .tx b{display:block}
+.ev .tx small{color:var(--muted)}
+.ev-new{animation:revealIn var(--t-med) var(--ease)}
+.evform{display:grid;gap:var(--sp-3);grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.evform .full{grid-column:1/-1}
+.stream-stage{position:relative;aspect-ratio:16/9;border-radius:var(--r-md);overflow:hidden;border:1px solid var(--border-strong);background:radial-gradient(circle at 50% 120%,#0f3a2a,#07140f 60%);margin-top:var(--sp-4)}
+.stream-stage svg.pitch{position:absolute;inset:0;width:100%;height:100%;opacity:.55}
+.stream-stage .tl{position:absolute;top:10px;left:10px;display:flex;gap:8px;align-items:center}
+.stream-stage .vw{position:absolute;top:10px;right:10px;background:rgb(0 0 0 / .6);padding:3px 10px;border-radius:6px;font-size:.78rem;font-variant-numeric:tabular-nums}
+.stream-stage .bug{position:absolute;left:10px;bottom:10px;display:flex;align-items:stretch;border-radius:8px;overflow:hidden;font-weight:700;font-size:.85rem;box-shadow:0 4px 18px rgb(0 0 0 / .5)}
+.bug span{padding:6px 10px;background:rgb(5 7 13 / .88)}
+.bug .sc{background:var(--cyan);color:#001018;font-family:var(--font-display);font-variant-numeric:tabular-nums}
+.stream-stage .plat{position:absolute;right:10px;bottom:10px;background:rgb(0 0 0 / .6);padding:4px 10px;border-radius:6px;font-size:.78rem;display:flex;gap:6px;align-items:center}
+.stream-empty{margin-top:var(--sp-4)}
+
+/* ============ Bracket ============ */
+.engine{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-5)}
+@media (min-width:1000px){.engine{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.agents{display:grid;gap:10px;margin:var(--sp-3) 0 var(--sp-4)}
+.agent{display:flex;gap:12px;align-items:flex-start;font-size:.88rem;color:var(--muted)}
+.agent i{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--cyan-soft);color:var(--cyan);flex:none}
+.agent b{color:var(--text);display:block;font-size:.92rem}
+.btn-ai{min-height:56px;padding:12px 24px;font-size:1.05rem;font-family:var(--font-display);letter-spacing:.02em;background:linear-gradient(100deg,var(--cyan),#5aa2ff 55%,var(--cyan));background-size:200% 100%;color:#001018;border:0;box-shadow:0 0 34px rgb(0 229 255 / .4);animation:shimmer 4s linear infinite}
+.btn-ai:hover{box-shadow:0 0 46px rgb(0 229 255 / .6)}
+@keyframes shimmer{to{background-position:-200% 0}}
+.console{background:#03060c;border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-4);font-size:.85rem;min-height:210px;max-height:290px;overflow:auto;font-variant-numeric:tabular-nums}
+.console li{display:flex;gap:10px;padding:3px 0;color:var(--muted)}
+.console li i{margin-top:5px;font-size:.78rem;width:14px;text-align:center;color:var(--cyan)}
+.console li.ok i{color:var(--green)}
+.console li.run i{animation:spin 1s linear infinite}
+.console .ph{color:var(--faint)}
+.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:var(--sp-3)}
+.metric{padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg-2)}
+.metric b{display:block;font-family:var(--font-display);font-weight:400;font-size:1.25rem;color:var(--cyan);font-variant-numeric:tabular-nums}
+.metric span{font-size:.74rem;color:var(--muted)}
+.seg{display:inline-flex;gap:4px;padding:4px;border-radius:var(--r-md);background:var(--bg-2);border:1px solid var(--border);flex-wrap:wrap}
+.seg button{min-height:40px;padding:6px 14px;border-radius:10px;border:0;background:transparent;color:var(--muted);font-weight:600;cursor:pointer;transition:background var(--t-fast),color var(--t-fast)}
+.seg button:hover{color:var(--text)}
+.seg button[aria-pressed="true"]{background:var(--cyan);color:#001018}
+.round-tabs{margin:var(--sp-4) 0 var(--sp-3)}
+@media (min-width:900px){.round-tabs{display:none}}
+.bracket-scroll{overflow-x:auto;padding:var(--sp-4);-webkit-overflow-scrolling:touch}
+.bracket{position:relative;display:flex;gap:56px;min-width:100%}
+.round{flex:1;min-width:250px;display:flex;flex-direction:column}
+.round > h4{font-size:.85rem;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan);margin-bottom:var(--sp-3);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.round > h4 small{font-family:var(--font-body);color:var(--muted);letter-spacing:0;text-transform:none}
+.round .matches{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:var(--sp-4)}
+.bracket svg.links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.bracket svg.links path{fill:none;stroke:var(--border-strong);stroke-width:2}
+.bracket svg.links path.done{stroke:var(--cyan);filter:drop-shadow(0 0 4px rgb(0 229 255 / .6))}
+.match{position:relative;z-index:1;border:1px solid var(--border-strong);border-radius:var(--r-md);background:var(--surface);overflow:hidden}
+.match.live{border-color:var(--red);box-shadow:0 0 22px rgb(255 84 112 / .25)}
+.match header{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;font-size:.72rem;color:var(--muted);background:var(--bg-2);border-bottom:1px solid var(--border);letter-spacing:.06em}
+.slot{display:flex;align-items:center;gap:10px;padding:9px 12px;min-height:54px;border-left:3px solid transparent;transition:background var(--t-fast)}
+.slot + .slot{border-top:1px solid var(--border)}
+.slot .s-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.slot .s-name{font-weight:700;font-size:.92rem;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slot .s-score{font-family:var(--font-display);font-size:1.15rem;font-variant-numeric:tabular-nums;min-width:1.5ch;text-align:right}
+.slot.win{border-left-color:var(--cyan);background:linear-gradient(90deg,rgb(0 229 255 / .12),transparent)}
+.slot.win .s-score{color:var(--cyan)}
+.slot.lose{opacity:.55}
+.slot.tbd{color:var(--faint);font-size:.88rem;font-style:italic}
+.slot.benef{border-left-color:var(--gold);background:linear-gradient(90deg,rgb(255 200 87 / .14),transparent)}
+.slot.pending-playin{background:repeating-linear-gradient(135deg,rgb(255 200 87 / .08) 0 8px,transparent 8px 16px)}
+.match .note{padding:4px 12px 6px;font-size:.72rem;color:var(--gold);border-top:1px dashed var(--border)}
+.playins{display:grid;gap:var(--sp-3);margin-bottom:var(--sp-4)}
+.playin{border:1px dashed var(--gold);border-radius:var(--r-md);padding:10px 12px;background:var(--gold-soft);font-size:.82rem}
+.playin b{display:flex;align-items:center;gap:6px;color:var(--gold);margin-bottom:6px}
+.playin .vs{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-weight:600}
+.champ-card{border:1px solid var(--gold);border-radius:var(--r-lg);padding:var(--sp-5);text-align:center;background:radial-gradient(circle at 50% 0,rgb(255 200 87 / .2),transparent 70%),var(--surface);display:grid;gap:10px;justify-items:center;margin:auto 0}
+.champ-card i.fa-trophy{font-size:2.6rem;color:var(--gold);filter:drop-shadow(0 0 14px rgb(255 200 87 / .6))}
+.champ-wait{border:1px dashed var(--border-strong);border-radius:var(--r-lg);padding:var(--sp-5);text-align:center;color:var(--muted);display:grid;gap:8px;justify-items:center;margin:auto 0}
+.champ-wait i{font-size:2rem;color:var(--faint)}
+@media (max-width:899px){
+  .bracket{min-width:0}
+  .round{min-width:0}
+  .bracket[data-show="0"] .round:not([data-round="0"]),
+  .bracket[data-show="1"] .round:not([data-round="1"]),
+  .bracket[data-show="2"] .round:not([data-round="2"]){display:none}
+  .bracket svg.links{display:none}
+}
+.two{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-4);margin-top:var(--sp-4)}
+@media (min-width:900px){.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.pool{display:grid;gap:8px}
+.pool-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 12px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-2)}
+.pool-row .bar{grid-column:2;height:5px;border-radius:99px;background:var(--graphite);overflow:hidden}
+.pool-row .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--cyan))}
+.pool-row .p-n{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center}
+.out-row{display:grid;gap:8px;padding:12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-2)}
+.out-row .o-top{display:flex;gap:12px;align-items:center}
+.out-row .o-top > div{flex:1;min-width:0}
+.out-row .reason{font-size:.8rem;color:var(--muted);display:flex;gap:6px;align-items:flex-start}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips .choice label{min-height:48px;padding:8px 18px;justify-content:center;font-weight:700}
+.donation-sum{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;border-radius:var(--r-md);background:var(--gold-soft);border:1px solid rgb(255 200 87 / .4)}
+.donation-sum b{font-family:var(--font-display);font-weight:400;color:var(--gold);font-size:1.4rem}
+.check{display:flex;gap:12px;align-items:flex-start;font-size:.88rem;cursor:pointer;min-height:44px}
+.check input{width:22px;height:22px;margin-top:2px;accent-color:var(--cyan);flex:none}
+
+/* ============ Marketing ============ */
+.mk-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-4)}
+@media (min-width:1100px){.mk-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}}
+.flyer-wrap{position:relative;border-radius:var(--r-md);overflow:hidden;border:1px solid var(--border-strong);background:var(--bg-2);margin:var(--sp-4) auto 0;max-width:520px}
+.flyer-wrap canvas{display:block;width:100%;height:auto}
+.flyer-wrap.busy::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgb(0 229 255 / .22) 50%,transparent 70%),rgb(5 7 13 / .75);background-size:200% 100%;animation:shimmer 1.2s linear infinite}
+.flyer-ctrl{display:flex;flex-wrap:wrap;gap:var(--sp-3);align-items:center;justify-content:space-between}
+.swatches{display:flex;gap:10px}
+.swatch input{position:absolute;opacity:0;width:1px;height:1px}
+.swatch label{display:block;width:44px;height:44px;border-radius:50%;cursor:pointer;border:2px solid var(--border-strong);transition:transform var(--t-fast),border-color var(--t-fast)}
+.swatch input:checked + label{border-color:#fff;box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--cyan)}
+.swatch input:focus-visible + label{outline:2px solid var(--cyan);outline-offset:4px}
+.swatch label:hover{transform:scale(1.06)}
+.sw-cyan{background:linear-gradient(135deg,#00e5ff,#2563eb)}
+.sw-magenta{background:linear-gradient(135deg,#ff4fd8,#7c3aed)}
+.sw-gold{background:linear-gradient(135deg,#ffc857,#ff7a18)}
+.range-row{display:grid;gap:6px}
+.range-row .top{display:flex;justify-content:space-between;font-size:.88rem;font-weight:600}
+.range-row output{color:var(--cyan);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;height:44px;accent-color:var(--cyan);background:transparent;cursor:pointer}
+.plats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.plats .choice label{min-height:52px;padding:8px 12px}
+.plats .choice .ico{width:34px;height:34px;font-size:1.05rem}
+.adm{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:var(--sp-4)}
+.adm .metric b{font-size:1.3rem}
+.phone{width:min(300px,100%);margin:var(--sp-4) auto 0;border-radius:28px;border:6px solid #1b2538;background:#0b0f19;overflow:hidden;box-shadow:0 20px 50px rgb(0 0 0 / .5)}
+.phone .ph-h{display:flex;align-items:center;gap:8px;padding:10px 12px;font-size:.78rem}
+.phone .ph-h .emb{width:30px;height:30px;font-size:.6rem}
+.phone .ph-h small{display:block;color:var(--muted);font-size:.68rem;line-height:1}
+.phone canvas{display:block;width:100%;height:auto}
+.phone .ph-cta{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:#17202f;font-size:.78rem;font-weight:700}
+.phone .ph-cta span:last-child{color:var(--cyan)}
+.phone .ph-f{padding:10px 12px;font-size:.75rem;color:var(--muted);display:flex;gap:14px}
+.caption-box{margin-top:var(--sp-4);padding:12px 14px;border-radius:var(--r-sm);background:var(--bg-2);border:1px solid var(--border);font-size:.85rem;color:var(--muted);white-space:pre-line}
+.export-grid{display:grid;gap:10px}
+.export-grid .btn{justify-content:flex-start;text-align:left;min-height:60px;gap:14px}
+.export-grid .btn small{display:block;color:var(--muted);font-weight:400;font-size:.76rem}
+.export-grid .btn i.net{font-size:1.4rem;width:28px;text-align:center;color:var(--cyan)}
+
+/* ============ Toasts ============ */
+#toasts{position:fixed;z-index:var(--z-toast);left:50%;transform:translateX(-50%);bottom:calc(var(--nav-h) + 12px + env(safe-area-inset-bottom));display:grid;gap:8px;width:min(460px,calc(100% - 24px));pointer-events:none}
+@media (min-width:1024px){#toasts{bottom:24px;left:auto;right:24px;transform:none}}
+.toast{pointer-events:auto;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--r-md);background:#0e1627;border:1px solid var(--border-strong);box-shadow:0 12px 40px rgb(0 0 0 / .55);font-size:.9rem;animation:toastIn var(--t-med) var(--ease)}
+.toast.out{opacity:0;transform:translateY(8px);transition:all 200ms}
+.toast i{font-size:1.1rem}
+.toast.success{border-color:rgb(45 255 155 / .5)}.toast.success i{color:var(--green)}
+.toast.error{border-color:rgb(255 84 112 / .55)}.toast.error i{color:var(--red)}
+.toast.warn{border-color:rgb(255 176 32 / .55)}.toast.warn i{color:var(--amber)}
+.toast.info i{color:var(--cyan)}
+.toast span{flex:1}
+.toast-action{min-height:36px;padding:4px 12px;border-radius:8px;border:1px solid var(--cyan);background:transparent;color:var(--cyan);font-weight:700;cursor:pointer}
+@keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+footer.foot{margin-top:var(--sp-7);padding-top:var(--sp-5);border-top:1px solid var(--border);color:var(--muted);font-size:.82rem}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+  .live-badge .dot{animation:none!important}
+  .btn-ai{animation:none!important}
+}
+</style>
+</head>
+
+<body>
+<a class="skip" href="#main">Pular para o conteúdo</a>
+
+<div class="app">
+  <aside class="rail">
+    <a class="brand" href="#dashboard" aria-label="ArenaMaster AI — início">
+      <svg viewBox="0 0 40 40" width="38" height="38" aria-hidden="true">
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00e5ff"/><stop offset="1" stop-color="#2563eb"/></linearGradient></defs>
+        <path d="M20 2l15 8.5v19L20 38 5 29.5v-19z" fill="none" stroke="url(#lg)" stroke-width="2.5"/>
+        <path d="M14 27l6-15 6 15M16.5 22h7" fill="none" stroke="url(#lg)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span><span class="brand-name">Arena<b>Master</b> AI</span><span class="brand-sub">Tournament OS</span></span>
+    </a>
+    <nav class="mainnav" aria-label="Seções da plataforma">
+      <a href="#dashboard" aria-current="true"><i class="fa-solid fa-gauge-high" aria-hidden="true"></i><span>Painel</span></a>
+      <a href="#capitao"><i class="fa-solid fa-users" aria-hidden="true"></i><span>Capitão</span></a>
+      <a href="#jogos"><i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i><span>Ao vivo</span></a>
+      <a href="#chaveamento"><i class="fa-solid fa-sitemap" aria-hidden="true"></i><span>Chaveamento</span></a>
+      <a href="#marketing"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i><span>Marketing</span></a>
+    </nav>
+    <div class="rail-foot">
+      <div><span class="pulse-dot"></span><strong style="color:var(--text)">Agentes de IA online</strong></div>
+      <p style="margin-top:6px">Front-end modelo. A lógica de IA, FaceMatch e doações é simulada localmente no navegador.</p>
+    </div>
+  </aside>
+
+  <main id="main" tabindex="-1">
+
+    <!-- ===================== 1. DASHBOARD ===================== -->
+    <section id="dashboard" class="section" aria-labelledby="h-dashboard">
+      <div class="card hero">
+        <div>
+          <p class="kicker"><i class="fa-solid fa-user-shield" aria-hidden="true"></i> Visão geral · Organizador</p>
+          <h1 id="h-dashboard">Arena<span class="grad">Master</span> AI</h1>
+          <p class="lead">Inscrições com validação biométrica, jogos ao vivo, chaveamento justo conduzido por agentes de IA e divulgação automática — tudo em um único painel.</p>
+          <div class="idrow">
+            <div class="tid" role="group" aria-label="ID único do torneio">
+              <span class="tid-label">ID único do torneio</span>
+              <strong id="tId" class="num">#AM-2026-9843</strong>
+            </div>
+            <button type="button" class="btn btn-ghost" id="copyId"><i class="fa-regular fa-copy" aria-hidden="true"></i> Copiar ID</button>
+            <span class="badge info" id="phaseBadge"><i class="fa-solid fa-door-open" aria-hidden="true"></i> Inscrições abertas</span>
+          </div>
+        </div>
+        <div class="grid" style="gap:var(--sp-4)">
+          <div class="field">
+            <label for="tName">Nome do torneio <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="tName" value="Copa ArenaMaster Verão 2026" maxlength="48" autocomplete="off">
+            <span class="hint">Usado automaticamente no flyer e nas divulgações.</span>
+          </div>
+          <div class="field">
+            <label for="tDate">Data da grande final</label>
+            <input type="date" id="tDate" value="2026-11-14">
+          </div>
+        </div>
+      </div>
+
+      <fieldset style="margin-top:var(--sp-4)">
+        <legend>Modalidade do torneio</legend>
+        <div class="choice-grid c4 choice" id="sportGrid" role="radiogroup" aria-label="Modalidade"></div>
+      </fieldset>
+
+      <div class="kpis" aria-label="Indicadores do torneio">
+        <div class="kpi"><div class="k-l"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Times confirmados</div><div class="k-v" id="kpiTeams">8</div><div class="k-s" id="kpiTeamsSub">vagas da chave principal</div></div>
+        <div class="kpi"><div class="k-l"><i class="fa-solid fa-futbol" aria-hidden="true"></i> Partidas concluídas</div><div class="k-v" id="kpiMatches">0/7</div><div class="k-s">quartas, semi e final</div></div>
+        <div class="kpi"><div class="k-l"><i class="fa-solid fa-face-smile" aria-hidden="true"></i> Atletas validados</div><div class="k-v" id="kpiFace">142</div><div class="k-s">via FaceMatch IA</div></div>
+        <div class="kpi"><div class="k-l"><i class="fa-solid fa-user-slash" aria-hidden="true"></i> Fraudes barradas</div><div class="k-v" id="kpiBlocked">9</div><div class="k-s">para revisão manual</div></div>
+        <div class="kpi"><div class="k-l"><i class="fa-solid fa-hand-holding-heart" aria-hidden="true"></i> Repescagem solidária</div><div class="k-v" id="kpiDonation">R$ 0,00</div><div class="k-s" id="kpiDonationSub">nenhuma doação ainda</div></div>
+      </div>
+
+      <div class="charts">
+        <div class="card">
+          <h3><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Inscrições acumuladas (7 dias)</h3>
+          <div class="chart-box"><canvas id="chartReg" role="img" aria-label="Gráfico de linha com as inscrições acumuladas nos últimos sete dias"></canvas></div>
+          <details class="alt-data"><summary>Ver dados em tabela</summary><table><thead><tr><th scope="col">Dia</th><th scope="col">Inscrições</th></tr></thead><tbody id="regTable"></tbody></table></details>
+        </div>
+        <div class="card">
+          <h3><i class="fa-solid fa-chart-column" aria-hidden="true"></i> <span id="perfTitle">Média projetada por fase</span></h3>
+          <div class="chart-box"><canvas id="chartPerf" role="img" aria-label="Gráfico de barras com a média projetada por fase do torneio"></canvas></div>
+          <details class="alt-data"><summary>Ver dados em tabela</summary><table><thead><tr><th scope="col">Fase</th><th scope="col" id="perfCol">Média</th></tr></thead><tbody id="perfTable"></tbody></table></details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== 2. CAPITÃO ===================== -->
+    <section id="capitao" class="section" aria-labelledby="h-capitao">
+      <header class="section-head">
+        <p class="kicker"><i class="fa-solid fa-id-card-clip" aria-hidden="true"></i> Visão do Capitão</p>
+        <h2 id="h-capitao">Inscrição de times e documentos</h2>
+        <p class="lead">Cadastre o time, monte o elenco e valide cada atleta com FaceMatch. Em torneios oficiais, CPF, RG e o PDF do documento de identidade são obrigatórios.</p>
+      </header>
+
+      <div class="cap-grid">
+        <form id="teamForm" class="card" novalidate aria-describedby="rosterHint">
+          <div id="formErrors" class="error-summary" role="alert" tabindex="-1" hidden></div>
+
+          <fieldset>
+            <legend>1 · Tipo de torneio</legend>
+            <div class="choice-grid c2 choice" role="radiogroup" aria-label="Tipo de torneio">
+              <div><input type="radio" name="ttype" id="tt-amador" value="amador" checked><label for="tt-amador"><span class="ico"><i class="fa-solid fa-people-group" aria-hidden="true"></i></span><span><span class="t">Amador / Comunitário</span><span class="d">Apenas nome e número da camisa</span></span></label></div>
+              <div><input type="radio" name="ttype" id="tt-oficial" value="oficial"><label for="tt-oficial"><span class="ico"><i class="fa-solid fa-award" aria-hidden="true"></i></span><span><span class="t">Oficial / Profissional</span><span class="d">CPF, RG e documento em PDF</span></span></label></div>
+            </div>
+            <div id="officialBanner" class="callout gold" style="margin-top:var(--sp-4)" hidden>
+              <i class="fa-solid fa-lock" aria-hidden="true"></i>
+              <p><strong>Modo oficial ativo.</strong> Para cada atleta, CPF, RG e o upload do <em>Documento de Identidade em PDF</em> são <strong>obrigatórios</strong>, além da validação por FaceMatch antes do envio.</p>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>2 · Identidade do time</legend>
+            <div class="cols-2">
+              <div class="field" id="f-team">
+                <label for="teamName">Nome do time <span class="req" aria-hidden="true">*</span></label>
+                <input type="text" id="teamName" maxlength="32" autocomplete="off" required aria-describedby="e-team">
+                <span class="field-error" id="e-team"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span></span></span>
+              </div>
+              <div class="field">
+                <label for="teamOrigin">Clube / bairro de origem</label>
+                <input type="text" id="teamOrigin" maxlength="32" autocomplete="off" aria-describedby="h-origin">
+                <span class="hint" id="h-origin">A IA evita confrontos entre times do mesmo grupo na 1ª fase.</span>
+              </div>
+            </div>
+            <div class="field" style="margin-top:var(--sp-4)">
+              <span class="label" id="l-emblem">Emblema do time</span>
+              <label class="drop" id="emblemDrop">
+                <span class="prev" id="emblemPrev"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i></span>
+                <span class="txt"><strong id="emblemTxt">Enviar emblema</strong><span class="hint" id="emblemHint">PNG, JPG, WEBP ou SVG · até 2 MB · arraste ou clique</span></span>
+                <input type="file" id="emblemInput" accept="image/png,image/jpeg,image/webp,image/svg+xml" aria-labelledby="l-emblem emblemTxt" aria-describedby="e-emblem">
+              </label>
+              <span class="field-error" id="e-emblem" style="display:none"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span></span></span>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>3 · Elenco</legend>
+            <p class="hint" id="rosterHint" style="margin-bottom:var(--sp-3)"></p>
+            <div role="group" aria-label="Adicionar jogador" id="playerForm">
+              <div class="cols-2">
+                <div class="field" id="f-pname"><label for="pName">Nome do jogador <span class="req" aria-hidden="true">*</span></label><input type="text" id="pName" maxlength="40" autocomplete="off" aria-describedby="e-pname"><span class="field-error" id="e-pname"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span></span></span></div>
+                <div class="field" id="f-pnum"><label for="pNumber">Nº da camisa <span class="req" aria-hidden="true">*</span></label><input type="number" id="pNumber" min="0" max="99" inputmode="numeric" aria-describedby="e-pnum"><span class="field-error" id="e-pnum"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span></span></span></div>
+              </div>
+              <div id="playerOfficial" class="cols-3" style="margin-top:var(--sp-4)" hidden>
+                <div class="field" id="f-pcpf"><label for="pCpf">CPF <span class="req" aria-hidden="true">*</span></label><input type="text" id="pCpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00" autocomplete="off" aria-describedby="e-pcpf"><span class="field-error" id="e-pcpf"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span></span></span></div>
+                <div class="field" id="f-prg"><label for="pRg">RG <span class="req" aria-hidden="true">*</span></label><input type="text" id="pRg" maxlength="16" autocomplete="off" aria-describedby="e-prg"><span class="field-error" id="e-prg"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span></span></span></div>
+                <div class="field" id="f-pdoc"><span class="label" id="l-pdoc">Documento de identidade (PDF) <span class="req" aria-hidden="true">*</span></span>
+                  <label class="file-pill"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i><span id="docName">Selecionar PDF · até 5 MB</span><input type="file" id="pDoc" accept="application/pdf,.pdf" aria-labelledby="l-pdoc docName" aria-describedby="e-pdoc"></label>
+                  <span class="field-error" id="e-pdoc"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span></span></span></div>
+              </div>
+              <div class="btn-row" style="margin-top:var(--sp-4)">
+                <button type="button" class="btn btn-primary" id="addPlayer"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Adicionar ao elenco</button>
+                <button type="button" class="btn btn-ghost" id="demoRoster"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Preencher elenco de exemplo</button>
+              </div>
+            </div>
+
+            <div style="margin-top:var(--sp-5)">
+              <div style="display:flex;justify-content:space-between;gap:12px;font-size:.85rem;margin-bottom:6px"><strong>Elenco cadastrado</strong><span class="num muted" id="rosterCount">0/11</span></div>
+              <div class="progress" aria-hidden="true"><span id="rosterBar" style="width:0%"></span></div>
+            </div>
+            <ul class="player-list" id="playerList" aria-label="Jogadores cadastrados"></ul>
+          </fieldset>
+
+          <div class="btn-row">
+            <button type="button" class="btn" id="faceAll"><i class="fa-solid fa-camera-retro" aria-hidden="true"></i> FaceMatch em todo o elenco</button>
+            <button type="submit" class="btn btn-primary" id="submitTeam"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Enviar inscrição</button>
+          </div>
+        </form>
+
+        <aside class="grid" style="gap:var(--sp-4)">
+          <div class="card">
+            <h3><i class="fa-solid fa-face-viewfinder" aria-hidden="true"></i> FaceMatch · Check-in biométrico</h3>
+            <p class="muted small">Camada anti-fraude por IA para impedir jogadores irregulares, "pernas de pau" contratados fora da regra e atletas inscritos em duas equipes.</p>
+            <ol class="how">
+              <li>Selfie ao vivo com teste de vivacidade (barra foto e vídeo).</li>
+              <li>Comparação com a foto do documento enviado em PDF.</li>
+              <li>Checagem de duplicidade entre todas as equipes do torneio.</li>
+              <li>Divergência? Vai para revisão manual do organizador.</li>
+            </ol>
+          </div>
+          <div class="card">
+            <h3><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i> Times inscritos</h3>
+            <p class="muted small" id="regSummary"></p>
+            <div class="reg-list" id="regList"></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ===================== 3. JOGOS & LIVE ===================== -->
+    <section id="jogos" class="section" aria-labelledby="h-jogos">
+      <header class="section-head">
+        <p class="kicker"><i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i> Visão do Organizador</p>
+        <h2 id="h-jogos">Gerenciador de jogos &amp; live stream</h2>
+        <p class="lead">Atualize o placar em tempo real, registre cada lance na linha do tempo e conecte a transmissão ao vivo. Ao encerrar, o resultado é lançado direto no chaveamento.</p>
+      </header>
+
+      <div class="live-grid">
+        <div class="card sb-card" id="scoreboard">
+          <div class="sb-top">
+            <div class="field"><label for="liveMatch">Partida em andamento</label><select id="liveMatch"></select></div>
+            <span class="live-badge off" id="liveBadge"><span class="dot"></span> <span id="liveBadgeTxt">PAUSADO</span></span>
+          </div>
+          <div class="sb-main">
+            <div class="sb-team" id="sbA"></div>
+            <div class="sb-mid">
+              <div class="sb-score" aria-label="Placar"><output id="scoreA" aria-label="Placar do mandante">0</output><span class="sep" aria-hidden="true">:</span><output id="scoreB" aria-label="Placar do visitante">0</output></div>
+              <div class="sb-clock" id="sbClock">0'</div>
+              <div class="sb-sets" id="sbSets"></div>
+            </div>
+            <div class="sb-team" id="sbB"></div>
+          </div>
+          <div class="ctrls">
+            <div class="ctrl-team" id="ctrlA"></div>
+            <div class="ctrl-team" id="ctrlB"></div>
+          </div>
+          <div class="clock-ctrl">
+            <button type="button" class="btn btn-primary" id="btnClock"><i class="fa-solid fa-play" aria-hidden="true"></i> <span>Iniciar jogo</span></button>
+            <button type="button" class="btn" id="btnPlus5"><i class="fa-solid fa-forward" aria-hidden="true"></i> +5'</button>
+            <button type="button" class="btn btn-ghost" id="btnUndo"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Desfazer último lance</button>
+            <button type="button" class="btn btn-gold" id="btnFinalize"><i class="fa-solid fa-flag-checkered" aria-hidden="true"></i> Encerrar e lançar no chaveamento</button>
+          </div>
+        </div>
+
+        <div class="card tl-card">
+          <h3><i class="fa-solid fa-list-check" aria-hidden="true"></i> Linha do tempo · lance a lance</h3>
+          <form id="evForm" class="evform" novalidate>
+            <div class="field"><label for="evType">Lance</label><select id="evType"></select></div>
+            <div class="field"><label for="evTeam">Equipe</label><select id="evTeam"></select></div>
+            <div class="field" id="evPtsWrap" hidden><label for="evPts">Pontos da cesta</label><select id="evPts"><option value="1">1 ponto (lance livre)</option><option value="2" selected>2 pontos</option><option value="3">3 pontos</option></select></div>
+            <div class="field"><label for="evNum">Camisa (opcional)</label><input type="number" id="evNum" min="0" max="99" inputmode="numeric"></div>
+            <div class="full"><button type="submit" class="btn btn-primary" style="width:100%" id="evSubmit"><i class="fa-solid fa-plus" aria-hidden="true"></i> Registrar lance</button></div>
+          </form>
+          <ol class="timeline" id="timeline" aria-label="Lances da partida" aria-live="polite"></ol>
+        </div>
+
+        <div class="card st-card">
+          <h3><i class="fa-solid fa-satellite-dish" aria-hidden="true"></i> Transmissão ao vivo</h3>
+          <form id="streamForm" novalidate>
+            <div class="field" id="f-stream">
+              <label for="streamUrl">Link da transmissão (YouTube ou Twitch)</label>
+              <input type="url" id="streamUrl" placeholder="https://www.twitch.tv/seu-canal" autocomplete="off" aria-describedby="e-stream">
+              <span class="field-error" id="e-stream"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span></span></span>
+            </div>
+            <div class="btn-row" style="margin-top:var(--sp-3)">
+              <button type="submit" class="btn btn-primary" id="streamConnect"><i class="fa-solid fa-link" aria-hidden="true"></i> Conectar transmissão</button>
+              <button type="button" class="btn btn-ghost" id="streamDemo">Usar link de demonstração</button>
+            </div>
+          </form>
+          <div id="streamArea"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== 4. CHAVEAMENTO ===================== -->
+    <section id="chaveamento" class="section" aria-labelledby="h-chave">
+      <header class="section-head">
+        <p class="kicker"><i class="fa-solid fa-brain" aria-hidden="true"></i> Motor com agentes de IA</p>
+        <h2 id="h-chave">Chaveamento inteligente</h2>
+        <p class="lead">O sorteio é feito por três agentes que removem conflitos de interesse, equilibram as chaves pela força de cada equipe e geram uma semente auditável — sem discussão na mesa.</p>
+      </header>
+
+      <div class="card engine">
+        <div>
+          <h3><i class="fa-solid fa-robot" aria-hidden="true"></i> Sorteio automático</h3>
+          <ul class="agents">
+            <li class="agent"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i><span><b>Agente Auditor</b>Bloqueia confrontos entre equipes do mesmo clube/bairro na 1ª fase.</span></li>
+            <li class="agent"><i class="fa-solid fa-chart-simple" aria-hidden="true"></i><span><b>Agente Balanceador</b>Equilibra a força (rating ELO) entre as duas metades da chave.</span></li>
+            <li class="agent"><i class="fa-solid fa-fingerprint" aria-hidden="true"></i><span><b>Agente Sorteador</b>Avalia milhares de combinações e publica uma semente verificável.</span></li>
+          </ul>
+          <div class="btn-row">
+            <button type="button" class="btn btn-ai" id="btnDraw"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> <span>Executar Sorteio Automático via IA</span></button>
+          </div>
+          <div class="btn-row" style="margin-top:var(--sp-3)">
+            <button type="button" class="btn" id="btnSim" disabled><i class="fa-solid fa-forward-step" aria-hidden="true"></i> Simular próxima fase</button>
+            <button type="button" class="btn btn-ghost" id="btnResetBracket"><i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i> Reiniciar demo</button>
+          </div>
+        </div>
+        <div>
+          <h3><i class="fa-solid fa-terminal" aria-hidden="true"></i> Console dos agentes</h3>
+          <ol class="console" id="drawLog" role="log" aria-live="polite" aria-label="Registro do sorteio"><li class="ph"><i class="fa-solid fa-angle-right" aria-hidden="true"></i> Aguardando execução do sorteio…</li></ol>
+          <div class="metrics" id="drawMetrics" hidden>
+            <div class="metric"><b id="mBalance">—</b><span>Índice de equilíbrio</span></div>
+            <div class="metric"><b id="mConf">0</b><span>Conflitos de interesse</span></div>
+            <div class="metric"><b id="mTried">—</b><span>Combinações avaliadas</span></div>
+            <div class="metric"><b id="mSeed">—</b><span>Semente auditável</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="seg round-tabs" role="group" aria-label="Fase exibida">
+        <button type="button" data-round="0" aria-pressed="true">Quartas</button>
+        <button type="button" data-round="1" aria-pressed="false">Semifinal</button>
+        <button type="button" data-round="2" aria-pressed="false">Final</button>
+      </div>
+
+      <div class="card" style="padding:0;margin-top:var(--sp-4)">
+        <div class="bracket-scroll"><div class="bracket" id="bracket" data-show="0"></div></div>
+      </div>
+
+      <div class="two">
+        <div class="card">
+          <h3><i class="fa-solid fa-ranking-star" aria-hidden="true"></i> Equipes e força (rating)</h3>
+          <div class="pool" id="pool"></div>
+        </div>
+        <div class="card">
+          <h3><i class="fa-solid fa-hand-holding-heart" aria-hidden="true"></i> Re-inscrição Beneficente</h3>
+          <div class="callout gold" style="margin-bottom:var(--sp-3)">
+            <i class="fa-solid fa-heart-circle-plus" aria-hidden="true"></i>
+            <p>Equipe eliminada pode voltar com uma doação a uma causa social. Ela disputa uma <strong>revanche contra quem a eliminou</strong>; vencendo, retoma a vaga na tabela com a tag <span class="tag-benef"><i class="fa-solid fa-heart" aria-hidden="true"></i> Equipe Repescada · Benfeitora</span>. Uma repescagem por equipe.</p>
+          </div>
+          <div class="donation-sum"><span>Total arrecadado</span><b id="donTotal">R$ 0,00</b></div>
+          <div class="pool" id="eliminated" style="margin-top:var(--sp-3)"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== 5. MARKETING ===================== -->
+    <section id="marketing" class="section" aria-labelledby="h-mkt">
+      <header class="section-head">
+        <p class="kicker"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i> Marketing</p>
+        <h2 id="h-mkt">Flyer automático &amp; anúncios</h2>
+        <p class="lead">A IA monta o flyer oficial com o nome do torneio, a data e as equipes finalistas. Ele se atualiza sozinho conforme o chaveamento avança.</p>
+      </header>
+
+      <div class="mk-grid">
+        <div class="card">
+          <h3><i class="fa-solid fa-image" aria-hidden="true"></i> Flyer oficial do torneio</h3>
+          <div class="flyer-ctrl">
+            <div class="seg" role="group" aria-label="Formato do flyer" id="fmtSeg">
+              <button type="button" data-fmt="feed" aria-pressed="true">Feed 4:5</button>
+              <button type="button" data-fmt="story" aria-pressed="false">Stories 9:16</button>
+              <button type="button" data-fmt="square" aria-pressed="false">Quadrado</button>
+              <button type="button" data-fmt="wide" aria-pressed="false">Capa 16:9</button>
+            </div>
+            <div class="swatches" role="radiogroup" aria-label="Tema de cor do flyer">
+              <div class="swatch"><input type="radio" name="theme" id="th-cyan" value="cyan" checked><label for="th-cyan" class="sw-cyan"><span class="sr-only">Neon ciano</span></label></div>
+              <div class="swatch"><input type="radio" name="theme" id="th-magenta" value="magenta"><label for="th-magenta" class="sw-magenta"><span class="sr-only">Plasma magenta</span></label></div>
+              <div class="swatch"><input type="radio" name="theme" id="th-gold" value="gold"><label for="th-gold" class="sw-gold"><span class="sr-only">Ouro elite</span></label></div>
+            </div>
+          </div>
+          <div class="flyer-wrap" id="flyerWrap"><canvas id="flyerCanvas" width="1080" height="1350" role="img" aria-label="Flyer oficial do torneio gerado pela IA"></canvas></div>
+          <p class="hint" id="flyerInfo" style="margin-top:var(--sp-3);text-align:center"></p>
+          <div class="btn-row" style="margin-top:var(--sp-4);justify-content:center">
+            <button type="button" class="btn" id="flyerRegen"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Gerar nova arte com IA</button>
+            <button type="button" class="btn btn-primary" id="flyerExport"><i class="fa-solid fa-share-nodes" aria-hidden="true"></i> Exportar para Redes Sociais</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3><i class="fa-solid fa-rectangle-ad" aria-hidden="true"></i> Simulador de anúncios</h3>
+          <div class="grid" style="gap:var(--sp-3)">
+            <div class="range-row"><div class="top"><label for="adBudget">Investimento diário</label><output for="adBudget" id="adBudgetOut">R$ 40</output></div><input type="range" id="adBudget" min="10" max="300" step="5" value="40"></div>
+            <div class="range-row"><div class="top"><label for="adDays">Duração da campanha</label><output for="adDays" id="adDaysOut">10 dias</output></div><input type="range" id="adDays" min="1" max="30" step="1" value="10"></div>
+            <div class="range-row"><div class="top"><label for="adRadius">Raio de alcance</label><output for="adRadius" id="adRadiusOut">12 km</output></div><input type="range" id="adRadius" min="2" max="60" step="1" value="12"></div>
+            <fieldset style="margin:0">
+              <legend>Plataformas</legend>
+              <div class="plats choice" id="plats"></div>
+            </fieldset>
+          </div>
+          <div class="adm" aria-live="polite">
+            <div class="metric"><b id="adReach">—</b><span>Pessoas alcançadas</span></div>
+            <div class="metric"><b id="adImp">—</b><span>Impressões</span></div>
+            <div class="metric"><b id="adClicks">—</b><span>Cliques</span></div>
+            <div class="metric"><b id="adCaps">—</b><span>Capitães inscritos (est.)</span></div>
+            <div class="metric"><b id="adCpa">—</b><span>Custo por inscrição</span></div>
+            <div class="metric"><b id="adTotal">—</b><span>Investimento total</span></div>
+          </div>
+          <p class="hint" style="margin-top:var(--sp-3)">Estimativas simuladas com benchmarks genéricos; nenhum anúncio real é publicado.</p>
+          <div class="phone" aria-label="Prévia do anúncio no feed">
+            <div class="ph-h"><span class="emb" style="--h:190">AM</span><span><strong>ArenaMaster AI</strong><small>Patrocinado</small></span></div>
+            <canvas id="adCanvas" width="1080" height="1350" role="img" aria-label="Prévia do flyer dentro do anúncio"></canvas>
+            <div class="ph-cta"><span>Inscreva seu time agora</span><span>Inscrever-se</span></div>
+            <div class="ph-f"><span><i class="fa-regular fa-heart" aria-hidden="true"></i> 1,2 mil</span><span><i class="fa-regular fa-comment" aria-hidden="true"></i> 86</span><span><i class="fa-regular fa-paper-plane" aria-hidden="true"></i> 214</span></div>
+          </div>
+          <div class="caption-box" id="caption"></div>
+          <div class="btn-row" style="margin-top:var(--sp-3)"><button type="button" class="btn btn-ghost" id="copyCaption"><i class="fa-regular fa-copy" aria-hidden="true"></i> Copiar legenda</button></div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <p><strong style="color:var(--text)">ArenaMaster AI</strong> · Front-end modelo para demonstração. Sorteio por IA, FaceMatch, doações e anúncios são simulações locais; nenhum dado sai do seu navegador e nenhuma cobrança é realizada.</p>
+    </footer>
+  </main>
+</div>
+
+<div id="toasts" role="status" aria-live="polite"></div>
+
+<!-- ============ Dialogs ============ -->
+<dialog id="faceDialog" aria-labelledby="faceTitle">
+  <div class="dlg-head"><h3 id="faceTitle">FaceMatch · Check-in biométrico</h3><button type="button" class="icon-btn" data-close aria-label="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+  <div class="dlg-body">
+    <p class="muted small" id="faceWho" aria-live="polite"></p>
+    <div class="scan" id="scanBox" aria-hidden="true">
+      <svg viewBox="0 0 120 160"><defs><linearGradient id="sil" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b4a73"/><stop offset="1" stop-color="#14263f"/></linearGradient></defs>
+        <ellipse cx="60" cy="62" rx="26" ry="32" fill="url(#sil)"/><path d="M12 160c4-34 22-48 48-48s44 14 48 48z" fill="url(#sil)"/>
+        <g fill="none" stroke="#00e5ff" stroke-opacity=".55" stroke-width=".8"><path d="M44 54h12M64 54h12M60 58v10M52 78q8 6 16 0"/><circle cx="50" cy="55" r="1.4"/><circle cx="70" cy="55" r="1.4"/></g></svg>
+      <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span><span class="beam"></span>
+    </div>
+    <ol class="steps" id="faceSteps"></ol>
+    <div id="faceResult" aria-live="polite"></div>
+  </div>
+  <div class="dlg-foot"><button type="button" class="btn" id="faceClose" data-close>Cancelar</button></div>
+</dialog>
+
+<dialog id="repDialog" aria-labelledby="repTitle">
+  <div class="dlg-head"><h3 id="repTitle">Re-inscrição Beneficente</h3><button type="button" class="icon-btn" data-close aria-label="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+  <div id="repBody"></div>
+</dialog>
+
+<dialog id="exportDialog" aria-labelledby="exTitle">
+  <div class="dlg-head"><h3 id="exTitle">Exportar para Redes Sociais</h3><button type="button" class="icon-btn" data-close aria-label="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+  <div class="dlg-body">
+    <p class="muted small">Cada formato é renderizado em alta resolução. Em celulares compatíveis abrimos o menu de compartilhamento; nos demais, o PNG é baixado.</p>
+    <div class="export-grid" id="exportGrid"></div>
+  </div>
+</dialog>
+
+<dialog id="confirmDialog" aria-labelledby="cfTitle">
+  <form method="dialog">
+    <div class="dlg-head"><h3 id="cfTitle"></h3></div>
+    <div class="dlg-body"><p id="cfText"></p></div>
+    <div class="dlg-foot"><button class="btn btn-ghost" value="cancel">Cancelar</button><button class="btn btn-primary" value="ok" id="cfOk">Confirmar</button></div>
+  </form>
+</dialog>
+
+<noscript><p style="padding:16px">Esta página precisa de JavaScript para funcionar.</p></noscript>
+
+<script>
+(() => {
+'use strict';
+
+/* ============ Utils ============ */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+const sleep = ms => new Promise(r => setTimeout(r, reduced.matches ? Math.min(ms, 30) : ms));
+const rnd = n => Math.floor(Math.random() * n);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const fmtBRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtNum = new Intl.NumberFormat('pt-BR');
+const fmtCompact = new Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 });
+const avg = a => a.reduce((x, y) => x + y, 0) / (a.length || 1);
+function hash(str){ let h = 2166136261; for (let i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function shuffle(arr, r = Math.random){ const a = arr.slice(); for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function initials(name){ const w = String(name).trim().split(/\s+/).filter(Boolean); if (!w.length) return '?'; return (w.length === 1 ? w[0].slice(0, 2) : w[0][0] + w[1][0]).toUpperCase(); }
+function embHTML(t, cls = ''){
+  if (!t) return `<span class="emb ${cls}">?</span>`;
+  if (t.emblemUrl) return `<span class="emb ${cls}"><img src="${esc(t.emblemUrl)}" alt=""></span>`;
+  return `<span class="emb ${cls}" style="--h:${t.hue}">${esc(initials(t.name))}</span>`;
+}
+function setBtnLoading(btn, on){ btn.classList.toggle('is-loading', on); btn.disabled = on; }
+
+/* ============ Config ============ */
+const SPORTS = {
+  futebol: { label:'Futebol', icon:'fa-futbol', glyph:'', sub:'11 jogadores', unit:'Gol', unitPl:'gols', mode:'clock', length:90, half:45, min:11, max:23, rosterHint:'Mínimo de 11 atletas (titulares + reservas), máximo de 23.',
+    events:['goal','yellow','red','foul','sub'] },
+  futsal: { label:'Futsal', icon:'fa-futbol', glyph:'', sub:'5 jogadores · quadra', unit:'Gol', unitPl:'gols', mode:'clock', length:40, half:20, min:5, max:12, rosterHint:'Mínimo de 5 atletas, máximo de 12.',
+    events:['goal','yellow','red','foul','timeout'] },
+  volei: { label:'Vôlei', icon:'fa-volleyball', glyph:'', sub:'6 jogadores · sets', unit:'Ponto', unitPl:'pontos', mode:'sets', min:6, max:14, rosterHint:'Mínimo de 6 atletas, máximo de 14.',
+    events:['goal','timeout','sub','yellow','red'] },
+  basquete: { label:'Basquete', icon:'fa-basketball', glyph:'', sub:'5 jogadores · 4 quartos', unit:'Ponto', unitPl:'pontos', mode:'clock', length:40, half:10, min:5, max:12, rosterHint:'Mínimo de 5 atletas, máximo de 12.',
+    events:['goal','foul','tech','timeout','sub'] }
+};
+const EV_TYPES = {
+  goal:   { label:'Gol / Ponto', icon:'fa-futbol' },
+  yellow: { label:'Cartão amarelo' }, red:{ label:'Cartão vermelho' },
+  foul:   { label:'Falta', icon:'fa-hand' }, sub:{ label:'Substituição', icon:'fa-right-left' },
+  timeout:{ label:'Tempo técnico', icon:'fa-clock' }, tech:{ label:'Falta técnica', icon:'fa-triangle-exclamation' },
+  setend: { icon:'fa-flag-checkered' }, info:{ icon:'fa-circle-info' }, start:{ icon:'fa-play' }, end:{ icon:'fa-flag-checkered' }
+};
+const ROUND_NAMES = ['Quartas de final', 'Semifinais', 'Final'];
+const ROUND_SHORT = ['QF', 'SF', 'F'];
+const DEMO_TEAMS = [
+  ['Raio FC','Vila Nova',1860], ['Trovão EC','Centro',1790], ['Fênix Esporte','Vila Nova',1735], ['Dragões do Norte','Zona Norte',1820],
+  ['Lobos United','Centro',1680], ['Titãs da Várzea','Zona Sul',1710], ['Atlético Cometa','Zona Norte',1650], ['Real Aurora','Zona Sul',1775]
+];
+const FIRST_NAMES = ['Lucas','Mateus','Gabriel','Rafael','Bruno','Thiago','Felipe','Diego','André','Caio','Vitor','Igor','Renan','Pedro','Nathan','Otávio','Leandro','Murilo','Davi','Enzo','Heitor','Samuel','Danilo'];
+const LAST_NAMES = ['Silva','Souza','Oliveira','Santos','Pereira','Lima','Costa','Ribeiro','Almeida','Carvalho','Gomes','Martins','Rocha','Barros','Moreira'];
+
+/* ============ State ============ */
+const state = {
+  id: 'AM-2026-9843',
+  name: 'Copa ArenaMaster Verão 2026',
+  date: '2026-11-14',
+  sport: 'futebol',
+  type: 'amador',
+  teams: DEMO_TEAMS.map((t, i) => ({ id: 't' + (i + 1), name: t[0], group: t[1], rating: t[2], hue: hash(t[0]) % 360 })),
+  waitlist: [],
+  bracket: null, playins: [], drawInfo: null, champion: null,
+  donations: { total: 0, count: 0 },
+  stats: { faceOk: 142, blocked: 9 },
+  regSeries: [1, 2, 4, 5, 6, 7, 8],
+  flyer: { theme: 'cyan', format: 'feed', seed: 7, tagline: 0 }
+};
+const team = id => state.teams.find(t => t.id === id) || state.waitlist.find(t => t.id === id) || null;
+const sp = () => SPORTS[state.sport];
+const weightedWinner = (a, b) => Math.random() < 1 / (1 + Math.pow(10, (b.rating - a.rating) / 400)) ? 'a' : 'b';
+function genScore(){
+  switch (state.sport){
+    case 'futebol': { const w = 1 + rnd(4); return [w, rnd(w)]; }
+    case 'futsal':  { const w = 2 + rnd(6); return [w, rnd(w)]; }
+    case 'volei':   return [3, rnd(3)];
+    default:        { const w = 68 + rnd(33); return [w, w - (2 + rnd(17))]; }
+  }
+}
+
+/* ============ Toast / dialogs ============ */
+const TOAST_ICON = { success:'fa-circle-check', error:'fa-circle-xmark', warn:'fa-triangle-exclamation', info:'fa-circle-info' };
+function toast(msg, { type = 'info', action = null, ms = 4500 } = {}){
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.innerHTML = `<i class="fa-solid ${TOAST_ICON[type]}" aria-hidden="true"></i><span></span>`;
+  $('span', el).textContent = msg;
+  let t;
+  const remove = () => { clearTimeout(t); el.classList.add('out'); setTimeout(() => el.remove(), 220); };
+  if (action){
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'toast-action'; b.textContent = action.label;
+    b.addEventListener('click', () => { action.fn(); remove(); }); el.append(b);
+  }
+  $('#toasts').append(el);
+  t = setTimeout(remove, ms);
+}
+function confirmDialog({ title, text, ok = 'Confirmar', danger = false }){
+  return new Promise(res => {
+    const d = $('#confirmDialog');
+    $('#cfTitle').textContent = title; $('#cfText').textContent = text;
+    const b = $('#cfOk'); b.textContent = ok; b.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
+    d.returnValue = '';
+    d.addEventListener('close', () => res(d.returnValue === 'ok'), { once: true });
+    d.showModal();
+  });
+}
+document.addEventListener('click', e => {
+  const c = e.target.closest('[data-close]'); if (c) c.closest('dialog').close();
+  if (e.target.tagName === 'DIALOG' && e.target.id !== 'faceDialog') e.target.close();
+});
+
+/* ============ Navigation / scroll-spy ============ */
+function initNav(){
+  const links = $$('.mainnav a');
+  const map = new Map(links.map(a => [a.getAttribute('href').slice(1), a]));
+  const io = new IntersectionObserver(es => {
+    es.forEach(e => { if (e.isIntersecting){ links.forEach(l => l.removeAttribute('aria-current')); map.get(e.target.id)?.setAttribute('aria-current', 'true'); } });
+  }, { rootMargin: '-35% 0px -60% 0px' });
+  map.forEach((_, id) => { const s = document.getElementById(id); if (s) io.observe(s); });
+}
+
+/* ============ Dashboard ============ */
+function phaseText(){
+  if (state.champion) return ['Torneio finalizado', 'fa-trophy', 'ok'];
+  if (state.bracket && state.bracket.flat().some(m => m.win)) return ['Em andamento', 'fa-bolt', 'warn'];
+  if (state.bracket) return ['Chaveamento definido', 'fa-sitemap', 'info'];
+  return ['Inscrições abertas', 'fa-door-open', 'info'];
+}
+function renderPhase(){
+  const [t, i, c] = phaseText(); const b = $('#phaseBadge');
+  b.className = 'badge ' + c; b.innerHTML = `<i class="fa-solid ${i}" aria-hidden="true"></i> ${t}`;
+}
+function renderKPIs(){
+  $('#kpiTeams').textContent = state.teams.length;
+  $('#kpiTeamsSub').textContent = state.waitlist.length ? `+${state.waitlist.length} na lista de espera` : 'vagas da chave principal';
+  const done = state.bracket ? state.bracket.flat().filter(m => m.win).length : 0;
+  $('#kpiMatches').textContent = `${done}/7`;
+  $('#kpiFace').textContent = fmtNum.format(state.stats.faceOk);
+  $('#kpiBlocked').textContent = fmtNum.format(state.stats.blocked);
+  $('#kpiDonation').textContent = fmtBRL.format(state.donations.total);
+  $('#kpiDonationSub').textContent = state.donations.count ? `${state.donations.count} re-inscrição(ões)` : 'nenhuma doação ainda';
+  $('#donTotal').textContent = fmtBRL.format(state.donations.total);
+}
+function renderSportGrid(){
+  const g = $('#sportGrid');
+  g.innerHTML = Object.entries(SPORTS).map(([k, s]) => `
+    <div><input type="radio" name="sport" id="sp-${k}" value="${k}" ${k === state.sport ? 'checked' : ''}>
+    <label for="sp-${k}"><span class="ico"><i class="fa-solid ${s.icon}" aria-hidden="true"></i></span><span><span class="t">${s.label}</span><span class="d">${s.sub}</span></span></label></div>`).join('');
+  g.addEventListener('change', async e => {
+    if (e.target.name !== 'sport') return;
+    const next = e.target.value;
+    if (state.bracket && state.bracket.flat().some(m => m.win)){
+      const ok = await confirmDialog({ title: 'Trocar modalidade?', text: 'Há resultados lançados no chaveamento. Trocar a modalidade reinicia a demonstração do torneio.', ok: 'Trocar e reiniciar', danger: true });
+      if (!ok){ $('#sp-' + state.sport).checked = true; return; }
+      await resetTournament(true);
+    }
+    setSport(next);
+  });
+}
+function setSport(key){
+  state.sport = key;
+  renderCaptainStatic(); renderRoster(); buildEventSelects(); loadFixtures(true);
+  updateCharts(); renderBracket(); scheduleFlyer();
+  toast(`Modalidade alterada para ${sp().label}.`, { type: 'info', ms: 2500 });
+}
+
+let regChart = null, perfChart = null;
+const PERF = {
+  futebol:{ data:[2.6, 2.1, 1.8], title:'Média projetada de gols por fase', col:'Gols/jogo' },
+  futsal:{ data:[5.2, 4.4, 3.9], title:'Média projetada de gols por fase', col:'Gols/jogo' },
+  volei:{ data:[22.4, 21.7, 23.1], title:'Média projetada de pontos por set', col:'Pontos/set' },
+  basquete:{ data:[78, 74, 81], title:'Média projetada de pontos por equipe', col:'Pontos/equipe' }
+};
+function lastDays(n){ const out = []; for (let i = n - 1; i >= 0; i--){ const d = new Date(); d.setDate(d.getDate() - i); out.push(d.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' })); } return out; }
+function initCharts(){
+  const labels = lastDays(7);
+  if (!window.Chart){ $$('.chart-box').forEach(b => b.classList.add('no-chart')); renderChartTables(); return; }
+  Chart.defaults.font.family = "'Chakra Petch', sans-serif";
+  Chart.defaults.color = '#9fb0cc';
+  Chart.defaults.animation = reduced.matches ? false : { duration: 700 };
+  const grid = { color: 'rgb(51 72 111 / .35)' };
+  const tip = { backgroundColor:'#0e1627', borderColor:'#33486f', borderWidth:1, titleColor:'#e8eef9', bodyColor:'#e8eef9', padding:10 };
+  const c1 = $('#chartReg').getContext('2d');
+  const g = c1.createLinearGradient(0, 0, 0, 250); g.addColorStop(0, 'rgb(0 229 255 / .35)'); g.addColorStop(1, 'rgb(0 229 255 / 0)');
+  regChart = new Chart(c1, { type:'line', data:{ labels, datasets:[{ label:'Equipes inscritas', data:state.regSeries, borderColor:'#00e5ff', backgroundColor:g, fill:true, tension:.35, pointRadius:4, pointHoverRadius:7, pointBackgroundColor:'#00e5ff', borderWidth:2.5 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false }, tooltip:tip }, scales:{ x:{ grid:{ display:false } }, y:{ beginAtZero:true, grid, ticks:{ precision:0 } } } } });
+  perfChart = new Chart($('#chartPerf').getContext('2d'), { type:'bar', data:{ labels:['Quartas', 'Semifinal', 'Final'], datasets:[{ label:PERF.futebol.col, data:PERF.futebol.data, backgroundColor:['#2563eb', '#00b8d4', '#00e5ff'], borderRadius:8, maxBarThickness:64 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false }, tooltip:tip }, scales:{ x:{ grid:{ display:false } }, y:{ beginAtZero:true, grid } } } });
+  renderChartTables();
+}
+function updateCharts(){
+  const p = PERF[state.sport];
+  $('#perfTitle').textContent = p.title;
+  if (perfChart){ perfChart.data.datasets[0].data = p.data; perfChart.data.datasets[0].label = p.col; perfChart.update(); }
+  if (regChart){ regChart.data.datasets[0].data = state.regSeries; regChart.update(); }
+  renderChartTables();
+}
+function renderChartTables(){
+  const labels = lastDays(7);
+  $('#regTable').innerHTML = labels.map((l, i) => `<tr><td>${l}</td><td class="num">${state.regSeries[i]}</td></tr>`).join('');
+  const p = PERF[state.sport];
+  $('#perfCol').textContent = p.col;
+  $('#perfTable').innerHTML = ['Quartas', 'Semifinal', 'Final'].map((l, i) => `<tr><td>${l}</td><td class="num">${String(p.data[i]).replace('.', ',')}</td></tr>`).join('');
+}
+
+/* ============ Captain area ============ */
+const cap = { players: [], emblemUrl: null, doc: null, editing: null, pid: 0 };
+const isOfficial = () => state.type === 'oficial';
+
+function validCPF(v){
+  const d = v.replace(/\D/g, ''); if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false;
+  const dv = n => { let s = 0; for (let i = 0; i < n; i++) s += +d[i] * (n + 1 - i); return (s * 10) % 11 % 10; };
+  return dv(9) === +d[9] && dv(10) === +d[10];
+}
+function maskCPF(v){ const d = v.replace(/\D/g, '').slice(0, 11); return d.replace(/^(\d{3})(\d)/, '$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1-$2'); }
+function genCPF(){
+  let n; do { n = Array.from({ length: 9 }, () => rnd(10)); } while (n.every(x => x === n[0]));
+  const dv = a => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * (a.length + 1 - i); return (s * 10) % 11 % 10; };
+  const d1 = dv(n), d2 = dv([...n, d1]); return maskCPF([...n, d1, d2].join(''));
+}
+function fieldErr(wrapId, msg){
+  const w = $('#' + wrapId); if (!w) return;
+  w.classList.toggle('has-error', !!msg);
+  const inp = $('input,select', w); if (inp) inp.setAttribute('aria-invalid', msg ? 'true' : 'false');
+  const e = $('.field-error', w); if (e) $('span', e).textContent = msg || '';
+}
+function renderCaptainStatic(){
+  const s = sp();
+  $('#rosterHint').textContent = s.rosterHint;
+  $('#rosterCount').textContent = `${cap.players.length}/${s.min}`;
+}
+function setType(t){
+  state.type = t;
+  $('#officialBanner').hidden = t !== 'oficial';
+  $('#playerOfficial').hidden = t !== 'oficial';
+  if (t === 'oficial'){ $('#officialBanner').classList.add('reveal-in'); $('#playerOfficial').classList.add('reveal-in'); }
+  renderRoster(); scheduleFlyer();
+}
+function faceChip(p){
+  if (!p.face) return '<span class="badge"><i class="fa-solid fa-face-meh-blank" aria-hidden="true"></i> FaceMatch pendente</span>';
+  if (p.face.status === 'ok') return `<span class="badge ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> FaceMatch ${p.face.score}%</span>`;
+  return `<span class="badge warn"><i class="fa-solid fa-eye" aria-hidden="true"></i> Revisão manual ${p.face.score}%</span>`;
+}
+function docChip(p){
+  if (!isOfficial()) return '';
+  return p.cpf && p.rg && p.doc
+    ? '<span class="badge ok"><i class="fa-solid fa-file-circle-check" aria-hidden="true"></i> Documentos OK</span>'
+    : '<span class="badge bad"><i class="fa-solid fa-file-circle-exclamation" aria-hidden="true"></i> Documentos pendentes</span>';
+}
+function renderRoster(){
+  const s = sp(), list = $('#playerList');
+  $('#rosterCount').textContent = `${cap.players.length}/${s.min}`;
+  $('#rosterBar').style.width = clamp(cap.players.length / s.min * 100, 0, 100) + '%';
+  if (!cap.players.length){
+    list.innerHTML = `<li class="empty"><i class="fa-solid fa-people-group" aria-hidden="true"></i><span>Nenhum atleta ainda. Adicione jogadores acima ou use o elenco de exemplo.</span></li>`; return;
+  }
+  list.innerHTML = cap.players.map(p => `
+    <li class="player" data-id="${p.id}">
+      <span class="jersey num" aria-hidden="true">${p.number}</span>
+      <div class="p-main"><div class="p-name">${esc(p.name)} <span class="sr-only">camisa ${p.number}</span></div>
+        <div class="p-meta">${docChip(p)}${faceChip(p)}${isOfficial() && p.cpf ? `<span class="badge"><i class="fa-regular fa-id-card" aria-hidden="true"></i> ${esc(p.cpf)}</span>` : ''}</div></div>
+      <div class="p-act">
+        <button type="button" class="btn btn-sm" data-act="face"><i class="fa-solid fa-camera-retro" aria-hidden="true"></i> FaceMatch<span class="sr-only"> de ${esc(p.name)}</span></button>
+        <button type="button" class="btn btn-sm btn-ghost" data-act="edit"><i class="fa-solid fa-pen" aria-hidden="true"></i> Editar<span class="sr-only"> ${esc(p.name)}</span></button>
+        <button type="button" class="btn btn-sm btn-ghost" data-act="del"><i class="fa-solid fa-trash-can" aria-hidden="true"></i> Remover<span class="sr-only"> ${esc(p.name)}</span></button>
+      </div>
+    </li>`).join('');
+}
+function clearPlayerForm(){
+  ['pName', 'pNumber', 'pCpf', 'pRg'].forEach(id => $('#' + id).value = '');
+  $('#pDoc').value = ''; cap.doc = null; $('#docName').textContent = 'Selecionar PDF · até 5 MB';
+  ['f-pname', 'f-pnum', 'f-pcpf', 'f-prg', 'f-pdoc'].forEach(id => fieldErr(id, ''));
+  cap.editing = null; $('#addPlayer').innerHTML = '<i class="fa-solid fa-user-plus" aria-hidden="true"></i> Adicionar ao elenco';
+}
+function addPlayer(){
+  const s = sp(); let ok = true;
+  const name = $('#pName').value.trim().replace(/\s+/g, ' ');
+  const numRaw = $('#pNumber').value.trim(); const num = Number(numRaw);
+  const cpf = $('#pCpf').value.trim(), rg = $('#pRg').value.trim();
+  let first = null;
+  const bad = (w, m, el) => { fieldErr(w, m); ok = false; first = first || el; };
+  fieldErr('f-pname', ''); fieldErr('f-pnum', ''); fieldErr('f-pcpf', ''); fieldErr('f-prg', ''); fieldErr('f-pdoc', '');
+  if (name.length < 3) bad('f-pname', 'Informe o nome completo do atleta (mínimo 3 letras).', $('#pName'));
+  if (numRaw === '' || !Number.isInteger(num) || num < 0 || num > 99) bad('f-pnum', 'Use um número de camisa entre 0 e 99.', $('#pNumber'));
+  else if (cap.players.some(p => p.number === num && p.id !== cap.editing)) bad('f-pnum', `A camisa ${num} já está em uso neste elenco.`, $('#pNumber'));
+  if (cap.players.length >= s.max && cap.editing === null){ toast(`Limite de ${s.max} atletas atingido para ${s.label}.`, { type: 'warn' }); return; }
+  let doc = cap.doc;
+  if (isOfficial()){
+    if (!validCPF(cpf)) bad('f-pcpf', 'CPF inválido. Confira os 11 dígitos.', $('#pCpf'));
+    else if (cap.players.some(p => p.cpf === cpf && p.id !== cap.editing)) bad('f-pcpf', 'Este CPF já foi cadastrado em outro atleta do elenco.', $('#pCpf'));
+    if (rg.replace(/[^0-9a-z]/gi, '').length < 5) bad('f-prg', 'Informe o RG com ao menos 5 caracteres.', $('#pRg'));
+    if (!doc) bad('f-pdoc', 'Anexe o documento de identidade em PDF.', $('#pDoc'));
+  }
+  if (!ok){ first?.focus(); return; }
+  const prev = cap.editing !== null ? cap.players.find(p => p.id === cap.editing) : null;
+  const player = { id: prev ? prev.id : ++cap.pid, name, number: num, cpf: isOfficial() ? cpf : (prev?.cpf || ''), rg: isOfficial() ? rg : (prev?.rg || ''), doc: doc || prev?.doc || null, face: prev && prev.name === name ? prev.face : null };
+  if (prev) Object.assign(prev, player); else cap.players.push(player);
+  cap.players.sort((a, b) => a.number - b.number);
+  clearPlayerForm(); renderRoster(); $('#pName').focus();
+  toast(`${name} ${prev ? 'atualizado' : 'adicionado ao elenco'}.`, { type: 'success', ms: 2500 });
+}
+function demoRoster(){
+  const s = sp(); const used = new Set(cap.players.map(p => p.number)); const usedCpf = new Set(cap.players.map(p => p.cpf));
+  const nums = shuffle(Array.from({ length: 30 }, (_, i) => i + 1)).filter(n => !used.has(n));
+  let added = 0;
+  while (cap.players.length < s.min + 1 && cap.players.length < s.max){
+    const name = `${FIRST_NAMES[rnd(FIRST_NAMES.length)]} ${LAST_NAMES[rnd(LAST_NAMES.length)]}`;
+    let cpf = genCPF(); while (usedCpf.has(cpf)) cpf = genCPF(); usedCpf.add(cpf);
+    cap.players.push({ id: ++cap.pid, name, number: nums.pop(), cpf, rg: String(10 + rnd(89)) + '.' + (100 + rnd(899)) + '.' + (100 + rnd(899)), doc: { name: 'identidade-' + cap.pid + '.pdf', simulated: true }, face: null });
+    added++;
+  }
+  cap.players.sort((a, b) => a.number - b.number);
+  if (!$('#teamName').value.trim()) $('#teamName').value = 'Tigres do Bairro';
+  if (!$('#teamOrigin').value.trim()) $('#teamOrigin').value = 'Bairro Esperança';
+  renderRoster();
+  toast(added ? `${added} atletas de exemplo adicionados (documentos simulados).` : 'O elenco já está completo.', { type: added ? 'success' : 'info' });
+}
+function handleEmblem(file){
+  const msg = $('#e-emblem'); msg.style.display = 'none';
+  if (!file) return;
+  if (!/^image\/(png|jpeg|webp|svg\+xml)$/.test(file.type)){ $('span', msg).textContent = 'Formato não aceito. Use PNG, JPG, WEBP ou SVG.'; msg.style.display = 'flex'; return; }
+  if (file.size > 2 * 1024 * 1024){ $('span', msg).textContent = 'Arquivo acima de 2 MB. Comprima a imagem e tente de novo.'; msg.style.display = 'flex'; return; }
+  if (cap.emblemUrl) URL.revokeObjectURL(cap.emblemUrl);
+  cap.emblemUrl = URL.createObjectURL(file);
+  $('#emblemPrev').innerHTML = `<img src="${cap.emblemUrl}" alt="Prévia do emblema">`;
+  $('#emblemTxt').textContent = file.name; $('#emblemHint').textContent = 'Emblema carregado · clique para trocar';
+}
+function handleDoc(file){
+  fieldErr('f-pdoc', '');
+  if (!file){ cap.doc = null; $('#docName').textContent = 'Selecionar PDF · até 5 MB'; return; }
+  if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)){ fieldErr('f-pdoc', 'Envie o documento em formato PDF.'); $('#pDoc').value = ''; cap.doc = null; return; }
+  if (file.size > 5 * 1024 * 1024){ fieldErr('f-pdoc', 'O PDF excede 5 MB.'); $('#pDoc').value = ''; cap.doc = null; return; }
+  cap.doc = { name: file.name, size: file.size }; $('#docName').textContent = file.name;
+}
+function renderRegistered(){
+  const all = [...state.teams.map(t => ({ t, st: 'Confirmado', cls: 'ok' })), ...state.waitlist.map(t => ({ t, st: t.status, cls: 'warn' }))];
+  $('#regSummary').textContent = `${state.teams.length} confirmados na chave principal · ${state.waitlist.length} aguardando vaga.`;
+  $('#regList').innerHTML = all.map(({ t, st, cls }) => `
+    <div class="reg">${embHTML(t, 'md')}<div class="r-main"><div class="r-name">${esc(t.name)}</div><div class="r-sub">${esc(t.group || 'Sem grupo')}${t.official ? ' · Oficial' : ''}</div></div><span class="badge ${cls}">${esc(st)}</span></div>`).join('');
+}
+function showFormErrors(errs){
+  const box = $('#formErrors');
+  if (!errs.length){ box.hidden = true; box.innerHTML = ''; return; }
+  box.hidden = false;
+  box.innerHTML = `<h4><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Corrija ${errs.length} ${errs.length > 1 ? 'pendências' : 'pendência'} para enviar:</h4><ul>${errs.map(e => `<li>${e.el ? `<a href="#${e.el}" data-focus="${e.el}">${esc(e.msg)}</a>` : esc(e.msg)}</li>`).join('')}</ul>`;
+  box.focus();
+}
+async function submitTeam(ev){
+  ev.preventDefault();
+  const s = sp(), errs = [];
+  const name = $('#teamName').value.trim().replace(/\s+/g, ' ');
+  fieldErr('f-team', '');
+  if (name.length < 3){ fieldErr('f-team', 'Informe o nome do time (mínimo 3 letras).'); errs.push({ msg: 'Informe o nome do time.', el: 'teamName' }); }
+  else if ([...state.teams, ...state.waitlist].some(t => t.name.toLowerCase() === name.toLowerCase())){ fieldErr('f-team', 'Já existe um time com este nome no torneio.'); errs.push({ msg: 'Já existe um time com este nome.', el: 'teamName' }); }
+  if (cap.players.length < s.min) errs.push({ msg: `O elenco precisa de ao menos ${s.min} atletas (faltam ${s.min - cap.players.length}).`, el: 'pName' });
+  if (isOfficial()){
+    const miss = cap.players.filter(p => !(p.cpf && p.rg && p.doc));
+    if (miss.length) errs.push({ msg: `${miss.length} atleta(s) sem CPF, RG ou PDF do documento: ${miss.slice(0, 3).map(p => p.name).join(', ')}${miss.length > 3 ? '…' : ''}.`, el: 'playerList' });
+    const nf = cap.players.filter(p => !p.face || p.face.status !== 'ok');
+    if (nf.length) errs.push({ msg: `${nf.length} atleta(s) sem FaceMatch aprovado. Torneios oficiais exigem validação biométrica.`, el: 'faceAll' });
+  }
+  showFormErrors(errs);
+  if (errs.length) return;
+  const btn = $('#submitTeam'); setBtnLoading(btn, true);
+  await sleep(1300);
+  const t = { id: 'u' + Date.now(), name, group: $('#teamOrigin').value.trim() || 'Independente', rating: 1500 + rnd(250), hue: hash(name) % 360, emblemUrl: cap.emblemUrl, status: isOfficial() ? 'Em análise' : 'Aguardando vaga', official: isOfficial(), players: cap.players.length };
+  state.waitlist.push(t);
+  state.regSeries[6] += 1; if (regChart) updateCharts();
+  cap.emblemUrl = null; cap.players = []; $('#teamName').value = ''; $('#teamOrigin').value = '';
+  $('#emblemPrev').innerHTML = '<i class="fa-solid fa-shield-halved" aria-hidden="true"></i>'; $('#emblemTxt').textContent = 'Enviar emblema'; $('#emblemHint').textContent = 'PNG, JPG, WEBP ou SVG · até 2 MB · arraste ou clique';
+  $('#emblemInput').value = ''; clearPlayerForm();
+  setBtnLoading(btn, false); renderRoster(); renderRegistered(); renderKPIs();
+  toast(`Inscrição de "${name}" enviada! A chave principal já está completa, então o time entrou na lista de espera.`, { type: 'success', ms: 6000 });
+  $('#regList').scrollIntoView({ block: 'nearest', behavior: reduced.matches ? 'auto' : 'smooth' });
+}
+
+/* ---- FaceMatch ---- */
+let faceAbort = null;
+const FACE_STEPS = [
+  ['fa-expand', 'Detectando rosto e enquadramento'],
+  ['fa-eye', 'Teste de vivacidade (anti-foto e anti-vídeo)'],
+  ['fa-fingerprint', 'Extraindo vetor facial (128 dimensões)'],
+  ['fa-id-card', null],
+  ['fa-users-viewfinder', 'Checando duplicidade entre todas as equipes']
+];
+async function runFaceMatch(players){
+  if (!players.length){ toast('Adicione atletas antes de rodar o FaceMatch.', { type: 'warn' }); return; }
+  const dlg = $('#faceDialog'), box = $('#scanBox'), steps = $('#faceSteps'), res = $('#faceResult'), who = $('#faceWho'), close = $('#faceClose');
+  const token = { cancelled: false }; faceAbort = token;
+  res.innerHTML = ''; box.className = 'scan running'; close.textContent = 'Cancelar';
+  dlg.showModal();
+  const quick = players.length > 1; let ok = 0, rev = 0;
+  for (let i = 0; i < players.length; i++){
+    const p = players[i];
+    who.textContent = players.length > 1 ? `Atleta ${i + 1} de ${players.length}: ${p.name} (camisa ${p.number})` : `Atleta: ${p.name} (camisa ${p.number})`;
+    steps.innerHTML = FACE_STEPS.map((s, k) => `<li data-k="${k}"><i class="fa-solid ${s[0]}" aria-hidden="true"></i><span>${k === 3 ? (isOfficial() ? 'Comparando com a foto do documento (PDF)' : 'Comparando com a foto do cadastro') : s[1]}</span></li>`).join('');
+    box.className = 'scan running';
+    for (let k = 0; k < FACE_STEPS.length; k++){
+      const li = $(`li[data-k="${k}"]`, steps); li.className = 'active';
+      await sleep(quick ? 260 : 700 + rnd(300)); if (token.cancelled) return;
+      li.className = 'done'; $('i', li).className = 'fa-solid fa-circle-check';
+    }
+    const h = hash(p.name + p.number);
+    const flagged = h % 6 === 0;
+    const score = flagged ? 56 + h % 16 : 80 + h % 20;
+    p.face = { status: flagged ? 'review' : 'ok', score };
+    if (flagged){ rev++; state.stats.blocked++; } else { ok++; state.stats.faceOk++; }
+    box.className = 'scan ' + (flagged ? 'review' : 'ok');
+    renderRoster(); renderKPIs();
+    if (i < players.length - 1) await sleep(quick ? 350 : 0);
+  }
+  close.textContent = 'Fechar';
+  res.innerHTML = players.length === 1
+    ? (players[0].face.status === 'ok'
+      ? `<div class="verdict ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><div><strong>Identidade confirmada · similaridade ${players[0].face.score}%</strong><p class="small muted">Vivacidade aprovada e nenhum registro duplicado em outras equipes.</p></div></div>`
+      : `<div class="verdict review"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><div><strong>Divergência detectada · similaridade ${players[0].face.score}%</strong><p class="small muted">Possível irregularidade. O atleta ficou bloqueado e foi encaminhado para revisão manual do organizador.</p></div></div>`)
+    : `<div class="verdict ${rev ? 'review' : 'ok'}"><i class="fa-solid ${rev ? 'fa-triangle-exclamation' : 'fa-circle-check'}" aria-hidden="true"></i><div><strong>${ok} aprovado(s) · ${rev} em revisão manual</strong><p class="small muted">${rev ? 'Atletas em revisão ficam bloqueados até a aprovação do organizador.' : 'Todo o elenco foi validado com sucesso.'}</p></div></div>`;
+}
+$('#faceDialog').addEventListener('close', () => { if (faceAbort) faceAbort.cancelled = true; });
+
+/* ============ Live manager ============ */
+const live = { key: null, a: null, b: null, min: 0, set: 1, sets: { a: 0, b: 0 }, running: false, over: false, events: [], timer: null, eid: 0 };
+const liveTeam = side => team(side === 'a' ? live.a : live.b);
+const evGoal = () => sp().mode === 'sets' ? 'Ponto' : sp().unit === 'Gol' ? 'Gol' : 'Ponto';
+function scoreOf(side){ return live.events.filter(e => e.type === 'goal' && e.team === side && e.set === live.set).reduce((s, e) => s + (e.pts || 1), 0); }
+function totalScore(side){ return sp().mode === 'sets' ? live.sets[side] : scoreOf(side); }
+function evLabel(type){ return type === 'goal' ? (state.sport === 'basquete' ? 'Cesta' : evGoal()) : EV_TYPES[type].label; }
+function fixtures(){
+  const out = [], B = state.bracket;
+  if (B){
+    B.forEach((round, r) => round.forEach((m, j) => { if (m.a && m.b && !m.win) out.push({ key: `${r}-${j}`, a: m.a, b: m.b, label: `${ROUND_NAMES[r]} · ${matchLabel(r, j)}`, blocked: isBlocked(r, j) }); }));
+  } else {
+    for (let i = 0; i < 8; i += 2) out.push({ key: `pre-${i / 2}`, a: state.teams[i].id, b: state.teams[i + 1].id, label: `Jogo-teste ${i / 2 + 1}` });
+  }
+  return out;
+}
+function loadFixtures(forceReload = false){
+  const fx = fixtures(), sel = $('#liveMatch');
+  sel.innerHTML = fx.length ? fx.map(f => `<option value="${f.key}" ${f.blocked ? 'disabled' : ''}>${esc(f.label)}: ${esc(team(f.a).name)} × ${esc(team(f.b).name)}${f.blocked ? ' (aguardando play-in)' : ''}</option>`).join('') : '<option value="">Nenhuma partida disponível</option>';
+  const cur = fx.find(f => f.key === live.key && !f.blocked);
+  if (cur && !forceReload){ sel.value = live.key; renderLive(); return; }
+  const pick = cur || fx.find(f => !f.blocked);
+  if (pick){ sel.value = pick.key; startLive(pick); } else { stopClock(); live.key = null; live.a = live.b = null; live.events = []; renderLive(); }
+}
+function seedLive(){
+  const s = state.sport; live.events = [];
+  const ev = (min, type, team, num, pts = 1, text, set = 1) => live.events.push({ id: ++live.eid, min, type, team, num, pts, text, set });
+  if (s === 'futebol'){ ev(12, 'goal', 'a', 9); ev(27, 'yellow', 'b', 5); ev(34, 'goal', 'b', 10); live.min = 38; }
+  else if (s === 'futsal'){ ev(6, 'goal', 'a', 7); ev(11, 'foul', 'b', 4); ev(15, 'goal', 'b', 10); ev(18, 'goal', 'a', 9); live.min = 19; }
+  else if (s === 'basquete'){ [['a', 2], ['b', 3], ['a', 2], ['a', 3], ['b', 2], ['b', 2], ['a', 2], ['b', 3]].forEach((x, i) => ev(i * 2 + 1, 'goal', x[0], 4 + rnd(10), x[1])); ev(9, 'foul', 'b', 6); live.min = 14; }
+  else { live.sets = { a: 1, b: 0 }; live.set = 2; ev(1, 'setend', null, null, 0, 'Set 1: 25 × 21 para ' + (liveTeam('a')?.name || 'Mandante'), 1);
+    for (let i = 0; i < 8; i++) ev(2, 'goal', 'a', 3 + rnd(9), 1, '', 2); for (let i = 0; i < 6; i++) ev(2, 'goal', 'b', 3 + rnd(9), 1, '', 2);
+    live.events = live.events.slice(0, 1).concat(shuffle(live.events.slice(1))); }
+}
+function startLive(f){
+  stopClock();
+  Object.assign(live, { key: f.key, a: f.a, b: f.b, min: 0, set: 1, sets: { a: 0, b: 0 }, running: false, over: false, events: [] });
+  if (f.key.startsWith('pre-')) seedLive();
+  else live.events.push({ id: ++live.eid, min: 0, type: 'start', team: null, text: 'Bola rolando! Partida criada pelo organizador.', set: 1 });
+  renderLive();
+}
+function renderLive(){
+  const has = !!live.key, s = sp();
+  const A = liveTeam('a'), B = liveTeam('b');
+  $('#sbA').innerHTML = has ? `${embHTML(A, 'lg')}<span class="nm">${esc(A.name)}</span>${A.repescada ? '<span class="tag-benef"><i class="fa-solid fa-heart" aria-hidden="true"></i> Repescada</span>' : ''}` : '<span class="nm muted">—</span>';
+  $('#sbB').innerHTML = has ? `${embHTML(B, 'lg')}<span class="nm">${esc(B.name)}</span>${B.repescada ? '<span class="tag-benef"><i class="fa-solid fa-heart" aria-hidden="true"></i> Repescada</span>' : ''}` : '<span class="nm muted">—</span>';
+  $('#scoreA').textContent = has ? scoreOf('a') : 0; $('#scoreB').textContent = has ? scoreOf('b') : 0;
+  $('#sbClock').textContent = !has ? 'Sem partida' : s.mode === 'sets' ? `Set ${Math.min(live.set, 5)}` : `${periodLabel()} · ${live.min}'`;
+  $('#sbSets').textContent = has && s.mode === 'sets' ? `Sets: ${live.sets.a} × ${live.sets.b}` : '';
+  const badge = $('#liveBadge'), on = live.running && !live.over;
+  badge.classList.toggle('off', !on); $('#liveBadgeTxt').textContent = live.over ? 'ENCERRADO' : on ? 'AO VIVO' : 'PAUSADO';
+  // controls
+  const incs = state.sport === 'basquete' ? [1, 2, 3] : [1];
+  const mk = (side, T) => has ? `<button type="button" class="btn btn-score" data-act="minus" data-side="${side}" aria-label="Remover último ${s.unit.toLowerCase()} de ${esc(T.name)}" ${live.over ? 'disabled' : ''}><i class="fa-solid fa-minus" aria-hidden="true"></i></button>` +
+    incs.map(n => `<button type="button" class="btn btn-score plus" data-act="plus" data-side="${side}" data-pts="${n}" aria-label="Adicionar ${n} ${n > 1 ? s.unitPl : s.unit.toLowerCase()} para ${esc(T.name)}" ${live.over ? 'disabled' : ''}>+${n}</button>`).join('') : '';
+  $('#ctrlA').innerHTML = mk('a', A || {}); $('#ctrlB').innerHTML = mk('b', B || {});
+  $('#btnClock').parentElement.querySelectorAll('#btnClock,#btnPlus5').forEach(b => b.hidden = s.mode === 'sets');
+  const bc = $('#btnClock'); bc.disabled = !has || live.over;
+  $('span', bc).textContent = live.running ? 'Pausar' : (live.min > 0 ? 'Retomar' : 'Iniciar jogo'); $('i', bc).className = 'fa-solid ' + (live.running ? 'fa-pause' : 'fa-play');
+  $('#btnPlus5').disabled = !has || live.over;
+  $('#btnUndo').disabled = !has || !live.events.length;
+  $('#btnFinalize').disabled = !has;
+  $('#evSubmit').disabled = !has || live.over;
+  // event selects
+  const tsel = $('#evTeam'), prev = tsel.value;
+  tsel.innerHTML = has ? `<option value="a">${esc(A.name)}</option><option value="b">${esc(B.name)}</option>` : '';
+  if (prev) tsel.value = prev;
+  $('#evPtsWrap').hidden = !(state.sport === 'basquete' && $('#evType').value === 'goal');
+  // timeline
+  const tl = $('#timeline');
+  tl.innerHTML = live.events.length ? live.events.slice().reverse().map(evItem).join('') : '<li class="empty"><i class="fa-solid fa-hourglass-start" aria-hidden="true"></i><span>Nenhum lance registrado ainda.</span></li>';
+  renderStreamOverlay();
+  $$('#bracket .match').forEach(m => m.classList.toggle('live', m.dataset.key === live.key && (live.running || live.events.length > 1)));
+}
+function periodLabel(){
+  const s = sp();
+  if (state.sport === 'basquete') return 'Q' + clamp(Math.ceil(Math.max(live.min, 1) / s.half), 1, 4);
+  return live.min <= s.half ? '1º tempo' : '2º tempo';
+}
+function evItem(e){
+  const T = e.team ? liveTeam(e.team) : null;
+  let ico, cls = '', title, sub = '';
+  if (e.type === 'goal'){ ico = `<i class="fa-solid ${sp().icon}" aria-hidden="true"></i>`; cls = 'goal'; title = state.sport === 'basquete' ? `Cesta de ${e.pts} ponto${e.pts > 1 ? 's' : ''}` : (evGoal() === 'Gol' ? 'GOL!' : 'Ponto'); }
+  else if (e.type === 'yellow'){ ico = '<span class="cardshape y"></span>'; cls = 'yellow'; title = 'Cartão amarelo'; }
+  else if (e.type === 'red'){ ico = '<span class="cardshape r"></span>'; cls = 'red'; title = 'Cartão vermelho'; }
+  else { const t = EV_TYPES[e.type]; ico = `<i class="fa-solid ${t.icon}" aria-hidden="true"></i>`; title = t.label || e.text; if (!t.label) title = e.text; }
+  if (T) sub = `${esc(T.name)}${e.num !== null && e.num !== undefined && e.num !== '' ? ` · camisa ${e.num}` : ''}`;
+  return `<li class="ev ${e.fresh ? 'ev-new' : ''}"><span class="m">${sp().mode === 'sets' ? 'S' + e.set : e.min + "'"}</span><span class="i ${cls}">${ico}</span><span class="tx"><b>${esc(title)}</b>${sub ? `<small>${sub}</small>` : ''}</span></li>`;
+}
+function pushEvent(o){
+  live.events.forEach(e => e.fresh = false);
+  live.events.push({ id: ++live.eid, min: live.min, set: live.set, fresh: true, ...o });
+}
+function addScore(side, pts){
+  if (live.over) return;
+  pushEvent({ type: 'goal', team: side, num: '', pts });
+  if (state.sport === 'volei'){
+    const sa = scoreOf('a'), sb = scoreOf('b'), target = live.set === 5 ? 15 : 25;
+    if (Math.max(sa, sb) >= target && Math.abs(sa - sb) >= 2){
+      const w = sa > sb ? 'a' : 'b'; live.sets[w]++;
+      pushEvent({ type: 'setend', team: null, text: `Set ${live.set}: ${sa} × ${sb} para ${liveTeam(w).name}` });
+      if (live.sets[w] === 3){ live.over = true; pushEvent({ type: 'end', team: null, text: `Fim de jogo: ${live.sets.a} × ${live.sets.b} em sets` }); toast(`Fim de jogo! ${liveTeam(w).name} vence por ${live.sets[w]} sets a ${live.sets[w === 'a' ? 'b' : 'a']}.`, { type: 'success' }); }
+      else live.set++;
+    }
+  }
+  renderLive();
+}
+function removeScore(side){
+  if (live.over) return;
+  const idx = [...live.events].reverse().findIndex(e => e.type === 'goal' && e.team === side && e.set === live.set);
+  if (idx < 0){ toast('Não há pontos para remover neste placar.', { type: 'warn', ms: 2500 }); return; }
+  live.events.splice(live.events.length - 1 - idx, 1); renderLive();
+}
+function undoLast(){
+  const last = live.events[live.events.length - 1]; if (!last) return;
+  if (['setend', 'end', 'start'].includes(last.type)){ toast('Esse tipo de evento não pode ser desfeito.', { type: 'warn' }); return; }
+  live.events.pop(); renderLive();
+}
+function tick(){
+  const s = sp(); live.min++;
+  if (live.min >= s.length){ live.min = s.length; live.over = true; stopClock(); pushEvent({ type: 'end', team: null, text: 'Fim de jogo' }); toast('Tempo regulamentar encerrado.', { type: 'info' }); }
+  else if (live.min === s.half && state.sport !== 'basquete'){ pushEvent({ type: 'info', team: null, text: 'Fim do 1º tempo' }); }
+  renderLive();
+}
+function stopClock(){ clearInterval(live.timer); live.timer = null; live.running = false; }
+function toggleClock(){
+  if (live.over || !live.key) return;
+  if (live.running){ stopClock(); } else {
+    if (live.min === 0 && !live.events.some(e => e.type === 'start')) pushEvent({ type: 'start', team: null, text: 'Bola rolando!' });
+    live.running = true; live.timer = setInterval(tick, 1000);
+  }
+  renderLive();
+}
+function buildEventSelects(){
+  $('#evType').innerHTML = sp().events.map(k => `<option value="${k}">${k === 'goal' ? (state.sport === 'basquete' ? 'Cesta' : evGoal()) : EV_TYPES[k].label}</option>`).join('');
+}
+function matchLabel(r, m){ return r === 2 ? 'Grande Final' : `${ROUND_SHORT[r]}${m + 1}`; }
+async function finalizeLive(){
+  if (!live.key) return;
+  if (live.key.startsWith('pre-')){ toast('Este é um jogo-teste. Execute o sorteio no chaveamento para lançar resultados oficiais.', { type: 'warn', ms: 5500 }); return; }
+  const [r, m] = live.key.split('-').map(Number), A = liveTeam('a'), B = liveTeam('b');
+  let sa = totalScore('a'), sb = totalScore('b'), note = '', side;
+  if (state.sport === 'volei' && !live.over){ toast('No vôlei, a partida só termina quando uma equipe vence 3 sets.', { type: 'warn' }); return; }
+  if (sa === sb){
+    side = weightedWinner(A, B);
+    if (state.sport === 'basquete'){ if (side === 'a') sa += 4; else sb += 4; note = 'Decidido na prorrogação'; }
+    else { const pw = 3 + rnd(3), pl = Math.max(0, pw - 1 - rnd(2)); note = `Decidido nos ${state.sport === 'volei' ? 'sets' : 'pênaltis'}: ${side === 'a' ? pw : pl} × ${side === 'a' ? pl : pw}`; }
+  } else side = sa > sb ? 'a' : 'b';
+  const ok = await confirmDialog({ title: 'Encerrar partida?', text: `${A.name} ${sa} × ${sb} ${B.name}${note ? ' — ' + note : ''}. O resultado será lançado no chaveamento.`, ok: 'Lançar resultado' });
+  if (!ok) return;
+  stopClock(); setWinner(r, m, side, sa, sb, note);
+  toast(`Resultado lançado: ${liveTeam(side).name} avança.`, { type: 'success' });
+  renderBracketAll(); loadFixtures(true);
+}
+
+/* ---- Stream ---- */
+let stream = null, viewerTimer = null;
+function parseStream(raw){
+  let u; try { u = new URL(raw.trim()); } catch { return { err: 'Link inválido. Cole o endereço completo, começando com https://' }; }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') return { err: 'Use um link http(s) do YouTube ou da Twitch.' };
+  const h = u.hostname.replace(/^www\.|^m\./, '');
+  if (h === 'youtube.com' || h === 'youtu.be'){
+    let id = h === 'youtu.be' ? u.pathname.slice(1) : (u.searchParams.get('v') || u.pathname.split('/').filter(Boolean).pop());
+    if (!id) return { err: 'Não encontramos o ID do vídeo neste link do YouTube.' };
+    return { url: u.href, platform: 'YouTube', icon: 'fa-brands fa-youtube', label: 'Vídeo ' + id.slice(0, 24) };
+  }
+  if (h === 'twitch.tv'){
+    const ch = u.pathname.split('/').filter(Boolean)[0];
+    if (!ch) return { err: 'Inclua o nome do canal da Twitch no link.' };
+    return { url: u.href, platform: 'Twitch', icon: 'fa-brands fa-twitch', label: 'Canal ' + ch.slice(0, 24) };
+  }
+  return { err: 'Aceitamos apenas links do YouTube (youtube.com, youtu.be) ou da Twitch (twitch.tv).' };
+}
+function connectStream(raw){
+  fieldErr('f-stream', '');
+  const r = parseStream(raw); if (r.err){ fieldErr('f-stream', r.err); $('#streamUrl').focus(); return; }
+  stream = { ...r, viewers: 120 + rnd(280) };
+  clearInterval(viewerTimer); viewerTimer = setInterval(() => { if (!stream) return; stream.viewers = Math.max(20, stream.viewers + rnd(23) - 8); const v = $('#viewers'); if (v) v.textContent = fmtNum.format(stream.viewers); }, 2500);
+  renderStream(); toast(`Transmissão do ${r.platform} conectada.`, { type: 'success' });
+}
+function renderStream(){
+  const area = $('#streamArea');
+  if (!stream){ area.innerHTML = `<div class="empty stream-empty"><i class="fa-solid fa-video-slash" aria-hidden="true"></i><span>Nenhuma transmissão conectada. Cole o link acima para exibir o card ao vivo.</span></div>`; return; }
+  area.innerHTML = `
+    <div class="stream-stage" aria-label="Prévia simulada da transmissão ao vivo">
+      <svg class="pitch" viewBox="0 0 160 90" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="#2dff9b" stroke-opacity=".5" stroke-width=".5"><rect x="6" y="6" width="148" height="78"/><path d="M80 6v78"/><circle cx="80" cy="45" r="11"/><rect x="6" y="26" width="18" height="38"/><rect x="136" y="26" width="18" height="38"/></g></svg>
+      <div class="tl"><span class="live-badge"><span class="dot"></span> LIVE</span></div>
+      <div class="vw"><i class="fa-solid fa-eye" aria-hidden="true"></i> <span id="viewers">${fmtNum.format(stream.viewers)}</span> assistindo</div>
+      <div class="bug" id="bug"></div>
+      <div class="plat"><i class="${stream.icon}" aria-hidden="true"></i> ${stream.platform}</div>
+    </div>
+    <div class="btn-row" style="margin-top:var(--sp-3);align-items:center;justify-content:space-between">
+      <span class="small muted"><i class="${stream.icon}" aria-hidden="true"></i> ${esc(stream.platform)} · ${esc(stream.label)}</span>
+      <span class="btn-row"><a class="btn btn-sm" href="${esc(stream.url)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Abrir transmissão</a>
+      <button type="button" class="btn btn-sm btn-ghost" id="streamStop"><i class="fa-solid fa-stop" aria-hidden="true"></i> Encerrar</button></span>
+    </div>`;
+  renderStreamOverlay();
+}
+function renderStreamOverlay(){
+  const bug = $('#bug'); if (!bug || !live.key) return;
+  const A = liveTeam('a'), B = liveTeam('b'); if (!A || !B) return;
+  bug.innerHTML = `<span>${esc(initials(A.name))}</span><span class="sc">${sp().mode === 'sets' ? live.sets.a + '(' + scoreOf('a') + ')' : scoreOf('a')} – ${sp().mode === 'sets' ? live.sets.b + '(' + scoreOf('b') + ')' : scoreOf('b')}</span><span>${esc(initials(B.name))}</span><span>${sp().mode === 'sets' ? 'Set ' + live.set : live.min + "'"}</span>`;
+}
+
+/* ============ Bracket ============ */
+const isBlocked = (r, m) => state.playins.some(p => p.status === 'pending' && p.r === r && p.m === m);
+const newBracket = () => [4, 2, 1].map((n, r) => Array.from({ length: n }, (_, m) => ({ r, m, a: null, b: null, sa: null, sb: null, win: null, note: '' })));
+function resetTeamFlags(){ [...state.teams, ...state.waitlist].forEach(t => { t.elim = null; t.repescada = false; t.noRepesc = false; }); }
+
+function runDrawAlgorithm(teams){
+  const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0, r = mulberry32(seed), N = 6000;
+  let best = null, valid = 0;
+  for (let i = 0; i < N; i++){
+    const p = shuffle(teams, r);
+    if ([0, 2, 4, 6].some(k => p[k].group === p[k + 1].group)) continue;
+    valid++;
+    const top = p[0].rating + p[1].rating + p[2].rating + p[3].rating, bot = p[4].rating + p[5].rating + p[6].rating + p[7].rating;
+    const gaps = [0, 2, 4, 6].map(k => Math.abs(p[k].rating - p[k + 1].rating)), gm = avg(gaps), sd = Math.sqrt(avg(gaps.map(g => (g - gm) ** 2)));
+    let same = 0; [[0, 4], [4, 8]].forEach(([a, b]) => { const g = p.slice(a, b).map(t => t.group); same += g.length - new Set(g).size; });
+    const cost = Math.abs(top - bot) + sd * 1.2 + same * 60;
+    if (!best || cost < best.cost) best = { p, cost, halfDiff: Math.abs(top - bot), sd, same };
+  }
+  const mean = avg(teams.map(t => t.rating));
+  const halfScore = Math.max(0, 1 - best.halfDiff / (mean * .25)), gapScore = Math.max(0, 1 - best.sd / 80);
+  return { perm: best.p, seed, tried: N, valid, halfDiff: best.halfDiff, balance: Math.round((.6 * halfScore + .4 * gapScore) * 1000) / 10 };
+}
+function fillBracket(perm){ const B = newBracket(); perm.forEach((t, i) => { B[0][i >> 1][i % 2 === 0 ? 'a' : 'b'] = t ? t.id : null; }); return B; }
+let drawing = false;
+async function runDraw(){
+  if (drawing) return;
+  if (state.bracket && state.bracket.flat().some(m => m.win)){ toast('O torneio já começou. Reinicie a demo para sortear novamente.', { type: 'warn' }); return; }
+  drawing = true;
+  const btn = $('#btnDraw'); btn.disabled = true; $('#btnSim').disabled = true;
+  const log = $('#drawLog'); log.innerHTML = ''; $('#drawMetrics').hidden = true;
+  const add = txt => { const li = document.createElement('li'); li.className = 'run'; li.innerHTML = '<i class="fa-solid fa-circle-notch" aria-hidden="true"></i><span></span>'; $('span', li).textContent = txt; log.append(li); log.scrollTop = log.scrollHeight; return li; };
+  const done = (li, txt) => { li.className = 'ok'; $('i', li).className = 'fa-solid fa-circle-check'; if (txt) $('span', li).textContent = txt; };
+  const pool = state.teams.slice(0, 8); resetTeamFlags(); state.playins = []; state.champion = null;
+  let li = add('Agente Auditor · mapeando clube/bairro de origem das equipes…'); await sleep(750);
+  done(li, `Agente Auditor · ${new Set(pool.map(t => t.group)).size} grupos de origem mapeados. Confrontos internos bloqueados na 1ª fase.`);
+  li = add('Agente Balanceador · calculando força relativa (rating ELO)…'); await sleep(750);
+  done(li, `Agente Balanceador · rating médio ${fmtNum.format(Math.round(avg(pool.map(t => t.rating))))} pts (amplitude ${Math.max(...pool.map(t => t.rating)) - Math.min(...pool.map(t => t.rating))}).`);
+  li = add('Agente Sorteador · avaliando 6.000 combinações com semente auditável…'); await sleep(900);
+  const res = runDrawAlgorithm(pool);
+  done(li, `Agente Sorteador · ${fmtNum.format(res.valid)} combinações válidas de ${fmtNum.format(res.tried)}. Melhor chave selecionada.`);
+  li = add('Publicando chaveamento…');
+  for (let step = 0; step <= 8; step++){
+    const rest = shuffle(res.perm.slice(step));
+    state.bracket = fillBracket([...res.perm.slice(0, step), ...rest]); renderBracketAll(); await sleep(step === 0 ? 650 : 140);
+  }
+  state.bracket = fillBracket(res.perm); state.drawInfo = res;
+  done(li, 'Chaveamento publicado e travado. Sorteio registrado para auditoria.');
+  $('#mBalance').textContent = res.balance.toString().replace('.', ',') + '%'; $('#mConf').textContent = '0'; $('#mTried').textContent = fmtNum.format(res.tried); $('#mSeed').textContent = '#' + res.seed.toString(16).toUpperCase().padStart(8, '0');
+  $('#drawMetrics').hidden = false;
+  btn.disabled = false; $('#btnSim').disabled = false; drawing = false;
+  $('span', btn).textContent = 'Refazer Sorteio via IA';
+  renderBracketAll(); loadFixtures(true);
+  toast(`Sorteio concluído · equilíbrio de ${res.balance.toString().replace('.', ',')}% e zero conflitos.`, { type: 'success' });
+}
+
+function setWinner(r, m, side, sa, sb, note = ''){
+  const B = state.bracket, mt = B[r][m]; mt.win = side; mt.sa = sa; mt.sb = sb; mt.note = note;
+  const w = team(side === 'a' ? mt.a : mt.b), l = team(side === 'a' ? mt.b : mt.a);
+  l.elim = { r, m, by: w.id };
+  if (r < 2) B[r + 1][m >> 1][m % 2 === 0 ? 'a' : 'b'] = w.id; else state.champion = w.id;
+}
+function resolvePlayin(p){
+  const ch = team(p.challenger), df = team(p.defender);
+  const side = weightedWinner(ch, df), [w, l] = genScore();
+  p.status = 'done'; p.sa = side === 'a' ? w : l; p.sb = side === 'a' ? l : w; p.win = side === 'a' ? ch.id : df.id;
+  if (side === 'a'){
+    state.bracket[p.r][p.m][p.side] = ch.id; ch.elim = null; df.elim = { r: p.r, m: p.m, by: ch.id, playin: true }; df.noRepesc = true;
+    toast(`Revanche: ${ch.name} venceu ${df.name} e voltou à tabela!`, { type: 'success' });
+  } else {
+    ch.elim = { ...(ch.elim || {}), playinLost: true };
+    toast(`Revanche: ${df.name} confirmou a vaga. ${ch.name} se despede com honra.`, { type: 'info' });
+  }
+}
+function simulatePhase(){
+  const B = state.bracket; if (!B) return;
+  state.playins.filter(p => p.status === 'pending').forEach(resolvePlayin);
+  const r = B.findIndex(rd => rd.some(m => !m.win)); if (r < 0) return;
+  B[r].forEach((m, j) => { if (m.a && m.b && !m.win){ const side = weightedWinner(team(m.a), team(m.b)), [w, l] = genScore(); setWinner(r, j, side, side === 'a' ? w : l, side === 'a' ? l : w); } });
+  toast(`${ROUND_NAMES[r]} simuladas.`, { type: 'success', ms: 2500 });
+  if (state.champion) toast(`Campeão: ${team(state.champion).name}!`, { type: 'success', ms: 6000 });
+  renderBracketAll(); loadFixtures(true);
+}
+async function resetTournament(silent = false){
+  if (!silent){ const ok = await confirmDialog({ title: 'Reiniciar a demonstração?', text: 'O chaveamento, os resultados e as doações de repescagem serão apagados.', ok: 'Reiniciar', danger: true }); if (!ok) return; }
+  stopClock(); state.bracket = null; state.playins = []; state.drawInfo = null; state.champion = null; state.donations = { total: 0, count: 0 }; resetTeamFlags();
+  $('#drawLog').innerHTML = '<li class="ph"><i class="fa-solid fa-angle-right" aria-hidden="true"></i> Aguardando execução do sorteio…</li>'; $('#drawMetrics').hidden = true;
+  $('span', $('#btnDraw')).textContent = 'Executar Sorteio Automático via IA'; $('#btnSim').disabled = true;
+  renderBracketAll(); loadFixtures(true);
+  if (!silent) toast('Demonstração reiniciada.', { type: 'info' });
+}
+
+function tagsFor(t){ return t.repescada ? '<span class="tag-benef"><i class="fa-solid fa-heart-circle-plus" aria-hidden="true"></i> Equipe Repescada · Benfeitora</span>' : ''; }
+function slotHTML(m, side){
+  const id = m[side], t = id ? team(id) : null, other = side === 'a' ? 'b' : 'a';
+  if (!t) return '<div class="slot tbd"><span class="emb" style="--h:215;opacity:.35">?</span><span>A definir</span></div>';
+  const pend = state.playins.find(p => p.status === 'pending' && p.r === m.r && p.m === m.m && p.side === side);
+  const cls = m.win ? (m.win === side ? 'win' : 'lose') : '';
+  const score = m.win ? (m['s' + side]) : '';
+  return `<div class="slot ${cls} ${t.repescada ? 'benef' : ''} ${pend ? 'pending-playin' : ''}">${embHTML(t)}<div class="s-main"><span class="s-name">${esc(t.name)}</span>${tagsFor(t)}${pend ? '<span class="badge warn" style="width:fit-content"><i class="fa-solid fa-bolt" aria-hidden="true"></i> Revanche pendente</span>' : ''}</div><span class="s-score">${score}</span></div>`;
+}
+function matchHTML(m){
+  const key = `${m.r}-${m.m}`, ready = m.a && m.b;
+  const status = m.win ? '<span class="badge ok">Encerrado</span>' : ready ? (isBlocked(m.r, m.m) ? '<span class="badge warn">Aguardando play-in</span>' : '<span class="badge info">Agendado</span>') : '<span class="badge">A definir</span>';
+  const A = m.a ? team(m.a) : null, B = m.b ? team(m.b) : null;
+  return `<article class="match" data-r="${m.r}" data-m="${m.m}" data-key="${key}" aria-label="${matchLabel(m.r, m.m)}: ${A ? esc(A.name) : 'a definir'} contra ${B ? esc(B.name) : 'a definir'}">
+    <header><span>${matchLabel(m.r, m.m)}</span>${status}</header>${slotHTML(m, 'a')}${slotHTML(m, 'b')}${m.note ? `<div class="note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ${esc(m.note)}</div>` : ''}</article>`;
+}
+function renderBracket(){
+  const root = $('#bracket'), show = root.dataset.show;
+  const B = state.bracket || newBracket();
+  const cols = B.map((round, r) => {
+    const pins = state.playins.filter(p => p.r === r);
+    const pinHTML = pins.length ? `<div class="playins">${pins.map(p => { const c = team(p.challenger), d = team(p.defender); return `<div class="playin"><b><i class="fa-solid fa-heart-circle-plus" aria-hidden="true"></i> Revanche de Repescagem</b><div class="vs">${embHTML(c)}<span>${esc(c.name)}</span><span class="muted">×</span>${embHTML(d)}<span>${esc(d.name)}</span></div>${p.status === 'pending' ? `<button type="button" class="btn btn-sm btn-gold" data-playin="${p.id}"><i class="fa-solid fa-play" aria-hidden="true"></i> Simular duelo</button>` : `<span class="badge ok"><i class="fa-solid fa-flag-checkered" aria-hidden="true"></i> ${esc(team(p.win).name)} venceu ${p.sa}×${p.sb}</span>`}</div>`; }).join('')}</div>` : '';
+    return `<section class="round" data-round="${r}" aria-label="${ROUND_NAMES[r]}"><h4>${ROUND_NAMES[r]} <small>${round.filter(m => m.win).length}/${round.length}</small></h4>${pinHTML}<div class="matches">${round.map(matchHTML).join('')}</div></section>`;
+  }).join('');
+  const champ = state.champion ? team(state.champion) : null;
+  const champCol = `<section class="round" data-round="2" aria-label="Campeão"><h4>Campeão</h4><div class="matches">${champ ? `<div class="champ-card"><i class="fa-solid fa-trophy" aria-hidden="true"></i>${embHTML(champ, 'lg')}<strong style="font-family:var(--font-display);font-size:1.2rem">${esc(champ.name)}</strong>${tagsFor(champ)}<span class="muted small">Campeão do ${esc(state.name)}</span></div>` : '<div class="champ-wait"><i class="fa-solid fa-trophy" aria-hidden="true"></i><span>O campeão aparece aqui após a grande final.</span></div>'}</div></section>`;
+  root.innerHTML = '<svg class="links" aria-hidden="true"></svg>' + cols + champCol; root.dataset.show = show;
+  drawConnectors();
+}
+function drawConnectors(){
+  const root = $('#bracket'), svg = $('svg.links', root); if (!svg || !state.bracket && !root.querySelector('.match')) return;
+  const rr = root.getBoundingClientRect(); let d = '';
+  const B = state.bracket || newBracket();
+  for (let r = 0; r < 2; r++) B[r].forEach((m, j) => {
+    const a = root.querySelector(`.match[data-r="${r}"][data-m="${j}"]`), b = root.querySelector(`.match[data-r="${r + 1}"][data-m="${j >> 1}"]`); if (!a || !b) return;
+    const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect(); if (!ra.width || !rb.width) return;
+    const x1 = ra.right - rr.left, y1 = ra.top + ra.height / 2 - rr.top, x2 = rb.left - rr.left, y2 = rb.top + rb.height / 2 - rr.top, xm = (x1 + x2) / 2;
+    d += `<path class="${m.win ? 'done' : ''}" d="M${x1} ${y1}H${xm}V${y2}H${x2}"/>`;
+  });
+  svg.innerHTML = d;
+}
+function renderPool(){
+  const rs = state.teams.map(t => t.rating), lo = Math.min(...rs) - 100, hi = Math.max(...rs);
+  const ranked = [...state.teams].sort((a, b) => b.rating - a.rating);
+  $('#pool').innerHTML = ranked.map((t, i) => `<div class="pool-row">${embHTML(t, 'md')}<div class="p-n"><strong>${esc(t.name)}</strong><span class="badge">${esc(t.group)}</span></div><div class="bar" role="img" aria-label="Rating ${t.rating}"><i style="width:${(t.rating - lo) / (hi - lo) * 100}%"></i></div></div>`).join('');
+}
+function canRepesc(t){
+  if (!t.elim) return { ok: false, reason: 'Em disputa.' };
+  if (t.repescada) return { ok: false, reason: 'Esta equipe já usou a repescagem beneficente.' };
+  if (t.noRepesc) return { ok: false, reason: 'Eliminada em revanche de repescagem.' };
+  if (t.elim.r >= 2) return { ok: false, reason: 'Eliminada na final: não há fase seguinte para retornar.' };
+  const next = state.bracket[t.elim.r + 1][t.elim.m >> 1];
+  if (next.win || (next.a && next.b && state.bracket[t.elim.r + 1].every(() => false))) return { ok: false, reason: 'Janela encerrada: o adversário já disputou a fase seguinte.' };
+  return { ok: true, reason: 'Elegível até o adversário entrar em quadra na fase seguinte.' };
+}
+function renderEliminated(){
+  const box = $('#eliminated');
+  if (!state.bracket){ box.innerHTML = '<div class="empty"><i class="fa-solid fa-sitemap" aria-hidden="true"></i><span>Execute o sorteio e simule uma fase para ver as equipes eliminadas.</span></div>'; return; }
+  const out = [...state.teams].filter(t => t.elim || t.repescada);
+  if (!out.length){ box.innerHTML = '<div class="empty"><i class="fa-solid fa-trophy" aria-hidden="true"></i><span>Nenhuma equipe eliminada ainda. Simule a próxima fase para testar a repescagem.</span></div>'; return; }
+  box.innerHTML = out.map(t => {
+    if (!t.elim && t.repescada) return `<div class="out-row"><div class="o-top">${embHTML(t, 'md')}<div><strong>${esc(t.name)}</strong><div>${tagsFor(t)}</div></div><span class="badge ok">De volta ao jogo</span></div></div>`;
+    const c = canRepesc(t), by = team(t.elim.by), where = t.elim.playin ? 'na revanche de repescagem' : `em ${ROUND_NAMES[t.elim.r].toLowerCase()}`;
+    return `<div class="out-row"><div class="o-top">${embHTML(t, 'md')}<div><strong>${esc(t.name)}</strong><div class="small muted">Eliminada ${where} por ${esc(by ? by.name : '—')}</div>${t.repescada ? tagsFor(t) : ''}</div>
+      <button type="button" class="btn btn-sm btn-gold" data-rep="${t.id}" ${c.ok ? '' : 'disabled'}><i class="fa-solid fa-heart-circle-plus" aria-hidden="true"></i> Re-inscrever</button></div>
+      <div class="reason"><i class="fa-solid ${c.ok ? 'fa-circle-check' : 'fa-circle-info'}" aria-hidden="true" style="margin-top:3px;color:${c.ok ? 'var(--green)' : 'var(--faint)'}"></i><span>${esc(c.reason)}</span></div></div>`;
+  }).join('');
+}
+function renderBracketAll(){
+  renderBracket(); renderPool(); renderEliminated(); renderKPIs(); renderPhase(); scheduleFlyer();
+  const can = state.bracket && !state.champion; $('#btnSim').disabled = !can || drawing;
+  $$('.match').forEach(m => m.classList.toggle('live', m.dataset.key === live.key && (live.running || live.events.length > 1)));
+}
+function openRepescagem(id){
+  const t = team(id), c = canRepesc(t); if (!c.ok) return;
+  const by = team(t.elim.by), nextR = t.elim.r + 1;
+  const dlg = $('#repDialog');
+  $('#repBody').innerHTML = `
+    <form id="repForm" novalidate>
+      <div class="dlg-body">
+        <div style="display:flex;gap:12px;align-items:center">${embHTML(t, 'md')}<p>Re-inscrever <strong>${esc(t.name)}</strong> — eliminada em ${ROUND_NAMES[t.elim.r].toLowerCase()} por <strong>${esc(by.name)}</strong>.</p></div>
+        <div class="callout gold"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i><p><strong>Regra justa:</strong> a equipe disputa uma <em>revanche</em> contra ${esc(by.name)} pela vaga em ${ROUND_NAMES[nextR].toLowerCase()}. Vencendo, retoma a tabela com a tag <span class="tag-benef">Equipe Repescada · Benfeitora</span>. Perdendo, está definitivamente fora.</p></div>
+        <fieldset style="margin:0"><legend>Valor da doação</legend>
+          <div class="chips choice" role="radiogroup" aria-label="Valor da doação">
+            ${[50, 100, 200].map((v, i) => `<div><input type="radio" name="amt" id="amt${v}" value="${v}" ${i === 1 ? 'checked' : ''}><label for="amt${v}">${fmtBRL.format(v).replace(',00', '')}</label></div>`).join('')}
+            <div><input type="radio" name="amt" id="amtX" value="custom"><label for="amtX">Outro valor</label></div>
+          </div>
+          <div class="field" id="f-amt" style="margin-top:var(--sp-3)" hidden><label for="amtCustom">Valor (mínimo R$ 20)</label><input type="number" id="amtCustom" min="20" step="5" inputmode="numeric" aria-describedby="e-amt"><span class="field-error" id="e-amt"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span></span></span></div>
+        </fieldset>
+        <div class="field"><label for="repCause">Causa beneficiada</label><select id="repCause"><option>Campanha do Agasalho do bairro</option><option>Banco de Alimentos local</option><option>Escolinha de esporte social</option></select></div>
+        <label class="check"><input type="checkbox" id="repAgree"><span>Entendo que a doação é voluntária, destinada à causa escolhida e que a repescagem garante apenas o direito à revanche.</span></label>
+        <span class="field-error" id="e-agree" style="display:none"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span>Marque a confirmação para continuar.</span></span>
+        <p class="hint"><i class="fa-solid fa-flask" aria-hidden="true"></i> Simulação: nenhuma cobrança real é feita e nenhum dado de pagamento é solicitado.</p>
+      </div>
+      <div class="dlg-foot"><button type="button" class="btn btn-ghost" data-close>Cancelar</button><button type="submit" class="btn btn-gold" id="repConfirm"><i class="fa-solid fa-heart" aria-hidden="true"></i> Confirmar doação e re-inscrever</button></div>
+    </form>`;
+  const f = $('#repForm');
+  f.addEventListener('change', e => { if (e.target.name === 'amt') $('#f-amt').hidden = e.target.value !== 'custom'; });
+  f.addEventListener('submit', async e => {
+    e.preventDefault();
+    let amt = Number($('input[name=amt]:checked', f).value || 0);
+    if ($('input[name=amt]:checked', f).value === 'custom'){ amt = Number($('#amtCustom').value); if (!(amt >= 20)){ fieldErr('f-amt', 'Informe um valor de pelo menos R$ 20.'); $('#amtCustom').focus(); return; } fieldErr('f-amt', ''); }
+    if (!$('#repAgree').checked){ $('#e-agree').style.display = 'flex'; $('#repAgree').focus(); return; }
+    const b = $('#repConfirm'); setBtnLoading(b, true); await sleep(1300);
+    state.donations.total += amt; state.donations.count++;
+    t.repescada = true;
+    const next = state.bracket[nextR][t.elim.m >> 1], side = t.elim.m % 2 === 0 ? 'a' : 'b';
+    state.playins.push({ id: 'p' + Date.now(), r: nextR, m: t.elim.m >> 1, side, challenger: t.id, defender: next[side], status: 'pending' });
+    dlg.close(); renderBracketAll(); loadFixtures(false);
+    toast(`${t.name} re-inscrita com ${fmtBRL.format(amt)} para "${$('#repCause').value}". Revanche contra ${by.name} liberada!`, { type: 'success', ms: 6500 });
+    $('#bracket').scrollIntoView({ block: 'nearest', behavior: reduced.matches ? 'auto' : 'smooth' });
+  });
+  dlg.showModal();
+}
+
+/* ============ Marketing ============ */
+const FORMATS = {
+  feed:   { w:1080, h:1350, label:'Instagram / Facebook · Feed', net:'fa-brands fa-instagram' },
+  story:  { w:1080, h:1920, label:'Stories · Reels · TikTok', net:'fa-brands fa-tiktok' },
+  square: { w:1080, h:1080, label:'WhatsApp · Telegram', net:'fa-brands fa-whatsapp' },
+  wide:   { w:1600, h:900,  label:'X (Twitter) · LinkedIn · Capa', net:'fa-brands fa-x-twitter' }
+};
+const THEMES = {
+  cyan:    { bg1:'#06162b', bg2:'#02040a', accent:'#00e5ff', accent2:'#2563eb' },
+  magenta: { bg1:'#1a0828', bg2:'#04020a', accent:'#ff4fd8', accent2:'#7c3aed' },
+  gold:    { bg1:'#1a1205', bg2:'#050402', accent:'#ffc857', accent2:'#ff7a18' }
+};
+const TAGLINES = ['A arena é de quem joga junto.', 'Quem sobe, quem cai? Só o placar decide.', 'Fair play, adrenalina e muita história.', 'Prepare o grito de guerra. A final vem aí.', 'Talento na quadra, justiça na tabela.'];
+function dateShort(iso){
+  if (!iso) return 'DATA A DEFINIR';
+  const d = new Date(iso + 'T12:00:00'); if (isNaN(d)) return 'DATA A DEFINIR';
+  const parts = new Intl.DateTimeFormat('pt-BR', { weekday:'short', day:'2-digit', month:'short', year:'numeric' }).formatToParts(d);
+  const g = t => (parts.find(p => p.type === t)?.value || '').replace('.', '');
+  return `${g('weekday')} · ${g('day')} ${g('month')} ${g('year')}`.toUpperCase();
+}
+function getFinalists(){
+  const B = state.bracket;
+  if (state.champion) return { mode:'champion', label:'CAMPEÃO', teams:[team(state.champion)] };
+  if (B){ const f = B[2][0]; if (f.a && f.b) return { mode:'final', label:'GRANDE FINAL', teams:[team(f.a), team(f.b)] }; }
+  return { mode:'fav', label:'FAVORITOS AO TÍTULO', teams:[...state.teams].sort((a, b) => b.rating - a.rating).slice(0, 2) };
+}
+function flyerData(){
+  const f = getFinalists();
+  return { name: state.name.trim() || 'Torneio ArenaMaster', dateText: dateShort(state.date), sport: sp(), type: state.type, id: state.id, theme: state.flyer.theme, seed: state.flyer.seed, tagline: TAGLINES[state.flyer.tagline % TAGLINES.length], fin: f, donation: state.donations.total };
+}
+function glow(c, x, y, r, color, a){ const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)'); c.save(); c.globalAlpha = a; c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); c.restore(); }
+function setLS(c, v){ if ('letterSpacing' in c) c.letterSpacing = v + 'px'; }
+function fitLines(c, text, maxW, size, minSize, maxLines, font){
+  let s = size;
+  for (;;){
+    c.font = font(s); const words = text.split(/\s+/); const lines = []; let cur = '';
+    words.forEach(w => { const t = cur ? cur + ' ' + w : w; if (c.measureText(t).width <= maxW || !cur) cur = t; else { lines.push(cur); cur = w; } });
+    if (cur) lines.push(cur);
+    if ((lines.length <= maxLines && lines.every(l => c.measureText(l).width <= maxW)) || s <= minSize) return { lines: lines.slice(0, maxLines), size: s };
+    s -= 4;
+  }
+}
+function emblem(c, t, x, y, r, th, u){
+  const hue = t.hue; const g = c.createRadialGradient(x - r * .3, y - r * .35, r * .1, x, y, r);
+  g.addColorStop(0, `hsl(${hue} 90% 62%)`); g.addColorStop(1, `hsl(${hue} 80% 28%)`);
+  c.save(); c.shadowColor = th.accent; c.shadowBlur = 40 * u; c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); c.restore();
+  c.lineWidth = 5 * u; c.strokeStyle = th.accent; c.beginPath(); c.arc(x, y, r + 8 * u, 0, 7); c.stroke();
+  c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = `${r * .8}px "Russo One"`; c.fillText(initials(t.name), x, y + r * .04);
+}
+function drawFlyer(cv, fmt, d){
+  const F = FORMATS[fmt], w = F.w, h = F.h, th = THEMES[d.theme], r = mulberry32(d.seed * 9301 + 49297);
+  if (cv.width !== w) cv.width = w; if (cv.height !== h) cv.height = h;
+  const c = cv.getContext('2d'); c.clearRect(0, 0, w, h); c.textBaseline = 'alphabetic'; setLS(c, 0);
+  const bg = c.createLinearGradient(0, 0, w * .6, h); bg.addColorStop(0, th.bg1); bg.addColorStop(1, th.bg2); c.fillStyle = bg; c.fillRect(0, 0, w, h);
+  glow(c, w * .12, h * .08, Math.max(w, h) * .55, th.accent, .22); glow(c, w * .95, h * .9, Math.max(w, h) * .6, th.accent2, .3);
+  c.save(); c.globalAlpha = .08; c.strokeStyle = th.accent; c.lineWidth = 2;
+  const n = 16 + Math.floor(r() * 10); for (let i = 0; i < n; i++){ const x = r() * w * 1.4 - w * .2, len = h * (.3 + r() * .55); c.beginPath(); c.moveTo(x, h); c.lineTo(x + len * .45, h - len); c.stroke(); } c.restore();
+  const wide = fmt === 'wide', u = wide ? h / 1080 : Math.min(w / 1080, h / 1350);
+  c.save(); c.globalAlpha = .07; c.fillStyle = th.accent; c.font = `900 ${h * (wide ? .95 : .55)}px "Font Awesome 6 Free"`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(d.sport.glyph, wide ? w * .74 : w * .5, wide ? h * .5 : h * .62); c.restore(); c.textBaseline = 'alphabetic';
+  const m = 28 * u + 6, L = 70 * u; c.save(); c.strokeStyle = th.accent; c.lineWidth = 4 * u; c.globalAlpha = .8;
+  [[m, m, 1, 1], [w - m, m, -1, 1], [m, h - m, 1, -1], [w - m, h - m, -1, -1]].forEach(([x, y, sx, sy]) => { c.beginPath(); c.moveTo(x, y + L * sy); c.lineTo(x, y); c.lineTo(x + L * sx, y); c.stroke(); }); c.restore();
+
+  const cx = wide ? w * .27 : w / 2, colW = wide ? w * .42 : w * .82, top = h * (wide ? .13 : .075);
+  c.textAlign = 'center'; setLS(c, 6 * u); c.fillStyle = th.accent; c.font = `700 ${30 * u}px "Chakra Petch"`; c.fillText('ARENAMASTER AI', cx, top);
+  setLS(c, 3 * u); c.fillStyle = '#9fb0cc'; c.font = `600 ${26 * u}px "Chakra Petch"`; c.fillText(`${d.type === 'oficial' ? 'TORNEIO OFICIAL' : 'TORNEIO AMADOR'} · ${d.sport.label.toUpperCase()}`, cx, top + 44 * u); setLS(c, 0);
+  const t = fitLines(c, d.name.toUpperCase(), colW, (wide ? 118 : 96) * u, 54 * u, 3, s => `${s}px "Russo One"`);
+  c.font = `${t.size}px "Russo One"`; c.fillStyle = '#fff'; c.save(); c.shadowColor = th.accent; c.shadowBlur = 30 * u;
+  let y = top + 44 * u + 34 * u + t.size * .9; t.lines.forEach(l => { c.fillText(l, cx, y); y += t.size * 1.08; }); c.restore();
+  y += 6 * u; const dt = d.dateText; setLS(c, 2 * u); c.font = `700 ${44 * u}px "Chakra Petch"`; const dw = c.measureText(dt).width + 70 * u, dh = 78 * u;
+  c.lineWidth = 3 * u; c.strokeStyle = th.accent; c.fillStyle = 'rgba(0,0,0,.35)'; c.beginPath(); c.roundRect(cx - dw / 2, y, dw, dh, dh / 2); c.fill(); c.stroke();
+  c.fillStyle = th.accent; c.textBaseline = 'middle'; c.fillText(dt, cx, y + dh / 2 + 2 * u); c.textBaseline = 'alphabetic'; setLS(c, 0);
+  c.fillStyle = '#c4d2ea'; c.font = `500 italic ${32 * u}px "Chakra Petch"`; c.fillText(d.tagline, cx, y + dh + 56 * u);
+
+  const vx = wide ? w * .74 : w / 2, vy = h * (wide ? .52 : { feed: .69, story: .64, square: .72 }[fmt]), R = 104 * u, f = d.fin;
+  setLS(c, 6 * u); c.fillStyle = th.accent; c.font = `700 ${34 * u}px "Chakra Petch"`; c.fillText(f.label, vx, vy - R - 52 * u); setLS(c, 0);
+  const nameAt = (t, x, size) => { const fl = fitLines(c, t.name.toUpperCase(), 400 * u, size, 22 * u, 2, s => `700 ${s}px "Chakra Petch"`); c.fillStyle = '#fff'; c.font = `700 ${fl.size}px "Chakra Petch"`; fl.lines.forEach((l, i) => c.fillText(l, x, vy + R + 56 * u + i * fl.size * 1.1)); };
+  if (f.teams.length === 1){ emblem(c, f.teams[0], vx, vy, R * 1.25, th, u); c.save(); c.fillStyle = '#ffc857'; c.font = `900 ${80 * u}px "Font Awesome 6 Free"`; c.textAlign = 'center'; c.fillText('', vx, vy - R * 1.25 - 14 * u); c.restore(); const tt = f.teams[0]; const fl = fitLines(c, tt.name.toUpperCase(), 620 * u, 56 * u, 28 * u, 2, s => `${s}px "Russo One"`); c.fillStyle = '#fff'; c.font = `${fl.size}px "Russo One"`; fl.lines.forEach((l, i) => c.fillText(l, vx, vy + R * 1.25 + 78 * u + i * fl.size * 1.1)); }
+  else {
+    const dx = 235 * u; emblem(c, f.teams[0], vx - dx, vy, R, th, u); emblem(c, f.teams[1], vx + dx, vy, R, th, u);
+    c.save(); c.shadowColor = th.accent; c.shadowBlur = 24 * u; c.fillStyle = th.accent; c.font = `${76 * u}px "Russo One"`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('VS', vx, vy + 4 * u); c.restore(); c.textBaseline = 'alphabetic';
+    nameAt(f.teams[0], vx - dx, 34 * u); nameAt(f.teams[1], vx + dx, 34 * u);
+  }
+  const fy = h * (wide ? .925 : .935); setLS(c, 3 * u); c.fillStyle = '#e8eef9'; c.font = `700 ${30 * u}px "Chakra Petch"`; c.fillText('INSCRIÇÕES ABERTAS · APP ARENAMASTER AI', w / 2, fy - 36 * u); setLS(c, 1 * u);
+  c.fillStyle = th.accent; c.font = `600 ${26 * u}px "Chakra Petch"`; c.fillText(`ID #${d.id}${d.donation > 0 ? '  ·  Repescagem solidária: ' + fmtBRL.format(d.donation) + ' arrecadados' : ''}`, w / 2, fy + 6 * u); setLS(c, 0);
+}
+let flyerRaf = 0, fontsOK = false;
+async function ensureFonts(){
+  if (fontsOK) return;
+  try { await Promise.all(['40px "Russo One"', '700 40px "Chakra Petch"', '600 40px "Chakra Petch"', '500 italic 40px "Chakra Petch"', '900 40px "Font Awesome 6 Free"'].map(f => document.fonts.load(f))); } catch {}
+  fontsOK = true;
+}
+function scheduleFlyer(){
+  cancelAnimationFrame(flyerRaf);
+  flyerRaf = requestAnimationFrame(async () => {
+    await ensureFonts(); const d = flyerData();
+    drawFlyer($('#flyerCanvas'), state.flyer.format, d); drawFlyer($('#adCanvas'), 'feed', d);
+    $('#flyerCanvas').setAttribute('aria-label', `Flyer oficial: ${d.name}, ${d.dateText}. ${d.fin.label}: ${d.fin.teams.map(t => t.name).join(' contra ')}.`);
+    $('#flyerInfo').textContent = `${FORMATS[state.flyer.format].w} × ${FORMATS[state.flyer.format].h} px · ${d.fin.mode === 'fav' ? 'Finalistas ainda não definidos: exibindo os favoritos pelo rating.' : d.fin.mode === 'champion' ? 'Arte atualizada com o campeão.' : 'Arte atualizada com os finalistas.'}`;
+    renderCaption();
+  });
+}
+function caption(){
+  const d = flyerData();
+  return `${d.name} · ${d.sport.label}\n${d.dateText.replace(/·/g, '•')} • ID #${d.id}\n${d.fin.label}: ${d.fin.teams.map(t => t.name).join(' x ')}\n\nMonte seu time, valide o elenco com FaceMatch e dispute o título. Inscrições abertas no ArenaMaster AI!\n#ArenaMasterAI #Torneio #${d.sport.label.replace(/\s/g, '')}`;
+}
+function renderCaption(){ $('#caption').textContent = caption(); }
+async function regenFlyer(){
+  const wrap = $('#flyerWrap'), b = $('#flyerRegen'); wrap.classList.add('busy'); setBtnLoading(b, true);
+  await sleep(1100);
+  state.flyer.seed = 1 + rnd(9999); state.flyer.tagline = rnd(TAGLINES.length);
+  const keys = Object.keys(THEMES); // alterna o tema para variar a arte
+  state.flyer.theme = keys[(keys.indexOf(state.flyer.theme) + 1) % keys.length]; $('#th-' + state.flyer.theme).checked = true;
+  await ensureFonts(); drawFlyer($('#flyerCanvas'), state.flyer.format, flyerData()); drawFlyer($('#adCanvas'), 'feed', flyerData()); renderCaption();
+  wrap.classList.remove('busy'); setBtnLoading(b, false); toast('Nova arte gerada pela IA.', { type: 'success', ms: 2500 });
+}
+async function exportFlyer(fmt){
+  await ensureFonts(); const cv = document.createElement('canvas'); drawFlyer(cv, fmt, flyerData());
+  const blob = await new Promise(res => cv.toBlob(res, 'image/png'));
+  if (!blob){ toast('Não foi possível gerar a imagem.', { type: 'error' }); return; }
+  const fname = `flyer-${state.id.toLowerCase()}-${fmt}.png`, file = new File([blob], fname, { type: 'image/png' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })){
+    try { await navigator.share({ files: [file], title: state.name, text: caption() }); toast('Flyer compartilhado.', { type: 'success' }); return; }
+    catch (e){ if (e.name === 'AbortError') return; }
+  }
+  const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = fname; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+  toast(`${FORMATS[fmt].label}: PNG baixado.`, { type: 'success' });
+}
+const PLAT = {
+  instagram:{ label:'Instagram', icon:'fa-brands fa-instagram', cpm:16, ctr:1.6 }, facebook:{ label:'Facebook', icon:'fa-brands fa-facebook', cpm:11, ctr:1.1 },
+  tiktok:{ label:'TikTok', icon:'fa-brands fa-tiktok', cpm:9, ctr:1.9 }, whatsapp:{ label:'WhatsApp Status', icon:'fa-brands fa-whatsapp', cpm:13, ctr:2.2 }
+};
+function calcAds(){
+  const budget = +$('#adBudget').value, days = +$('#adDays').value, radius = +$('#adRadius').value;
+  $('#adBudgetOut').textContent = fmtBRL.format(budget).replace(',00', ''); $('#adDaysOut').textContent = `${days} ${days > 1 ? 'dias' : 'dia'}`; $('#adRadiusOut').textContent = `${radius} km`;
+  const sel = $$('#plats input:checked').map(i => PLAT[i.value]); const total = budget * days;
+  $('#adTotal').textContent = fmtBRL.format(total);
+  if (!sel.length){ ['adReach', 'adImp', 'adClicks', 'adCaps', 'adCpa'].forEach(i => $('#' + i).textContent = '—'); return; }
+  const per = total / sel.length; let imp = 0, clicks = 0; sel.forEach(p => { const i = per / p.cpm * 1000; imp += i; clicks += i * p.ctr / 100; });
+  const audience = Math.PI * radius * radius * 180;
+  const reach = Math.min(audience * .6, imp / (1 + .06 * days)), caps = clicks * .045;
+  $('#adReach').textContent = fmtCompact.format(Math.round(reach)); $('#adImp').textContent = fmtCompact.format(Math.round(imp)); $('#adClicks').textContent = fmtNum.format(Math.round(clicks));
+  $('#adCaps').textContent = fmtNum.format(Math.max(0, Math.round(caps))); $('#adCpa').textContent = caps >= 1 ? fmtBRL.format(total / caps) : '—';
+}
+
+/* ============ Wiring / init ============ */
+function init(){
+  initNav(); renderSportGrid();
+  $('#tName').addEventListener('input', e => { state.name = e.target.value; scheduleFlyer(); });
+  $('#tDate').addEventListener('input', e => { state.date = e.target.value; scheduleFlyer(); });
+  $('#copyId').addEventListener('click', async () => { try { await navigator.clipboard.writeText('#' + state.id); toast('ID do torneio copiado.', { type: 'success', ms: 2200 }); } catch { toast('Copie manualmente: #' + state.id, { type: 'info' }); } });
+  initCharts();
+
+  // captain
+  $$('input[name=ttype]').forEach(r => r.addEventListener('change', e => setType(e.target.value)));
+  $('#addPlayer').addEventListener('click', addPlayer);
+  $('#demoRoster').addEventListener('click', demoRoster);
+  $('#playerForm').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.type !== 'file'){ e.preventDefault(); addPlayer(); } });
+  $('#pCpf').addEventListener('input', e => { e.target.value = maskCPF(e.target.value); });
+  $('#pCpf').addEventListener('blur', e => { if (e.target.value && !validCPF(e.target.value)) fieldErr('f-pcpf', 'CPF inválido. Confira os 11 dígitos.'); else fieldErr('f-pcpf', ''); });
+  $('#pDoc').addEventListener('change', e => handleDoc(e.target.files[0]));
+  $('#emblemInput').addEventListener('change', e => handleEmblem(e.target.files[0]));
+  const drop = $('#emblemDrop');
+  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag'); }));
+  drop.addEventListener('drop', e => handleEmblem(e.dataTransfer.files[0]));
+  $('#playerList').addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const id = +b.closest('.player').dataset.id, p = cap.players.find(x => x.id === id); if (!p) return;
+    if (b.dataset.act === 'face') runFaceMatch([p]);
+    if (b.dataset.act === 'del'){
+      const idx = cap.players.indexOf(p); cap.players.splice(idx, 1); renderRoster();
+      toast(`${p.name} removido do elenco.`, { type: 'info', action: { label: 'Desfazer', fn: () => { cap.players.splice(idx, 0, p); renderRoster(); } }, ms: 6000 });
+    }
+    if (b.dataset.act === 'edit'){
+      cap.editing = p.id; $('#pName').value = p.name; $('#pNumber').value = p.number; $('#pCpf').value = p.cpf || ''; $('#pRg').value = p.rg || '';
+      cap.doc = p.doc; $('#docName').textContent = p.doc ? p.doc.name : 'Selecionar PDF · até 5 MB';
+      $('#addPlayer').innerHTML = '<i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Salvar alterações'; $('#pName').focus(); $('#pName').scrollIntoView({ block: 'center', behavior: reduced.matches ? 'auto' : 'smooth' });
+    }
+  });
+  $('#faceAll').addEventListener('click', () => runFaceMatch(cap.players));
+  $('#teamForm').addEventListener('submit', submitTeam);
+  $('#formErrors').addEventListener('click', e => { const a = e.target.closest('[data-focus]'); if (!a) return; e.preventDefault(); const el = document.getElementById(a.dataset.focus); el?.scrollIntoView({ block: 'center' }); el?.focus?.(); });
+
+  // live
+  $('#liveMatch').addEventListener('change', e => { const f = fixtures().find(x => x.key === e.target.value); if (f) startLive(f); });
+  $('#scoreboard').addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    if (b.dataset.act === 'plus') addScore(b.dataset.side, +b.dataset.pts || 1);
+    if (b.dataset.act === 'minus') removeScore(b.dataset.side);
+  });
+  $('#btnClock').addEventListener('click', toggleClock);
+  $('#btnPlus5').addEventListener('click', () => { for (let i = 0; i < 5 && !live.over; i++) tick(); });
+  $('#btnUndo').addEventListener('click', undoLast);
+  $('#btnFinalize').addEventListener('click', finalizeLive);
+  $('#evType').addEventListener('change', renderLive);
+  $('#evForm').addEventListener('submit', e => {
+    e.preventDefault(); if (!live.key || live.over) return;
+    const type = $('#evType').value, side = $('#evTeam').value, num = $('#evNum').value.trim();
+    if (type === 'goal') addScore(side, state.sport === 'basquete' ? +$('#evPts').value : 1);
+    else { pushEvent({ type, team: side, num }); renderLive(); }
+    if (type === 'goal' && num && live.events.length) live.events[live.events.length - 1].num = num; renderLive();
+    $('#evNum').value = '';
+  });
+  $('#streamForm').addEventListener('submit', e => { e.preventDefault(); connectStream($('#streamUrl').value); });
+  $('#streamDemo').addEventListener('click', () => { $('#streamUrl').value = 'https://www.youtube.com/watch?v=arenamaster-demo'; connectStream($('#streamUrl').value); });
+  $('#streamArea').addEventListener('click', e => { if (e.target.closest('#streamStop')){ stream = null; clearInterval(viewerTimer); renderStream(); toast('Transmissão encerrada.', { type: 'info', ms: 2500 }); } });
+
+  // bracket
+  $('#btnDraw').addEventListener('click', runDraw);
+  $('#btnSim').addEventListener('click', simulatePhase);
+  $('#btnResetBracket').addEventListener('click', () => resetTournament(false));
+  $('.round-tabs').addEventListener('click', e => { const b = e.target.closest('[data-round]'); if (!b) return; $$('.round-tabs button').forEach(x => x.setAttribute('aria-pressed', x === b)); $('#bracket').dataset.show = b.dataset.round; drawConnectors(); });
+  $('#bracket').addEventListener('click', e => { const p = e.target.closest('[data-playin]'); if (p){ const pin = state.playins.find(x => x.id === p.dataset.playin); if (pin){ resolvePlayin(pin); renderBracketAll(); loadFixtures(false); } } });
+  $('#eliminated').addEventListener('click', e => { const b = e.target.closest('[data-rep]'); if (b) openRepescagem(b.dataset.rep); });
+  new ResizeObserver(() => drawConnectors()).observe($('#bracket'));
+
+  // marketing
+  $('#fmtSeg').addEventListener('click', e => { const b = e.target.closest('[data-fmt]'); if (!b) return; state.flyer.format = b.dataset.fmt; $$('#fmtSeg button').forEach(x => x.setAttribute('aria-pressed', x === b)); scheduleFlyer(); });
+  $$('input[name=theme]').forEach(r => r.addEventListener('change', e => { state.flyer.theme = e.target.value; scheduleFlyer(); }));
+  $('#flyerRegen').addEventListener('click', regenFlyer);
+  $('#exportGrid').innerHTML = Object.entries(FORMATS).map(([k, f]) => `<button type="button" class="btn" data-export="${k}"><i class="net ${f.net}" aria-hidden="true"></i><span>${f.label}<small>${f.w} × ${f.h} px · PNG</small></span></button>`).join('') +
+    '<button type="button" class="btn btn-ghost" id="exCopy"><i class="net fa-regular fa-copy" aria-hidden="true"></i><span>Copiar legenda com hashtags<small>Texto pronto para colar na publicação</small></span></button>';
+  $('#flyerExport').addEventListener('click', () => $('#exportDialog').showModal());
+  $('#exportGrid').addEventListener('click', async e => {
+    const b = e.target.closest('[data-export]'); if (b){ b.disabled = true; await exportFlyer(b.dataset.export); b.disabled = false; return; }
+    if (e.target.closest('#exCopy')){ try { await navigator.clipboard.writeText(caption()); toast('Legenda copiada.', { type: 'success', ms: 2200 }); } catch { toast('Não foi possível copiar automaticamente.', { type: 'warn' }); } }
+  });
+  $('#copyCaption').addEventListener('click', async () => { try { await navigator.clipboard.writeText(caption()); toast('Legenda copiada.', { type: 'success', ms: 2200 }); } catch { toast('Não foi possível copiar automaticamente.', { type: 'warn' }); } });
+  $('#plats').innerHTML = Object.entries(PLAT).map(([k, p], i) => `<div><input type="checkbox" id="pl-${k}" value="${k}" ${i < 3 ? 'checked' : ''}><label for="pl-${k}"><span class="ico"><i class="${p.icon}" aria-hidden="true"></i></span><span class="t">${p.label}</span></label></div>`).join('');
+  ['#adBudget', '#adDays', '#adRadius'].forEach(s => $(s).addEventListener('input', calcAds)); $('#plats').addEventListener('change', calcAds);
+
+  // initial render
+  buildEventSelects(); renderCaptainStatic(); renderRoster(); renderRegistered(); renderStream();
+  renderBracketAll(); loadFixtures(true); calcAds(); scheduleFlyer();
+  document.fonts?.ready.then(() => { scheduleFlyer(); drawConnectors(); });
+}
+window.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+</body>
+</html>
