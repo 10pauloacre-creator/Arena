@@ -58,6 +58,9 @@ body.no-scroll { overflow: hidden; }
 @media (min-width: 720px) { .id-form { display: flex; } .install-btn span { display: inline; } .user-chip .name { display: inline; } .pl-brand small { display: block; } }
 .pl-main { max-width: 1120px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 20px; align-content: start; min-height: 70dvh; }
 .pl-foot { text-align: center; padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); color: var(--muted); font-size: 13px; }
+.pl-foot span { display: block; }
+.pl-credit { margin: 6px auto 0; max-width: 520px; font-size: 12px; line-height: 1.45; }
+.pl-credit b { color: var(--ink-2); font-weight: 700; }
 
 /* ================= avatares ================= */
 .pl-av { --h: 215; display: inline-grid; place-items: center; border-radius: 50%; flex: none; overflow: hidden; font-weight: 800; color: #fff; background: linear-gradient(135deg, hsl(var(--h) 70% 52%), hsl(var(--h) 65% 32%)); line-height: 1; }

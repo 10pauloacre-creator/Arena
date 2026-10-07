@@ -33,7 +33,8 @@ export const topbar = () => html`${storageBanner()}<header class="pl-top">${bran
   <button type="button" class="btn btn-sm install-btn" data-install hidden aria-label="Instalar app">${ic('smartphone', { size: 16 })} <span>Instalar app</span></button>
   ${userMenu()}</header>`;
 
-export const footer = () => html`<footer class="pl-foot"><span>⚽ Pelada · parte da plataforma <a href="/" data-external>ArenaMaster AI</a></span></footer>`;
+export const footer = () => html`<footer class="pl-foot"><span>⚽ Pelada · parte da plataforma <a href="/" data-external>ArenaMaster AI</a></span>
+  <span class="pl-credit">Esta plataforma é uma criação de <b>Paulo Roberto R. Magalhães</b>, na missão de modernizar o esporte.</span></footer>`;
 
 /** Página padrão: topo + conteúdo + rodapé. */
 export const page = (content, { cls = '' } = {}) => html`${topbar()}<main class="pl-main ${cls}" id="main">${content}</main>${footer()}`;
