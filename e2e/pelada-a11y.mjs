@@ -23,7 +23,8 @@ try {
   await call(owner, 'PATCH', `/pelada/peladas/${id}/days/${dayId}/matches/${mid}`, { a: teams[0].id, b: teams[1].id });
   await call(owner, 'POST', `/pelada/peladas/${id}/days/${dayId}/matches/${mid}/goals`, { teamId: teams[0].id, pid: teams[0].players[0] });
   const pages = [['/pelada/', 'anon'], ['/pelada/entrar', 'anon'], [`/pelada/p/${id}`, 'anon'], [`/pelada/p/${id}/historico`, 'anon'], [`/pelada/p/${id}/artilharia`, 'anon'], [`/pelada/p/${id}/d/${dayId}`, 'anon'],
-    ['/pelada/painel', 'auth'], ['/pelada/nova', 'auth'], [`/pelada/p/${id}`, 'auth'], [`/pelada/p/${id}/d/${dayId}`, 'auth'], [`/pelada/p/${id}/editar`, 'auth']];
+    ['/pelada/painel', 'auth'], ['/pelada/nova', 'auth'], [`/pelada/p/${id}`, 'auth'], [`/pelada/p/${id}/d/${dayId}`, 'auth'], [`/pelada/p/${id}/editar`, 'auth'],
+    ['/pelada/notificacoes', 'auth'], ['/pelada/configuracoes', 'auth']];
   for (const [mode, opts] of [['desktop', DESKTOP], ['mobile', MOBILE]]) {
     for (const [path, auth] of pages) {
       const ctx = await browser.newContext(opts);

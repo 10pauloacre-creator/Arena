@@ -45,11 +45,12 @@ Os dados locais ficam em `.data/arena.json` (ignorado pelo git). Apague a pasta 
 ### Testes
 
 ```powershell
-npm test                         # 131 testes unitários e de API (node:test, sem dependências)
+npm test                         # 152 testes unitários e de API (node:test, sem dependências)
 npm run lint                     # verifica imports não utilizados
 cd e2e; node a11y.mjs            # auditoria de acessibilidade (axe-core) nas principais telas
 cd e2e; npm install; node run.mjs   # 28 cenários E2E do ArenaMaster com Playwright (usa o Chromium instalado)
 cd e2e; node pelada.mjs          # 20 cenários E2E do app Pelada (conta, criação, pelada demo, sorteio, súmula, pódio, PWA offline)
+cd e2e; node pelada-notificacoes.mjs  # 7 cenários E2E das notificações no app (sininho, painel, avisos, configurações)
 cd e2e; node pelada-a11y.mjs     # auditoria de acessibilidade (axe-core) nas telas do app Pelada
 ```
 
@@ -161,6 +162,36 @@ A interface é pré-carregada pelo service worker e abre sem internet; os dados 
   As fontes (Barlow Condensed e League Spartan, licença SIL OFL em `public/assets/fonts/OFL-LICENSE.txt`) ficam no próprio site.
   Para trocar a arte: exporte o modelo do Canva **sem** os textos variáveis (2×) e substitua o arquivo `.webp`; as posições dos
   textos estão em `public/assets/js/pelada/ui/share.js` (medidas do design de 1086×1448).
+
+### Notificações no app
+
+O **sininho** no topo mostra quantas novidades há; tocar nele abre as últimas e as marca como lidas
+(**Ver todas** → `/pelada/notificacoes`). Com o app aberto, uma notificação nova também aparece como aviso rápido na tela,
+e no app instalado o número aparece no ícone (onde o sistema suporta). Ninguém é avisado das próprias ações.
+
+| Notificação | Quando | Padrão |
+| --- | --- | --- |
+| Novos participantes | alguém entra na pelada (link de convite, ID ou ao marcar presença pela 1ª vez) | ligada |
+| Presenças no jogo do dia | alguém confirma presença, ou o organizador adiciona um convidado | ligada |
+| Desistências | alguém retira a presença ou é tirado da lista | ligada |
+| Sorteio de times | times sorteados ou refeitos, com **"você está no Time X"** | ligada |
+| Início das partidas | uma partida começou | desligada |
+| Resultados dos jogos | placar final, quem fez os gols e se o **seu time** venceu | ligada |
+| Agenda de jogos | data nova, jogo remarcado ou cancelado | ligada |
+| Lembrete no dia do jogo | no dia do jogo (diz se sua presença já está confirmada) | ligada |
+
+Em **Configurações** (`/pelada/configuracoes`, também no menu da conta) cada pessoa liga/desliga cada tipo, desliga tudo,
+desliga o aviso na tela e **silencia peladas específicas** (atalho no botão "Notificações ativadas" da página da pelada).
+Para não virar spam: marcar e desmarcar presença em poucos minutos não gera aviso, um sorteio refeito logo em seguida substitui
+o anterior e a correção de gols depois de encerrar atualiza o resultado já avisado. Quem entra numa pelada só vê o que
+aconteceu depois de entrar.
+
+Como funciona: cada pelada guarda os últimos 120 eventos (`plf:ID`, gravados junto da ação, com a pelada bloqueada); a caixa
+de cada jogador é montada na leitura (`GET /api/pelada/notifications`, com ETag) a partir das peladas dele, aplicando as
+preferências (`pnt:ID`). O app consulta a cada 20 s com a tela aberta. Regras e textos em
+`public/assets/js/shared/notifications.js`; servidor em `lib/notifications.js`; telas em `public/assets/js/pelada/notify.js`,
+`ui/notifications.js`, `pages/notifications.js` e `pages/settings.js`.
+> Notificações com o app **fechado** (Web Push) ainda não existem: exigem chaves VAPID e o envio pelo servidor.
 
 API em `lib/routes/peladas.js` (`/api/pelada/*`), regras em `lib/domain/pelada.js` e `public/assets/js/shared/pelada.js`
 (compartilhadas com o navegador), tela em `public/assets/js/pelada/`. Como as contas e peladas ficam no mesmo armazenamento do

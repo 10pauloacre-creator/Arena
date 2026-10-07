@@ -14,6 +14,7 @@ import { resultsData, runShare } from '../ui/share.js';
 import { fetchPelada } from '../data.js';
 import { poll } from '../ui/poll.js';
 import { GENDERS } from '../../shared/pelada.js';
+import { N, onNotif, savePrefs } from '../notify.js';
 
 const TABS = [['jogos', 'Jogos', 'calendar'], ['historico', 'Histórico', 'clipboard-check'], ['artilharia', 'Artilharia', 'trophy'], ['jogadores', 'Jogadores', 'users']];
 const DOW = new Intl.DateTimeFormat('pt-BR', { month: 'short' });
@@ -63,10 +64,17 @@ export default async function (ctx) {
     </header>`;
   }
 
+  /** Silenciar/ativar as notificações só desta pelada (atalho para Configurações). */
+  function muteBtn() {
+    if (!N.prefs || !N.prefs.enabled) return '';
+    const muted = N.prefs.muted.includes(pel().id);
+    return html`<button type="button" class="btn btn-sm ${muted ? '' : 'btn-ghost'}" data-mute aria-pressed="${String(muted)}" title="${muted ? 'Você não recebe notificações desta pelada' : 'Você recebe notificações desta pelada'}">${ic('bell', { size: 16 })} ${muted ? 'Notificações silenciadas' : 'Notificações ativadas'}</button>`;
+  }
+
   function actions() {
     const p = pel();
-    if (isOwner()) return html`<div class="pel-actions"><a class="btn btn-primary" href="/pelada/p/${p.id}/editar">${ic('pencil', { size: 16 })} Editar pelada</a><button type="button" class="btn" data-add-day>${ic('plus', { size: 16 })} Adicionar data</button><span class="badge gold">Você é o organizador</span></div>`;
-    if (isMember()) return html`<div class="pel-actions"><span class="badge ok">${ic('circle-check', { size: 14 })} Você participa desta pelada</span></div>`;
+    if (isOwner()) return html`<div class="pel-actions"><a class="btn btn-primary" href="/pelada/p/${p.id}/editar">${ic('pencil', { size: 16 })} Editar pelada</a><button type="button" class="btn" data-add-day>${ic('plus', { size: 16 })} Adicionar data</button><span class="badge gold">Você é o organizador</span>${muteBtn()}</div>`;
+    if (isMember()) return html`<div class="pel-actions"><span class="badge ok">${ic('circle-check', { size: 14 })} Você participa desta pelada</span>${muteBtn()}</div>`;
     return html`<div class="pel-actions"><button type="button" class="btn btn-lg btn-primary" data-join>${ic('user-plus', { size: 20 })} Participar da pelada</button><span class="muted small">${S.player ? 'Entre com um toque.' : 'Sem conta? Crie em 10 segundos.'}</span></div>`;
   }
 
@@ -174,6 +182,17 @@ export default async function (ctx) {
       return;
     }
     if (t.closest('[data-add-day]')) { addDayDialog(); return; }
+    const mb = t.closest('[data-mute]');
+    if (mb) {
+      const muted = N.prefs.muted.includes(id);
+      mb.disabled = true;
+      try {
+        await savePrefs({ muted: muted ? N.prefs.muted.filter(x => x !== id) : [...N.prefs.muted, id] });
+        toast(muted ? 'Você voltou a receber as notificações desta pelada.' : 'Notificações desta pelada silenciadas. Dá para reativar aqui ou em Configurações.', { type: 'success' });
+      } catch (err) { toast(err.message, { type: 'error' }); }
+      paint();
+      return;
+    }
     if (t.closest('[data-delete]')) {
       if (!(await confirmDialog({ title: 'Excluir a pelada?', text: 'Todas as datas, listas de presença, partidas e gols serão apagados para todos. Isso não pode ser desfeito.', ok: 'Excluir pelada', danger: true }))) return;
       try { await api.del(`/pelada/peladas/${id}`); toast('Pelada excluída.'); navigate('/pelada/painel'); } catch (err) { toast(err.message, { type: 'error' }); }
@@ -205,6 +224,12 @@ export default async function (ctx) {
   }
 
   paint();
+  // o botão de silenciar depende das preferências, que chegam junto com as notificações
+  let prefsKey = JSON.stringify(N.prefs?.muted || null) + N.prefs?.enabled;
+  ctx.onLeave(onNotif(() => {
+    const k = JSON.stringify(N.prefs?.muted || null) + N.prefs?.enabled;
+    if (k !== prefsKey && !document.querySelector('dialog[open]')) { prefsKey = k; paint(); }
+  }));
   if (ui.novo === false && ctx.query.novo === '1') $('.invite', ctx.root)?.scrollIntoView({ block: 'center' });
 
   poll(ctx, async () => {

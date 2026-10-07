@@ -53,3 +53,11 @@
 [data-theme="dark"] .btn-light { background: var(--surface-2); border-color: var(--line-strong); color: var(--ink); }
 [data-theme="dark"] .pl-brand, [data-theme="dark"] .pl-brand b, [data-theme="dark"] .pl-brand span { color: var(--ink); }
 [data-theme="dark"] .install-btn { color: var(--pl-700); }
+/* notificações */
+[data-theme="dark"] .ntf-item.unread { background: var(--pl-50); }
+[data-theme="dark"] .ntf-item.unread:hover { background: var(--pl-100); }
+[data-theme="dark"] .ntf-ico.t-presence, [data-theme="dark"] .ntf-ico.t-reminder { color: var(--green); }
+[data-theme="dark"] .ntf-ico.t-absence { color: var(--red); }
+[data-theme="dark"] .ntf-ico.t-draw, [data-theme="dark"] .ntf-ico.t-result { color: var(--gold); }
+[data-theme="dark"] .ntf-ico.t-match { background: #241d4d; color: #a993ff; }
+[data-theme="dark"] .bell { color: var(--ink-2); }
