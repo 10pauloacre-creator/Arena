@@ -1,12 +1,16 @@
 // Service worker do app Pelada (escopo /pelada/): abre o app sem internet e acelera as telas.
 // Dados (/api) nunca são guardados; as telas e os arquivos do app usam "rede primeiro, cache como reserva".
-const VERSION = 'pelada-v1';
+const VERSION = 'pelada-v2';
 const SHELL = [
   '/pelada/',
   '/assets/css/base.css',
   '/assets/css/pelada.css',
   '/assets/fonts/pjs-latin.woff2',
   '/assets/fonts/pjs-latin-ext.woff2',
+  '/assets/fonts/barlow-condensed-700.woff2',
+  '/assets/fonts/barlow-condensed-800.woff2',
+  '/assets/fonts/league-spartan-800.woff2',
+  '/pelada/share/modelo-compartilhamento.webp',
   '/pelada/icons/icon.svg',
   '/pelada/icons/icon-192.png',
   '/assets/js/router.js',

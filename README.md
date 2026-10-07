@@ -140,7 +140,13 @@ A interface é pré-carregada pelo service worker e abre sem internet; os dados 
   "jogador de fora" e "sem autor"). Ao encerrar (ou quando o tempo acaba), a **próxima partida é criada sozinha**: quem ganha fica, o perdedor
   vai para o fim da fila; no empate sai quem está há mais partidas seguidas na quadra.
 - **Histórico e artilharia**: resultados públicos; pódio *do dia* e *geral* com medalhas ouro/prata/bronze (empates dividem a colocação);
-  **Compartilhar Resultados** copia uma imagem (flyer no estilo do design aprovado no Canva) para a área de transferência; também baixa o PNG ou copia o texto para o WhatsApp.
+  **Compartilhar Resultados** abre a tela de compartilhamento e copia para a área de transferência a imagem do **modelo exato do Canva**
+  em alta resolução (2172×2896, `public/pelada/share/modelo-compartilhamento.webp`). O sistema só troca o que varia: o **período**
+  (da primeira data da pelada até o dia da emissão; no "Do dia", a data do jogo), os **nomes**, os **gols** e as fotos nas molduras
+  (sem foto, aparecem as iniciais). Também baixa o PNG, envia pelo menu do celular ou copia o texto para o WhatsApp.
+  As fontes (Barlow Condensed e League Spartan, licença SIL OFL em `public/assets/fonts/OFL-LICENSE.txt`) ficam no próprio site.
+  Para trocar a arte: exporte o modelo do Canva **sem** os textos variáveis (2×) e substitua o arquivo `.webp`; as posições dos
+  textos estão em `public/assets/js/pelada/ui/share.js` (medidas do design de 1086×1448).
 
 API em `lib/routes/peladas.js` (`/api/pelada/*`), regras em `lib/domain/pelada.js` e `public/assets/js/shared/pelada.js`
 (compartilhadas com o navegador), tela em `public/assets/js/pelada/`. Como as contas e peladas ficam no mesmo armazenamento do

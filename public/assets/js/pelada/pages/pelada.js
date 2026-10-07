@@ -10,7 +10,7 @@ import { avatar, peladaAvatar, peladaImg } from '../ui/img.js';
 import { qrSvg } from '../../ui/qr.js';
 import { podiumPanel } from '../ui/podium.js';
 import { matchLine } from '../ui/match.js';
-import { resultsData, shareResults } from '../ui/share.js';
+import { resultsData, runShare } from '../ui/share.js';
 import { fetchPelada } from '../data.js';
 import { poll } from '../ui/poll.js';
 import { GENDERS } from '../../shared/pelada.js';
@@ -182,15 +182,7 @@ export default async function (ctx) {
     const pt = t.closest('[data-pod-tab]');
     if (pt) { ui.podScope = pt.dataset.podTab; paintBody(); return; }
     const sh = t.closest('[data-share]');
-    if (sh) {
-      sh.disabled = true;
-      try {
-        const out = await shareResults(resultsData(pel(), { scope: ui.podScope, dayId: ui.podDay }), sh.dataset.share);
-        const msg = { copied: 'Imagem copiada! Cole no grupo do WhatsApp.', shared: 'Compartilhado!', downloaded: 'Imagem baixada (e texto copiado).', text: 'Texto copiado! Cole no WhatsApp.', fail: 'Não foi possível copiar.' }[out];
-        if (msg) toast(msg, { type: out === 'fail' ? 'error' : 'success' });
-      } catch (err) { toast(err.message || 'Não foi possível gerar a imagem.', { type: 'error' }); }
-      sh.disabled = false;
-    }
+    if (sh) { sh.disabled = true; await runShare(resultsData(pel(), { scope: ui.podScope, dayId: ui.podDay }), sh.dataset.share); sh.disabled = false; }
   });
   ctx.root.addEventListener('toggle', e => {
     if (!e.target.matches?.('[data-hd]')) return;
