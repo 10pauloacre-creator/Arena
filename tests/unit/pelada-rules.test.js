@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   parseBirth, parseDateParts, normalizeSecret, maskDate, nameKey, normalizePeladaId, PELADA_ID_RE, planTeams, drawTeams, minPlayersForDraw,
-  nextPairing, rankGoals, matchScore, timerRemaining, fmtClock, mulberry32, teamLabel,
+  nextPairing, rankGoals, matchScore, timerRemaining, fmtClock, mulberry32, teamLabel, rangeLabel, sharePeriod,
 } from '../../public/assets/js/shared/pelada.js';
 
 const people = n => Array.from({ length: n }, (_, i) => ({ pid: `u:${i + 1}`, name: `Jogadora ${i + 1}`, guest: i % 7 === 6 }));
@@ -153,4 +153,19 @@ test('artilharia: ordem, empates dividem a colocação e a medalha', () => {
   const r2 = rankGoals({ a: 4, b: 3, c: 2, d: 1 }, pid => names[pid]);
   assert.deepEqual(r2.map(x => x.medal), ['gold', 'silver', 'bronze', null]);
   assert.deepEqual(rankGoals({}), []);
+});
+
+test('período do compartilhamento: início da pelada até o dia da emissão', () => {
+  assert.equal(rangeLabel('2026-09-07', '2026-10-20'), '07/09 - 20/10');
+  assert.equal(rangeLabel('2025-12-20', '2026-01-10'), '20/12/2025 - 10/01/2026');
+  assert.equal(rangeLabel('2026-10-07', '2026-10-07'), '07/10/2026');
+  // geral: primeira data de jogo → hoje (emissão)
+  assert.deepEqual(sharePeriod({ general: true, firstDay: '2026-09-07', dayDate: '2026-10-14', today: '2026-10-20' }), { from: '2026-09-07', to: '2026-10-20', label: '07/09 - 20/10' });
+  // a pelada ainda não começou: só o dia da emissão
+  assert.equal(sharePeriod({ general: true, firstDay: '2030-01-05', today: '2026-10-20' }).label, '20/10/2026');
+  assert.equal(sharePeriod({ general: true, firstDay: null, today: '2026-10-20' }).label, '20/10/2026');
+  // artilharia do dia: a data do jogo
+  assert.equal(sharePeriod({ general: false, firstDay: '2026-09-07', dayDate: '2026-10-14', today: '2026-10-20' }).label, '14/10/2026');
+  // emitido no mesmo dia do primeiro jogo
+  assert.equal(sharePeriod({ general: true, firstDay: '2026-10-20', today: '2026-10-20' }).label, '20/10/2026');
 });
