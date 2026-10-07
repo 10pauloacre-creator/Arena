@@ -6,11 +6,13 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(fileURLToPath(new URL('../../public/assets/js', import.meta.url)));
+// scripts clássicos (não são módulos): usam document/self ao carregar
+const CLASSIC = new Set(['theme.js', 'sw-core.js']);
 function walk(dir) {
   return readdirSync(dir).flatMap(n => {
     const p = join(dir, n);
     if (statSync(p).isDirectory()) return n === 'vendor' ? [] : walk(p);
-    return p.endsWith('.js') && n !== 'main.js' ? [p] : [];
+    return p.endsWith('.js') && n !== 'main.js' && !CLASSIC.has(n) ? [p] : [];
   });
 }
 

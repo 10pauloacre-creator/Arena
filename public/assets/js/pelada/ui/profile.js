@@ -41,7 +41,7 @@ export function openProfile() {
     if (e.target.closest('[data-photo-remove]')) {
       try { const r = await api.patch('/pelada/auth/me', { avatar: null }); setPlayer(r.player); refresh(); } catch (err) { toast(err.message, { type: 'error' }); }
     }
-    if (e.target.closest('[data-logout]')) { d.close(); await logout(); toast('Você saiu da conta.'); navigate('/pelada/'); }
+    if (e.target.closest('[data-logout]')) { if (await logout()) { d.close(); toast('Você saiu da conta.'); navigate('/pelada/'); } }
   });
   $('[data-pass]', d.el).addEventListener('submit', async e => {
     e.preventDefault();

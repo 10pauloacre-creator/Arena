@@ -1,7 +1,7 @@
 // Gerenciador de partidas ao vivo: relógio, placar, lances e encerramento.
 // O estado do relógio é guardado como (elapsedMs, startedAt) para que qualquer cliente calcule o minuto atual.
 
-import { SPORTS } from '../../public/assets/js/shared/sports.js';
+import { SPORTS } from '../sports.js';
 import { badRequest, conflict } from '../errors.js';
 import { applyPlayinResult, findMatch, isBlocked, setWinner, teamById, totalRounds } from './bracket.js';
 import { pushActivity } from './tournament.js';

@@ -1,15 +1,14 @@
 // Modelo e regras da pelada (servidor): configurações, dias, presença, convidados, sorteio, partidas e gols.
 // Tudo aqui opera sobre o documento da pelada (objeto simples) e lança HttpError quando a regra é violada.
 
-import { randomBytes } from 'node:crypto';
 import { badRequest, conflict, notFound } from '../errors.js';
-import { shortCode } from '../auth.js';
+import { shortCode, randomBytes, randomU32 } from '../rand.js';
 import { cleanText } from './tournament.js';
-import { parseDay } from '../../public/assets/js/shared/format.js';
+import { parseDay } from '../format.js';
 import {
   GENDERS, DEFAULT_MATCH_MIN, PELADA_ALPHABET, drawTeams, matchScore, nameKey,
   nextPairing, timerRemaining, mulberry32,
-} from '../../public/assets/js/shared/pelada.js';
+} from '../pelada.js';
 
 export const MAX_DAYS = 80;
 export const MAX_MATCHES_PER_DAY = 40;
@@ -233,7 +232,7 @@ export function performDraw(p, day, players, { by, now, rnd }) {
   const org = orgOf(p, day);
   if (org.noTeams) throw badRequest('Esta data está configurada como "Sem formação de times".', 'NO_TEAMS');
   if (day.matches.some(m => m.status !== 'scheduled')) throw conflict('Já existem partidas em andamento ou encerradas: não é possível refazer o sorteio.', 'HAS_MATCHES');
-  const seed = rnd ? Math.floor(rnd() * 2 ** 32) : randomBytes(4).readUInt32BE(0);
+  const seed = rnd ? Math.floor(rnd() * 2 ** 32) : randomU32();
   const res = drawTeams(players, org.minPerTeam, rnd || mulberry32(seed));
   if (!res.ok) throw badRequest(res.error, 'DRAW_IMPOSSIBLE');
   day.draw = { id: rid('s_'), at: now, seed, by, min: org.minPerTeam, teams: res.teams, notes: res.notes, count: players.length };

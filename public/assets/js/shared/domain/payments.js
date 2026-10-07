@@ -1,11 +1,11 @@
 // Orquestração de pagamentos (inscrição e doações de repescagem), independente do provedor.
 
-import { randomId } from '../auth.js';
+import { randomId } from '../rand.js';
 import { badRequest, conflict } from '../errors.js';
 import { confirmTeam } from './teams.js';
 import { canRepesc, createPlayin, teamById } from './bracket.js';
 import { pushActivity, RESERVATION_MS, isReservationActive } from './tournament.js';
-import { fmtBRL } from '../../public/assets/js/shared/format.js';
+import { fmtBRL } from '../format.js';
 
 const METHODS = ['pix', 'card'];
 

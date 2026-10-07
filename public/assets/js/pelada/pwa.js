@@ -1,4 +1,5 @@
 // PWA: registra o service worker e controla o botão "Instalar app".
+import { registerServiceWorker } from '../offline/sw-register.js';
 let deferred = null;
 const listeners = new Set();
 const notify = () => listeners.forEach(fn => { try { fn(); } catch { /* ignora */ } });
@@ -20,7 +21,5 @@ export async function promptInstall() {
 export function initPwa() {
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; notify(); });
   window.addEventListener('appinstalled', () => { deferred = null; notify(); });
-  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
-    window.addEventListener('load', () => { navigator.serviceWorker.register('/pelada/sw.js', { scope: '/pelada/' }).catch(() => { /* app funciona sem service worker */ }); });
-  }
+  registerServiceWorker('/pelada/sw.js', '/pelada/');
 }

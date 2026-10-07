@@ -46,11 +46,12 @@ test('service worker: pré-cache lista todos os arquivos da interface (inclui as
   assert.ok(shell.has('/pelada/'));
 });
 
-test('service worker: nunca guarda /api e só atende o próprio domínio', () => {
-  const sw = read('pelada/sw.js');
-  assert.match(sw, /pathname\.startsWith\('\/api\/'\)\) return/);
+test('service worker (núcleo compartilhado): nunca guarda /api e só atende o próprio domínio', () => {
+  const sw = read('assets/js/offline/sw-core.js');
+  assert.match(sw, /path\.indexOf\('\/api\/'\) === 0\) return/);
   assert.match(sw, /url\.origin !== self\.location\.origin/);
   assert.match(sw, /request\.method !== 'GET'/);
+  assert.match(read('pelada/sw.js'), /importScripts\('\/assets\/js\/offline\/sw-core\.js'\)/);
 });
 
 test('vercel.json: reescritas do app Pelada vêm antes do catch-all e arquivos do PWA não ficam em cache longo', () => {

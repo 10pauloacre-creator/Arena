@@ -1,9 +1,9 @@
 // Chaveamento eliminatório: sorteio equilibrado, byes, avanço de vencedores e repescagem (revanche).
 
-import { nextPow2, log2, roundName, matchLabel } from '../../public/assets/js/shared/sports.js';
-import { mulberry32, shuffle, avg } from '../../public/assets/js/shared/format.js';
+import { nextPow2, log2, roundName, matchLabel } from '../sports.js';
+import { mulberry32, shuffle, avg } from '../format.js';
 import { badRequest, conflict } from '../errors.js';
-import { randomId } from '../auth.js';
+import { randomId, randomU32 } from '../rand.js';
 import { confirmedTeams, pushActivity } from './tournament.js';
 
 export const matchKey = (r, m) => `${r}-${m}`;
@@ -45,7 +45,7 @@ const groupKey = team => {
  * Sorteio: testa milhares de combinações e escolhe a de menor custo
  * (conflitos de origem na 1ª fase + desequilíbrio de força entre as metades da chave).
  */
-export function runDraw(teams, { seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0, iterations = 6000 } = {}) {
+export function runDraw(teams, { seed = randomU32(), iterations = 6000 } = {}) {
   const n = teams.length;
   if (n < 2) throw badRequest('São necessários ao menos 2 times confirmados para sortear.', 'NOT_ENOUGH_TEAMS');
   const size = nextPow2(n);

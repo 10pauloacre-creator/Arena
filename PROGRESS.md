@@ -19,6 +19,15 @@ Este arquivo existe para que uma sessão interrompida possa continuar de onde pa
 - Pelada demo: botão "Criar pelada demo" na criação (`POST /api/pelada/peladas/demo`) → jogo de hoje com 17 confirmados (nome de 2 palavras + avatar SVG gerado). Elenco em código (`lib/domain/pelada-demo.js`, IDs `pl_demoNN` resolvidos em `getPlayer` e na rota de imagem; nada vai para o banco). Testes: `tests/unit/pelada-demo.test.js`.
 - Ao criar novos arquivos JS em `public/assets/js/pelada/`, inclua-os no `SHELL` de `public/pelada/sw.js` (há teste que confere).
 
+## Modo offline — adicionado
+- Os dois apps funcionam sem internet e sincronizam sozinhos (README, seção "Modo offline"). Código em `public/assets/js/offline/`,
+  regras compartilhadas em `public/assets/js/shared/domain/` (o domínio saiu de `lib/` para rodar também no navegador), service workers
+  `public/sw.js` e `public/pelada/sw.js` (núcleo em `offline/sw-core.js`; `npm run sw` atualiza as listas de arquivos).
+- Servidor: ações em `shared/domain/pelada-actions.js` e `tournament-actions.js` (as rotas só as registram); `X-Op-Id` (idempotência no
+  documento), `X-Op-At` (hora da ação), `X-Replica` (cópia do documento; no torneio só para administradores).
+- Testes: `tests/unit/offline-*.test.js` (paridade aparelho × servidor, resposta perdida, conflitos, 401, SW) e `e2e/offline.mjs`.
+- Ao criar um endpoint que mude pelada/torneio, prefira registrá-lo como *ação* compartilhada para ele funcionar offline também.
+
 ## Pendências / ideias
 - Conectar o Upstash Redis na Vercel (ação do dono do projeto) — sem isso o deploy roda em modo demonstração.
 - Validar o Mercado Pago com credenciais de teste antes de cobrar de verdade.
