@@ -7,7 +7,7 @@ Este arquivo existe para que uma sessão interrompida possa continuar de onde pa
 - Front-end completo: home com grade de torneios, login/cadastro, convite de administradores, painel do admin
   (Painel, Times, Ao vivo, Chaveamento, Marketing, Configurações) e página do visitante
   (início, jogos, chaveamento, times, inscrição com PIX/cartão, meu time + repescagem).
-- E2E (`e2e/run.mjs`): 28 cenários passando · Pelada (`e2e/pelada.mjs`): 19 cenários.
+- E2E (`e2e/run.mjs`): 28 cenários passando · Pelada (`e2e/pelada.mjs`): 20 cenários.
 - README com instruções (local, Vercel + Redis, pagamentos, segurança, limitações).
 
 ## App Pelada (PWA) — adicionado
@@ -19,6 +19,7 @@ Este arquivo existe para que uma sessão interrompida possa continuar de onde pa
 - Celular (PWA instalado): topo verde (combina com `theme-color`), barra de navegação inferior (`.pl-bnav`, só com conta), modais como folha,
   campos com 16px (o iOS não dá zoom ao focar), botões fixos no formulário e botão de tema no topo. Qualquer elemento mais largo que a tela
   faz o Chrome mobile encolher a página inteira ("modo desktop"): `e2e/pelada.mjs` confere 390/360/320px.
+- Pelada demo: botão "Criar pelada demo" na criação (`POST /api/pelada/peladas/demo`) → jogo de hoje com 17 confirmados (nome de 2 palavras + avatar SVG gerado). Elenco em código (`lib/domain/pelada-demo.js`, IDs `pl_demoNN` resolvidos em `getPlayer` e na rota de imagem; nada vai para o banco). Testes: `tests/unit/pelada-demo.test.js`.
 - Ao criar novos arquivos JS em `public/assets/js/pelada/`, inclua-os no `SHELL` de `public/pelada/sw.js` (há teste que confere).
 
 ## Pendências / ideias

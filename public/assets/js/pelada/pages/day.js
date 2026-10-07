@@ -76,7 +76,7 @@ export default async function (ctx) {
     const label = d.isToday ? 'Jogo de hoje' : d.isPast ? 'Jogo encerrado' : 'Próximo jogo';
     return html`<a class="btn btn-ghost btn-sm" href="/pelada/p/${p.id}">${ic('arrow-left', { size: 16 })} ${p.name}</a>
       <header class="day-hero ${p.gender}"><div><span class="eyebrow">${ic('calendar', { size: 15 })} ${label}</span><h1>${dayLong(d.date)}</h1>
-        <div class="row wrap" style="gap:8px;margin-top:10px"><span class="badge dark-on">${GENDERS[p.gender].emoji} ${GENDERS[p.gender].label}</span>${d.org.noTeams ? html`<span class="badge warn">Sem formação de times</span>` : html`<span class="badge dark-on">mín. ${d.org.minPerTeam} por time</span><span class="badge dark-on">${ic('timer', { size: 13 })} ${d.org.matchMinutes} min por partida</span>`}${d.custom ? html`<span class="badge info">Organização personalizada</span>` : ''}</div></div>
+        <div class="row wrap" style="gap:8px;margin-top:10px"><span class="badge dark-on">${GENDERS[p.gender].emoji} ${GENDERS[p.gender].label}</span>${d.org.noTeams ? html`<span class="badge warn">Sem formação de times</span>` : html`<span class="badge dark-on">mín. ${d.org.minPerTeam} por time</span><span class="badge dark-on">${ic('timer', { size: 13 })} ${d.org.matchMinutes} min por partida</span>`}${d.custom ? html`<span class="badge info">Organização personalizada</span>` : ''}${p.demo ? html`<span class="badge warn">Demonstração</span>` : ''}</div></div>
         <div class="hero-count"><b>${d.attendance.length}</b><span>${d.attendance.length === 1 ? 'confirmado' : 'confirmados'}</span></div></header>`;
   }
 
