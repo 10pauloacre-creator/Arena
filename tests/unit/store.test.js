@@ -182,3 +182,24 @@ test('variáveis do banco: aceita nomes padrão e com prefixo da Vercel; aviso d
   assert.match(storageNote({ KV_REST_API_URL: 'x' }), /token/);
   assert.ok(!storageNote({ SUPABASE_URL: 'segredo-url' }).includes('segredo-url'), 'não revela valores');
 });
+
+test('variáveis reais da integração Vercel+Supabase com prefixo "arena_" escolhem o SupabaseStore (chave secreta antes da legada)', async () => {
+  const saved = { ...process.env };
+  for (const k of Object.keys(process.env)) if (/SUPABASE|KV_REST|UPSTASH|^VERCEL$|ARENA_STORE/.test(k)) delete process.env[k];
+  Object.assign(process.env, {
+    arena_SUPABASE_URL: 'https://x.supabase.co', NEXT_PUBLIC_arena_SUPABASE_URL: 'https://publica.supabase.co',
+    arena_SUPABASE_SERVICE_ROLE_KEY: 'eyJlegada', arena_SUPABASE_SECRET_KEY: 'sb_secret_nova', arena_SUPABASE_ANON_KEY: 'anon', arena_SUPABASE_JWT_SECRET: 'jwt',
+  });
+  try {
+    const { getStore, setStore } = await import('../../lib/store/index.js');
+    setStore(null);
+    const s = getStore();
+    assert.equal(s.describe().kind, 'supabase');
+    assert.ok(s.base.startsWith('https://x.supabase.co/'), 'usa a URL do servidor');
+    assert.equal(s.headers.apikey, 'sb_secret_nova');
+    setStore(null);
+  } finally {
+    for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
+    Object.assign(process.env, saved);
+  }
+});
