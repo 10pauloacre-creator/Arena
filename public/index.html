@@ -1,11 +1,22 @@
 <!doctype html>
 <html lang="pt-BR">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ArenaMaster AI</title></head>
-<body style="font-family:system-ui;padding:24px">
-<h1>ArenaMaster AI</h1>
-<p>Interface em construção. API: <code id="out">verificando…</code></p>
-<script type="module">
-  fetch('/api/health').then(r => r.json()).then(j => { document.getElementById('out').textContent = JSON.stringify(j); }).catch(e => { document.getElementById('out').textContent = 'erro ' + e; });
-</script>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ArenaMaster AI — Torneios sem complicação</title>
+<meta name="description" content="Crie torneios, abra inscrições com pagamento por PIX ou cartão, sorteie o chaveamento e acompanhe os jogos ao vivo.">
+<meta name="theme-color" content="#0a0f1d">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/assets/fonts/pjs-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/css/base.css">
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body>
+<a class="skip" href="#app">Pular para o conteúdo</a>
+<div id="app"><div class="page-loading"><div class="spinner" role="status" aria-label="Carregando"></div></div></div>
+<div id="toasts" role="status" aria-live="polite"></div>
+<noscript><p style="padding:24px">O ArenaMaster AI precisa de JavaScript para funcionar.</p></noscript>
+<script src="/assets/js/vendor/qrcode.js"></script>
+<script type="module" src="/assets/js/main.js"></script>
 </body>
 </html>

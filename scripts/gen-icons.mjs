@@ -53,6 +53,7 @@ export function icon(name, { size = 20, cls = '', label = '' } = {}) {
   return \`<svg class="ico \${cls}" width="\${size}" height="\${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" \${a11y}>\${p}</svg>\`;
 }
 export const hasIcon = name => name in PATHS;
+export const ICON_PATHS = PATHS;
 export const ICON_NAMES = Object.keys(PATHS);
 `;
 writeFileSync('public/assets/js/icons.js', out);
