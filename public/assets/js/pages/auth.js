@@ -2,7 +2,7 @@ import { html, render, ic, $, setBusy } from '../ui/dom.js';
 import { brandMark } from '../ui/brand.js';
 import { setFieldError, clearErrors, applyApiError } from '../ui/forms.js';
 import { api } from '../api.js';
-import { setUser } from '../session.js';
+import { session, setUser } from '../session.js';
 import { navigate } from '../router.js';
 import { validEmail } from '../shared/validators.js';
 
@@ -11,6 +11,7 @@ const safeNext = n => (typeof n === 'string' && n.startsWith('/') && !n.startsWi
 export default function (ctx) {
   const signup = ctx.path === '/cadastro';
   const next = safeNext(ctx.query.next);
+  if (session.user) return navigate(next, { replace: true });
   const q = ctx.query.next ? `?next=${encodeURIComponent(next)}` : '';
   document.title = (signup ? 'Criar conta' : 'Entrar') + ' · ArenaMaster AI';
   render(ctx.root, html`<div class="auth">

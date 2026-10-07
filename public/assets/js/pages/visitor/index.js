@@ -14,7 +14,7 @@ import { fmtBRL, fmtDay, normalizeTournamentId, TOURNAMENT_ID_RE } from '../../s
 const TABS = [
   { key: '', label: 'Início', icon: 'home' },
   { key: 'jogos', label: 'Jogos', icon: 'radio' },
-  { key: 'chaveamento', label: 'Chaveamento', icon: 'network' },
+  { key: 'chaveamento', label: 'Chaveamento', short: 'Chave', icon: 'network' },
   { key: 'times', label: 'Times', icon: 'users' },
   { key: 'meu-time', label: 'Meu time', icon: 'user-check' },
 ];
@@ -58,6 +58,13 @@ export default async function (ctx) {
   function hero() {
     const t = state.t, r = t.registration;
     const open = r.open;
+    if (state.tab === 'inscricao' || state.tab === 'meu-time') {
+      // versão compacta nas telas de formulário: o conteúdo principal aparece mais cedo (importante no celular)
+      return html`<section class="v-hero compact" aria-label="Resumo do torneio">${heroArt(t.sport)}
+        <div class="stack-sm"><div class="row wrap" style="gap:8px">${statusBadge(t.status, t.statusLabel)}<span class="small" style="color:#9fb0cc">ID #${t.id}</span></div>
+          <h1>${t.name}</h1>
+          <div class="chips"><span class="chip">${ic('wallet', { size: 15 })} ${t.fee ? fmtBRL(t.fee) + ' por time' : 'Inscrição gratuita'}</span>${t.regDeadline ? html`<span class="chip">${ic('clock', { size: 15 })} <span data-cd="${t.regDeadline}" data-compact>Prazo: --</span></span>` : ''}<span class="chip">${ic('users', { size: 15 })} ${t.teamsConfirmed}/${t.maxTeams} times</span></div></div></section>`;
+    }
     return html`<section class="v-hero" aria-label="Resumo do torneio">${heroArt(t.sport)}
       <div class="stack"><div class="row wrap" style="gap:8px">${statusBadge(t.status, t.statusLabel)}${t.demo ? html`<span class="badge gold">Demonstração</span>` : ''}${t.status === 'andamento' && state.t.bracket?.rounds.flatMap(rd => rd.matches).some(m => m.phase === 'live') ? html`<span class="badge live"><span class="dot"></span>Ao vivo</span>` : ''}</div>
         <h1>${t.name}</h1>
@@ -75,13 +82,14 @@ export default async function (ctx) {
   function tabsNav() {
     const list = TABS.filter(x => x.key !== 'meu-time' || true);
     const showReg = state.tab === 'inscricao';
-    return html`<nav class="v-tabs" aria-label="Seções do torneio"><div class="seg">${list.map(x => html`<a href="${link(x.key)}" ${state.tab === x.key ? 'aria-current="page"' : ''}>${ic(x.icon, { size: 16 })} ${x.label}</a>`)}${showReg ? html`<a href="${link('inscricao')}" aria-current="page">${ic('user-plus', { size: 16 })} Inscrição</a>` : ''}</div></nav>`;
+    return html`<nav class="v-tabs" aria-label="Seções do torneio"><div class="seg">${list.map(x => html`<a href="${link(x.key)}" ${state.tab === x.key ? 'aria-current="page"' : ''}>${ic(x.icon, { size: 16 })} <span class="lg">${x.label}</span><span class="sm">${x.short || x.label}</span></a>`)}${showReg ? html`<a href="${link('inscricao')}" aria-current="page">${ic('user-plus', { size: 16 })} Inscrição</a>` : ''}</div></nav>`;
   }
 
   function paintCountdown() {
     const el = $('[data-cd]', ctx.root); if (!el) return;
     const left = Math.max(0, new Date(el.dataset.cd).getTime() - v.now);
     const d = Math.floor(left / 86400000), h = Math.floor(left / 3600000) % 24, m = Math.floor(left / 60000) % 60, s = Math.floor(left / 1000) % 60;
+    if (el.hasAttribute('data-compact')) { el.textContent = left > 0 ? `Faltam ${d ? d + 'd ' : ''}${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}min` : 'Prazo encerrado'; return; }
     const set = (k, val) => { const n = $(`[data-${k}]`, el); if (n) n.textContent = String(val).padStart(2, '0'); };
     set('d', d); set('h', h); set('m', m); set('s', s);
   }

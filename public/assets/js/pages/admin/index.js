@@ -1,5 +1,5 @@
 // Shell do administrador: sidebar, topbar, notificações, sincronização e roteamento de seções.
-import { html, render, ic, $, $$, on, copyText } from '../../ui/dom.js';
+import { html, render, ic, $, $$, on, copyText, esc } from '../../ui/dom.js';
 import { brand, userMenuHTML, wireMenus } from '../../ui/brand.js';
 import { confirmDialog } from '../../ui/dialog.js';
 import { toast } from '../../ui/toast.js';
@@ -108,7 +108,7 @@ export default async function (ctx) {
     setBadge('ao-vivo', t.bracket ? [...t.bracket.rounds.flatMap(r => r.matches), ...t.bracket.playins].filter(m => m.phase === 'live').length : 0);
     const pop = $('#bellPop', ctx.root);
     pop.innerHTML = `<div class="who"><b>Atividade recente</b></div>` + (t.activity.length
-      ? `<ul class="feed" style="padding:0 12px 8px;max-height:340px">${t.activity.slice(0, 15).map(a => `<li><span class="f-ico ${a.type === 'refund' ? 'red' : a.type === 'donation' ? 'gold' : a.type === 'champion' ? 'green' : ''}">${ic({ team: 'users', reserve: 'clock', refund: 'banknote', donation: 'heart', draw: 'network', match: 'flag', champion: 'trophy', admin: 'user-plus', reset: 'rotate-ccw' }[a.type] || 'info', { size: 16 }).s}</span><div><div>${a.text.replace(/[<>&]/g, '')}</div><time>${relTime(a.at, app.now)}</time></div></li>`).join('')}</ul>`
+      ? `<ul class="feed" style="padding:0 12px 8px;max-height:340px">${t.activity.slice(0, 15).map(a => `<li><span class="f-ico ${a.type === 'refund' ? 'red' : a.type === 'donation' ? 'gold' : a.type === 'champion' ? 'green' : ''}">${ic({ team: 'users', reserve: 'clock', refund: 'banknote', donation: 'heart', draw: 'network', match: 'flag', champion: 'trophy', admin: 'user-plus', reset: 'rotate-ccw' }[a.type] || 'info', { size: 16 }).s}</span><div><div>${esc(a.text)}</div><time>${relTime(a.at, app.now)}</time></div></li>`).join('')}</ul>`
       : `<div class="empty" style="margin:8px">${ic('bell').s}<span>Nenhuma atividade ainda.</span></div>`);
   }
   $('#bellBtn', ctx.root).addEventListener('click', e => {

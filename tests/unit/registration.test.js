@@ -341,6 +341,15 @@ test('capitão consulta o próprio time só com o código correto', async () => 
   assert.equal((await v.get(`/public/${t.id}/teams/${id}`)).status, 403);
 });
 
+test('código do capitão também pode ir no cabeçalho X-Team-Code (sem query)', async () => {
+  const org = await signup(S.base);
+  const t = await mk(org);
+  const r = await reg(visitor(), t.id, 'Cabecalho FC');
+  const v = visitor();
+  assert.equal((await v.get(`/public/${t.id}/teams/${r.data.team.id}`, { headers: { 'X-Team-Code': r.data.team.accessCode } })).status, 200);
+  assert.equal((await v.get(`/public/${t.id}/teams/${r.data.team.id}`, { headers: { 'X-Team-Code': 'ERRADO12' } })).status, 403);
+});
+
 test('capitão acessa o time em outro aparelho só com o código', async () => {
   const org = await signup(S.base);
   const t = await mk(org);

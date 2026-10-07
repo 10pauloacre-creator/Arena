@@ -445,3 +445,20 @@
 .out-row .row { flex-wrap: wrap; }
 .out-row .row > .grow { flex: 1 1 150px; }
 @media (max-width: 639px) { .tiles.stack-mobile { grid-template-columns: minmax(0, 1fr); } }
+
+.t-meta > span { display: inline-flex; align-items: center; gap: 5px; }
+.v-hero.compact { padding: 18px 20px; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.v-hero.compact h1 { font-size: clamp(22px, 3.4vw, 32px); }
+.v-hero.compact .chips { margin-top: 4px; }
+
+/* ===== mobile: editor de elenco e abas do visitante ===== */
+@media (max-width: 559px) {
+  .roster-editor .add-row, .roster-editor .add-row.official { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .roster-editor .add-row > [data-f="name"], .roster-editor .add-row .full { grid-column: 1 / -1; }
+  .roster-editor .add-row .full + div, .roster-editor .add-row > div:last-child { grid-column: 1 / -1; }
+  .v-tabs .seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; overflow: visible; width: 100%; }
+  .v-tabs .seg a { flex-direction: column; gap: 3px; min-height: 54px; padding: 6px 2px; font-size: 11px; justify-content: center; text-align: center; line-height: 1.1; }
+}
+.ilink { display: inline-flex; align-items: center; gap: 6px; }
+.v-tabs .seg .sm { display: none; }
+@media (max-width: 559px) { .v-tabs .seg .lg { display: none; } .v-tabs .seg .sm { display: inline; } }

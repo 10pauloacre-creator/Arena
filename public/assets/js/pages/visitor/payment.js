@@ -103,7 +103,7 @@ export function mountPayment(root, opts) {
     tick(); tickTimer = setInterval(tick, 1000);
     pollTimer = setInterval(async () => {
       if (document.hidden || destroyed) return;
-      try { const r = await api.get(`${base}/payments/${encodeURIComponent(payment.id)}?code=${encodeURIComponent(opts.code)}`); if (r.payment.status === 'approved') { stop(); approved(r); } else if (r.payment.status === 'expired') { stop(); err('O PIX expirou. Gere um novo.'); } } catch { /* tenta de novo */ }
+      try { const r = await api.get(`${base}/payments/${encodeURIComponent(payment.id)}`, { headers: { 'X-Team-Code': opts.code } }); if (r.payment.status === 'approved') { stop(); approved(r); } else if (r.payment.status === 'expired') { stop(); err('O PIX expirou. Gere um novo.'); } } catch { /* tenta de novo */ }
     }, 3000);
   }
   function stop() { clearInterval(pollTimer); clearInterval(tickTimer); }

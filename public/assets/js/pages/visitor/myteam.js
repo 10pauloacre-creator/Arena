@@ -16,7 +16,7 @@ export default function (v) {
   async function load(root, { quiet = false } = {}) {
     if (!creds) return paint(root);
     try {
-      const r = await api.get(`/public/${encodeURIComponent(v.id)}/teams/${encodeURIComponent(creds.teamId)}?code=${encodeURIComponent(creds.code)}`);
+      const r = await api.get(`/public/${encodeURIComponent(v.id)}/teams/${encodeURIComponent(creds.teamId)}`, { headers: { 'X-Team-Code': creds.code } });
       info = r.team; tourn = r.tournament; lastErr = '';
     } catch (err) {
       if (err.status === 403 || err.status === 404) { clearMyTeam(v.id); creds = null; info = null; lastErr = 'Não encontramos mais esse time. Digite o código novamente.'; }
