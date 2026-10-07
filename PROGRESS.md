@@ -28,6 +28,12 @@ Este arquivo existe para que uma sessão interrompida possa continuar de onde pa
   Link de convite com pré-visualização: `GET /pelada/page/:id` (`pelada-share.js`) + imagem `preview` montada em `ui/preview.js`. Bug do botão de perfil: `wireShell` agora é idempotente por container.
   Testes novos em `tests/unit/pelada-*.test.js` e cenários em `e2e/pelada.mjs` (25).
 
+## Notificações no app — adicionado
+- Sininho com contador, painel, página `/pelada/notificacoes` e configurações `/pelada/configuracoes` (por tipo, por pelada, aviso na tela).
+- Feed de eventos por pelada (`plf:ID`) gravado em `act()` → `withPelada(..., { after })`; caixa montada na leitura (`lib/notifications.js`).
+- Testes: `tests/unit/pelada-notifications.test.js` (10) e `e2e/pelada-notificacoes.mjs` (7 cenários); telas novas na auditoria `e2e/pelada-a11y.mjs`.
+- Próximo passo possível: Web Push (avisar com o app fechado).
+
 ## Pendências / ideias
 - Conectar o Upstash Redis na Vercel (ação do dono do projeto) — sem isso o deploy roda em modo demonstração.
 - Validar o Mercado Pago com credenciais de teste antes de cobrar de verdade.

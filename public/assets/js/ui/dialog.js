@@ -4,9 +4,10 @@ import { html, render, ic, $ } from './dom.js';
  * Abre um modal. `body`/`foot` são templates html``. Retorna { el, close, closed }.
  * Elementos com [data-close] fecham o modal; [data-close="value"] define o returnValue.
  */
-export function openDialog({ title, body, foot = null, wide = false, onOpen = null, dismissible = true }) {
+export function openDialog({ title, body, foot = null, wide = false, cls = '', onOpen = null, dismissible = true }) {
   const dlg = document.createElement('dialog');
-  if (wide) dlg.className = 'wide';
+  const classes = [wide ? 'wide' : '', cls].filter(Boolean).join(' ');
+  if (classes) dlg.className = classes;
   render(dlg, html`
     <div class="dlg-head"><h3>${title}</h3>${dismissible ? html`<button type="button" class="icon-btn" data-close aria-label="Fechar">${ic('x')}</button>` : ''}</div>
     <div class="dlg-body" data-body>${body}</div>
