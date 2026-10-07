@@ -26,7 +26,7 @@ const assert = (cond, msg) => { if (!cond) throw new Error('Falha: ' + msg); };
 async function guard(page, fn) { try { return await fn(); } catch (e) { e.page = page; throw e; } }
 const watch = (page, tag) => {
   page.on('pageerror', e => consoleErrors.push(`[${tag}] pageerror: ${e.message}`));
-  page.on('console', m => { if (m.type() === 'error' && !/favicon|Failed to load resource.*(401|403|404|409|429)/.test(m.text())) consoleErrors.push(`[${tag}] console: ${m.text()}`); });
+  page.on('console', m => { if (m.type() === 'error' && !/favicon|Failed to load resource.*(400|401|403|404|409|429)/.test(m.text())) consoleErrors.push(`[${tag}] console: ${m.text()}`); });
 };
 const noOverflow = async (page, label) => {
   const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -389,6 +389,102 @@ await test('repescagem: capitão eliminado doa por PIX, libera a revanche e volt
     assert(fin.bracket.rounds[1].matches[0].a === loser.id || fin.bracket.rounds[1].matches[0].b === loser.id, 'desafiante voltou à tabela');
     await p.goto(`${app.base}/t/${t.id}/chaveamento`);
     await seen(p, 'Repescada');
+  });
+  await c.close();
+});
+
+// ---------------------------------------------------------------- outras modalidades e recursos
+await test('torneio oficial: inscrição exige CPF/RG/PDF e o organizador vê os documentos', async () => {
+  const org = await apiSignup(app.base, 'Dona Oficial');
+  const call = (m, p, b) => apiCall(app.base, org.cookie, m, p, b);
+  const t = (await call('POST', '/tournaments', { name: 'Copa Oficial', sport: 'futsal' })).data.tournament;
+  await call('PATCH', `/tournaments/${t.id}`, { type: 'oficial' });
+  const c = await browser.newContext(DESKTOP); const p = await c.newPage(); watch(p, 'oficial');
+  await guard(p, async () => {
+    await p.goto(`${app.base}/t/${t.id}/inscricao`);
+    await p.fill('#tf-name', 'Oficiais FC'); await p.fill('#tf-cname', 'Capitão Oficial'); await p.fill('#tf-cphone', '11988887777'); await p.fill('#tf-cmail', 'o@teste.com');
+    await p.getByRole('button', { name: 'Continuar' }).click();
+    await seen(p, 'CPF, RG e documento de identidade');
+    await p.locator('[data-in=name]').fill('Fulano da Silva'); await p.locator('[data-in=number]').fill('10'); await p.locator('[data-in=cpf]').fill('111.111.111-11'); await p.locator('[data-in=rg]').fill('12345678');
+    await p.locator('[data-act=add]').click(); await seen(p, 'CPF inválido.'); await seen(p, 'Anexe o PDF');
+    await p.getByRole('button', { name: 'Preencher elenco de exemplo' }).click();
+    await p.locator('[data-act=next2]').click(); await p.getByRole('button', { name: 'Concluir inscrição' }).click();
+    await seen(p, 'Inscrição confirmada!');
+  });
+  const adm = (await call('GET', `/tournaments/${t.id}`)).data.tournament;
+  assert(adm.teams[0].players.every(x => /^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(x.cpf) && x.rg && x.doc), 'CPF/RG/documento guardados');
+  const octx = await loginContext(browser, app.base, org); const op = await octx.newPage(); watch(op, 'oficial-admin');
+  await guard(op, async () => {
+    await op.goto(`${app.base}/admin/${t.id}/times`); await op.getByRole('button', { name: 'Detalhes' }).first().click();
+    await seen(op, 'CPF'); await seen(op, '.pdf');
+  });
+  await c.close(); await octx.close();
+});
+
+await test('basquete: cestas de 1/2/3 pontos, empate exige prorrogação', async () => {
+  const org = await apiSignup(app.base, 'Dono Basquete');
+  const call = (m, p, b) => apiCall(app.base, org.cookie, m, p, b);
+  const t = (await call('POST', '/tournaments', { name: 'Copa Basquete', sport: 'basquete', demo: true })).data.tournament;
+  await call('POST', `/tournaments/${t.id}/draw`);
+  const octx = await loginContext(browser, app.base, org); const p = await octx.newPage(); watch(p, 'basquete');
+  await guard(p, async () => {
+    await p.goto(`${app.base}/admin/${t.id}/ao-vivo`); await seen(p, 'Jogos ao vivo');
+    const A = p.locator('.sb-controls .ctl').first(), B = p.locator('.sb-controls .ctl').nth(1);
+    await A.locator('[data-pts="3"]').click(); await A.locator('[data-pts="2"]').click(); await A.locator('[data-pts="1"]').click();
+    await B.locator('[data-pts="3"]').click(); await B.locator('[data-pts="3"]').click();
+    await p.waitForFunction(() => document.querySelector('.sb-score')?.innerText.replace(/\s+/g, '') === '6:6');
+    await p.getByRole('button', { name: 'Encerrar partida' }).click(); await p.getByRole('button', { name: 'Encerrar e lançar' }).click();
+    await seen(p, 'registre os pontos da prorrogação');
+    await B.locator('[data-pts="1"]').click();
+    await p.getByRole('button', { name: 'Encerrar partida' }).click(); await p.getByRole('button', { name: 'Encerrar e lançar' }).click();
+    await seen(p, 'Resultado lançado');
+  });
+  await octx.close();
+});
+
+await test('vôlei: placar do set, fim de set e sets no placar', async () => {
+  const org = await apiSignup(app.base, 'Dono Volei');
+  const call = (m, p, b) => apiCall(app.base, org.cookie, m, p, b);
+  const t = (await call('POST', '/tournaments', { name: 'Copa Vôlei', sport: 'volei', demo: true })).data.tournament;
+  const v = (await call('POST', `/tournaments/${t.id}/draw`)).data.tournament; const key = v.bracket.rounds[0].matches[0].key;
+  for (let i = 0; i < 24; i++) await call('POST', `/tournaments/${t.id}/matches/${key}`, { action: 'event', type: 'goal', team: 'a' });
+  const octx = await loginContext(browser, app.base, org); const p = await octx.newPage(); watch(p, 'volei');
+  await guard(p, async () => {
+    await p.goto(`${app.base}/admin/${t.id}/ao-vivo`); await seen(p, 'Set 1');
+    assert((await p.locator('.sb-score').innerText()).replace(/\s+/g, '') === '24:0', 'set 1 em 24:0');
+    assert(await p.getByRole('button', { name: 'Iniciar jogo' }).count() === 0, 'vôlei não tem relógio');
+    await p.locator('.sb-controls .ctl').first().locator('[data-act=plus]').click();
+    await seen(p, 'Set 2 · Sets 1 × 0');
+    await p.getByRole('button', { name: 'Encerrar partida' }).click(); await seen(p, 'só termina quando uma equipe vence 3 sets');
+  });
+  await octx.close();
+});
+
+await test('transmissão: organizador conecta YouTube e o visitante vê o player; link inválido é recusado', async () => {
+  const org = await apiSignup(app.base, 'Dona Live');
+  const t = (await apiCall(app.base, org.cookie, 'POST', '/tournaments', { name: 'Copa Transmissão', sport: 'futsal', demo: true })).data.tournament;
+  await apiCall(app.base, org.cookie, 'POST', `/tournaments/${t.id}/draw`);
+  const octx = await loginContext(browser, app.base, org); const p = await octx.newPage(); watch(p, 'stream');
+  await guard(p, async () => {
+    await p.goto(`${app.base}/admin/${t.id}/ao-vivo`); await seen(p, 'Transmissão ao vivo');
+    await p.fill('#st-url', 'https://vimeo.com/123'); await p.getByRole('button', { name: 'Conectar' }).click(); await seen(p, 'Aceitamos apenas links do YouTube');
+    await p.fill('#st-url', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'); await p.getByRole('button', { name: 'Conectar' }).click(); await seen(p, 'Transmissão conectada');
+    await p.locator('iframe').first().waitFor();
+  });
+  const vc = await browser.newContext(DESKTOP); const vp = await vc.newPage(); watch(vp, 'stream-visitante');
+  await guard(vp, async () => { await vp.goto(`${app.base}/t/${t.id}`); const src = await vp.locator('iframe').first().getAttribute('src'); assert(src.startsWith('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ'), 'player do YouTube: ' + src); });
+  await octx.close(); await vc.close();
+});
+
+await test('prazo: ao chegar no horário limite a página do visitante encerra as inscrições sozinha', async () => {
+  const org = await apiSignup(app.base, 'Dona Prazo');
+  const t = (await apiCall(app.base, org.cookie, 'POST', '/tournaments', { name: 'Copa Prazo', sport: 'futsal' })).data.tournament;
+  await apiCall(app.base, org.cookie, 'PATCH', `/tournaments/${t.id}`, { regDeadline: new Date(Date.now() + 4000).toISOString() });
+  const c = await browser.newContext(DESKTOP); const p = await c.newPage(); watch(p, 'prazo');
+  await guard(p, async () => {
+    await p.goto(`${app.base}/t/${t.id}`); await seen(p, 'Termina em');
+    await p.getByText('Inscrições encerradas').first().waitFor({ timeout: 14000 });
+    await p.goto(`${app.base}/t/${t.id}/inscricao`); await seen(p, 'O prazo de inscrição terminou');
   });
   await c.close();
 });

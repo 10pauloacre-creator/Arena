@@ -85,6 +85,14 @@ test('refazer o sorteio é permitido antes de qualquer resultado', async () => {
   assert.equal((await org.post(`/tournaments/${id}/draw`)).status, 200);
 });
 
+test('não é possível refazer o sorteio com jogo em andamento ou revanche aberta', async () => {
+  const { org, id, view } = await setup(4);
+  await act(org, id, view.bracket.rounds[0].matches[0].key, { action: 'start' });
+  const r = await org.post(`/tournaments/${id}/draw`);
+  assert.equal(r.status, 409);
+  assert.equal(r.data.error.code, 'STARTED');
+});
+
 test('futsal ao vivo: relógio, gols, cartões, pausa, undo e encerramento avança o vencedor', async () => {
   const { org, id, view } = await setup(4);
   const m = view.bracket.rounds[0].matches[0];
