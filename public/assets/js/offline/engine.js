@@ -49,6 +49,7 @@ export class OfflineEngine {
     this.listeners = new Set();
     this._flushing = null; this._retry = null; this._retryDelay = RETRY_MIN;
     this._chain = Promise.resolve(); // serializa mudanças na fila dentro desta aba
+    this._mem = new Map();           // cópias dos documentos já lidas (escrita também vai para o IndexedDB)
     this.onNeedLogin = null;
     this._wire();
   }
@@ -103,7 +104,7 @@ export class OfflineEngine {
     if (this.env.BroadcastChannel) {
       try {
         this.channel = new this.env.BroadcastChannel('arena-offline');
-        this.channel.onmessage = () => { this._refreshCounts().then(() => this._emit()); };
+        this.channel.onmessage = () => { this._mem.clear(); this._refreshCounts().then(() => this._emit()); };
       } catch { /* sem canal entre abas */ }
     }
     void n;
@@ -126,10 +127,16 @@ export class OfflineEngine {
 
   // ---------------------------------------------------------------- armazenamento (por usuário)
   _k(x) { return `${this.uid}|${x}`; }
-  async _getReplica(resource) { return (await this.storage.get('replicas', this._k(resource))) || null; }
-  async _putReplica(resource, rep) { await this.storage.put('replicas', this._k(resource), rep); }
+  async _getReplica(resource) {
+    const k = this._k(resource);
+    if (this._mem.has(k)) return this._mem.get(k); // (quem recebe não pode alterar: `plugin.draft` clona)
+    const rep = (await this.storage.get('replicas', k)) || null;
+    if (rep) this._mem.set(k, rep);
+    return rep;
+  }
+  async _putReplica(resource, rep) { this._mem.set(this._k(resource), rep); await this.storage.put('replicas', this._k(resource), rep); }
   async _outbox(uid = this.uid) { return (await this.storage.all('outbox')).map(r => r.value).filter(o => o.uid === uid); }
-  async _pending(resource) { return (await this._outbox()).filter(o => o.resource === resource); }
+  async _pending(resource) { return this.counts.pending ? (await this._outbox()).filter(o => o.resource === resource) : []; } // sem nada na fila, nem lê o banco
   async _dead(uid = this.uid) { return (await this.storage.all('dead')).map(r => r.value).filter(o => o.uid === uid); }
   async _refreshCounts() {
     const [o, d] = await Promise.all([this._outbox(), this._dead()]);
@@ -327,8 +334,9 @@ export class OfflineEngine {
 
   /** Envia as operações pendentes do usuário atual, uma de cada vez, em ordem. */
   flush({ manual = false } = {}) {
-    if (this._flushing) return this._flushing;
+    if (this._flushing) { this._again = true; return this._flushing; } // algo novo entrou durante o envio: roda de novo ao terminar
     const run = async () => {
+      if (this._hintOffline()) { this._setOnline(false); this._backoff(); return; } // o navegador já sabe que está sem internet
       this.syncing = true; this._emit();
       let sent = 0, touched = new Set();
       try {
@@ -354,7 +362,10 @@ export class OfflineEngine {
             this._retryDelay = RETRY_MIN;
             continue;
           }
-          if (s === 401) { this.needsLogin = true; this._emit('login'); try { this.onNeedLogin?.(); } catch { /* ignora */ } break; }
+          if (s === 401) {
+            if (!this.needsLogin) { this.needsLogin = true; this._emit('login'); try { this.onNeedLogin?.(); } catch { /* ignora */ } }
+            break; // a fila espera a pessoa entrar de novo (setUser retoma)
+          }
           const transient = s === 408 || s === 425 || s === 429 || s >= 500 || res.data?.error?.code === 'LOCK_TIMEOUT';
           if (transient) { op.tries = (op.tries || 0) + 1; op.nextTry = this.now() + this._retryDelay; await this._putOp(op); this._backoff(); break; }
           await this._toDead(op, res); // recusada de vez (regra do servidor): fica na lista de problemas
@@ -373,7 +384,11 @@ export class OfflineEngine {
       if (locks?.request) await locks.request('arena-offline-flush', { ifAvailable: true }, async lock => { if (lock) await run(); });
       else await run();
     };
-    this._flushing = guarded().finally(() => { this._flushing = null; });
+    this._flushing = guarded().finally(() => { this._flushing = null; }).then(() => {
+      if (!this._again) return;
+      this._again = false;
+      if (this.counts.pending && this.online && !this.needsLogin) return this.flush();
+    });
     return this._flushing;
   }
 
@@ -403,6 +418,7 @@ export class OfflineEngine {
   }
   /** Descarta tudo o que é do usuário (ao sair da conta). */
   async purgeUser(uid = this.uid) {
+    this._mem.clear();
     await this._locked(async () => {
       for (const store of ['cache', 'replicas']) for (const e of await this.storage.all(store)) if (e.key.startsWith(uid + '|')) await this.storage.del(store, e.key);
       for (const store of ['outbox', 'dead']) for (const e of await this.storage.all(store)) if (e.value.uid === uid) await this.storage.del(store, e.key);
@@ -419,6 +435,13 @@ export class OfflineEngine {
   /** Guarda de antemão (com a internet funcionando) as telas que o usuário pode precisar sem internet. */
   async prefetch(paths) {
     if (!this.online || this._hintOffline()) return;
-    for (const p of paths) { try { await this.request('GET', p, undefined, { noCache: false }); } catch { /* sem problema */ } }
+    for (const p of paths) {
+      try {
+        const hit = await this._plugin('GET', p);
+        const rep = hit && await this._getReplica(hit.resource);
+        if (rep && this.now() - rep.savedAt < 5 * 60_000) continue; // cópia recente: não gasta internet de novo
+        await this.request('GET', p, undefined, {});
+      } catch { /* sem problema: é só adiantar trabalho */ }
+    }
   }
 }

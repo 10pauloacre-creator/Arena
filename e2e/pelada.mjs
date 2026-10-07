@@ -309,8 +309,8 @@ await test('partidas: "+" cria jogo com vagas, escolhe times, cronômetro, gols 
     await owner.locator('dialog .pick').first().click();
     await owner.locator('.match').first().locator('[data-slot=b]').click();
     await owner.locator('dialog .pick:not([disabled])').first().click();
-    const start = owner.locator('.match').first().getByRole('button', { name: 'Iniciar' });
-    await start.waitFor(T);
+    // espera o botão habilitar (os dois times escolhidos e a tela repintada) antes de mexer no campo dos minutos
+    await owner.locator('.match').first().locator('button:has-text("Iniciar"):not([disabled])').waitFor(T);
     // define o valor do cronômetro e inicia
     await owner.locator('.match').first().locator('[data-mins]').fill('3');
     await owner.locator('.match').first().getByRole('button', { name: 'Definir' }).click();

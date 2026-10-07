@@ -7,17 +7,17 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 /**
  * Estado do selo a partir do status do motor. Retorna null quando não há nada a mostrar.
- * Prioridade: precisa entrar → sincronizando → sem internet → aguardando envio → com problemas → "tudo sincronizado".
+ * Prioridade: precisa entrar → sem internet → sincronizando → aguardando envio → com problemas → "tudo sincronizado".
  */
 export function describeStatus(s, { justSynced = false } = {}) {
   const alt = plural(s.pending, 'alteração', 'alterações');
   if (s.needsLogin && s.pending) return { state: 'login', icon: 'lock', text: `Entre de novo para enviar ${alt}` };
-  if (s.syncing && s.pending) return { state: 'syncing', icon: 'refresh-cw', text: `Sincronizando ${alt}…` };
-  if (!s.online) {
+  if (!s.online) { // tentativas de envio sem conexão não contam como "sincronizando"
     return s.pending
       ? { state: 'offline', icon: 'wifi-off', text: `Sem internet · ${s.pending === 1 ? '1 alteração guardada' : `${s.pending} alterações guardadas`}` }
       : { state: 'offline', icon: 'wifi-off', text: 'Sem internet · o app continua funcionando' };
   }
+  if (s.syncing && s.pending) return { state: 'syncing', icon: 'refresh-cw', text: `Sincronizando ${alt}…` };
   if (s.pending) return { state: 'pending', icon: 'refresh-cw', text: `${alt[0].toUpperCase()}${alt.slice(1)} aguardando envio` };
   if (s.failed) return { state: 'error', icon: 'triangle-alert', text: `${plural(s.failed, 'alteração não foi sincronizada', 'alterações não foram sincronizadas')}` };
   if (justSynced) return { state: 'ok', icon: 'circle-check', text: 'Tudo sincronizado' };

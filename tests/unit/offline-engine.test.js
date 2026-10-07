@@ -199,7 +199,7 @@ test('mudanças de outras pessoas enquanto o aparelho estava sem internet se jun
   s.dev.net.up = true;
   const merged = (await s.dev.get(s.path)).data.pelada;   // a leitura já traz o servidor + a operação ainda pendente
   assert.equal(merged.days[0].attendance.length, 6);
-  assert.equal((await s.dev.engine.listPending()).length >= 0, true);
+  assert.equal((await s.dev.engine.listPending()).length, 1, 'a operação do aparelho continua pendente até ser enviada');
 
   await s.dev.engine.flush({ manual: true });
   assert.equal((await serverView(s.owner, s.path)).days[0].attendance.length, 6);
@@ -341,4 +341,52 @@ test('pagamentos e login nunca são guardados em cache nem enfileirados', async 
   dev.net.up = false;
   await assert.rejects(dev.post('/auth/login', { email: 'a@b.com', password: 'x' }), e => e instanceof NetworkError);
   assert.equal(dev.engine.status().pending, 0);
+});
+
+test('pré-carregar guarda a cópia (e não repete a busca se a cópia é recente); sair da conta apaga cópias e fila', async () => {
+  const s = await setupPelada(4);
+  await s.dev.engine.prefetch([s.path]);
+  const calls = s.dev.net.calls.length;
+  await s.dev.engine.prefetch([s.path]);
+  assert.equal(s.dev.net.calls.length, calls, 'cópia recente: sem nova busca');
+  s.dev.net.up = false;
+  assert.equal((await s.dev.get(s.path)).status, 200, 'abre offline graças ao pré-carregamento');
+  await s.dev.post(`${s.base}/guests`, { name: 'Convidado Sairá' });
+  assert.equal(s.dev.engine.status().pending, 1);
+  await s.dev.engine.purgeUser();
+  assert.equal(s.dev.engine.status().pending, 0);
+  await assert.rejects(s.dev.get(s.path), e => e instanceof NetworkError);
+});
+
+test('"tentar de novo" devolve as operações com problema para a fila', async () => {
+  const s = await setupPelada(5);
+  await s.dev.get(s.path);
+  s.dev.net.up = false;
+  await s.dev.post(`${s.base}/guests`, { name: 'Convidado Repete' });
+  // outro aparelho remove a data de jogo: a operação vai falhar com 404 quando for enviada
+  s.dev.net.up = true;
+  assert.equal((await s.owner.del(`/pelada/peladas/${s.id}/days/${s.dayId}`)).status, 200);
+  await s.dev.engine.flush({ manual: true });
+  assert.equal(s.dev.engine.status().failed, 1);
+  await s.dev.engine.retryFailed();
+  assert.equal(s.dev.engine.status().failed, 1, 'continua sendo recusada (a data não existe mais) e volta para a lista de problemas');
+  assert.equal(s.dev.engine.status().pending, 0);
+  s.dev.engine.stop();
+});
+
+test('operação que entra durante um envio em andamento também é enviada (sem ficar esquecida)', async () => {
+  const s = await setupPelada(4);
+  await s.dev.get(s.path);
+  s.dev.net.up = false;
+  await s.dev.post(`${s.base}/guests`, { name: 'Convidado Um' });
+  s.dev.net.up = true;
+  const first = s.dev.engine.flush({ manual: true });
+  s.dev.net.up = false;                                  // cai de novo bem no meio
+  await s.dev.post(`${s.base}/guests`, { name: 'Convidado Dois' });
+  s.dev.net.up = true;
+  await first;
+  await s.dev.engine.flush({ manual: true });
+  assert.equal(s.dev.engine.status().pending, 0);
+  assert.equal((await serverView(s.owner, s.path)).days[0].attendance.length, 6);
+  s.dev.engine.stop();
 });

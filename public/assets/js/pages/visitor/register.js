@@ -4,14 +4,14 @@ import { teamFieldsHTML, wireTeamFields } from '../../ui/teamform.js';
 import { createRosterEditor } from '../../ui/roster.js';
 import { emblem } from '../../ui/util.js';
 import { toast } from '../../ui/toast.js';
-import { api } from '../../api.js';
+import { api, offlineEngine } from '../../api.js';
 import { mountPayment } from './payment.js';
-import { saveMyTeam } from './store.js';
+import { saveMyTeam, getMyTeam } from './store.js';
 import { SPORTS } from '../../shared/sports.js';
 import { fmtBRL } from '../../shared/format.js';
 
 export default function (v) {
-  let step = 1, data = null, players = [], created = null, fieldsCtl = null, rosterCtl = null, payCtl = null;
+  let step = 1, data = null, players = [], created = null, fieldsCtl = null, rosterCtl = null, payCtl = null, off = null;
   const STEPS = ['Time e responsável', 'Elenco', 'Revisão e pagamento'];
 
   const stepper = () => html`<div class="stepper" aria-label="Etapas da inscrição">${STEPS.map((s, i) => html`<div class="st ${step === i + 1 ? 'on' : step > i + 1 ? 'done' : ''}"><i></i><span>${i + 1}. ${s}</span></div>`)}</div>`;
@@ -67,11 +67,33 @@ export default function (v) {
     v.refresh();
   }
 
+  /** Inscrição gratuita feita sem internet: fica guardada neste aparelho e é enviada sozinha quando a conexão volta. */
+  function paintQueued(root) {
+    const t = v.t;
+    render(root, html`<div class="card stack"><div class="row"><span class="ok-ico" style="background:var(--amber-50);color:var(--amber)">${ic('wifi-off', { size: 26 })}</span><div class="grow"><h2 style="font-size:20px">Inscrição guardada neste aparelho</h2>
+      <p class="muted small">O time <b>${data.name}</b> está sem internet no momento.</p></div></div>
+      <div class="form-note">${ic('info')}<span>Assim que a conexão voltar, enviamos a inscrição sozinhos e mostramos o <b>código do capitão</b>. Se fechar o app, é só abri-lo de novo quando tiver internet: o envio continua de onde parou.</span></div>
+      <div data-queued-err class="form-error" hidden></div>
+      <div class="row wrap"><a class="btn" href="/t/${t.id}">Voltar ao torneio</a></div></div>`);
+    const engine = offlineEngine();
+    off?.();
+    off = engine?.subscribe(st => {
+      if (st.type === 'synced') {
+        const mine = getMyTeam(t.id);
+        if (mine) { off?.(); off = null; created = { team: { name: data.name }, code: mine.code }; paintSuccess(root, { name: data.name }, mine.code); }
+      } else if (st.type === 'conflict' && st.op.plugin === 'public') {
+        const box = $('[data-queued-err]', root);
+        if (box) { box.hidden = false; box.textContent = `Não foi possível enviar a inscrição: ${st.op.error.message}`; }
+      }
+    });
+  }
+
   async function submit(root, btn) {
     const t = v.t;
     setBusy(btn, true);
     try {
       const r = await api.post(`/public/${encodeURIComponent(t.id)}/teams`, { ...data, players });
+      if (r.queued) { created = {}; paintQueued(root); return; }
       created = { team: r.team, code: r.team.accessCode };
       paintCreated(root, created);
     } catch (err) {
@@ -104,6 +126,6 @@ export default function (v) {
         root.prepend(warn);
       }
     },
-    destroy() { payCtl?.destroy(); },
+    destroy() { payCtl?.destroy(); off?.(); },
   };
 }

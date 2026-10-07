@@ -4,7 +4,7 @@ import { heroArt, sportIcon, statusBadge } from '../ui/util.js';
 import { openDialog } from '../ui/dialog.js';
 import { toast } from '../ui/toast.js';
 import { setFieldError, clearErrors } from '../ui/forms.js';
-import { api } from '../api.js';
+import { api, offlineEngine } from '../api.js';
 import { session } from '../session.js';
 import { navigate } from '../router.js';
 import { SPORTS } from '../shared/sports.js';
@@ -76,6 +76,8 @@ async function loggedIn(ctx) {
   try {
     const { tournaments } = await api.get('/tournaments');
     if (!ctx.isCurrent()) return;
+    // guarda no aparelho os torneios do organizador: assim o painel abre (e funciona) mesmo sem internet no dia do jogo
+    offlineEngine()?.prefetch(tournaments.slice(0, 12).map(t => `/tournaments/${encodeURIComponent(t.id)}`));
     $('#grid', ctx.root).innerHTML = (tournaments.length
       ? html`${tournaments.map(tournamentCard)}<button type="button" class="t-card new" data-new><span class="plus">${ic('plus', { size: 26 })}</span><strong>Criar novo torneio</strong><span class="muted small">Comece em menos de um minuto</span></button>`
       : html`<div class="empty" style="grid-column:1/-1;padding:56px 16px">${ic('trophy', { size: 40 })}<strong style="font-size:18px">Você ainda não tem torneios</strong><span>Crie o primeiro, convide outros organizadores e compartilhe o link com os times.</span><button class="btn btn-primary" data-new>${ic('plus', { size: 18 })} Criar meu primeiro torneio</button></div>`).s;

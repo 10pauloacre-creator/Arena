@@ -512,7 +512,7 @@ await test('chaveamento: visitante e admin abrem os detalhes da partida (lance a
     await op.goto(`${app.base}/admin/${t.id}/chaveamento`);
     await op.locator('#bracketCard .match.live').first().click();
     await op.getByRole('link', { name: 'Gerenciar ao vivo' }).click();
-    await op.waitForURL(/\/ao-vivo\?m=/); await op.locator('.scoreboard').waitFor();
+    await op.waitForURL(/\/ao-vivo\?m=/); await op.locator('#adminMain .scoreboard').waitFor();
   });
   await vc.close(); await octx.close();
 });

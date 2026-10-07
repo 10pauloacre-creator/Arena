@@ -45,11 +45,12 @@ Os dados locais ficam em `.data/arena.json` (ignorado pelo git). Apague a pasta 
 ### Testes
 
 ```powershell
-npm test                         # 131 testes unitários e de API (node:test, sem dependências)
+npm test                         # 177 testes unitários e de API (node:test, sem dependências)
 npm run lint                     # verifica imports não utilizados
 cd e2e; node a11y.mjs            # auditoria de acessibilidade (axe-core) nas principais telas
 cd e2e; npm install; node run.mjs   # 28 cenários E2E do ArenaMaster com Playwright (usa o Chromium instalado)
 cd e2e; node pelada.mjs          # 19 cenários E2E do app Pelada (conta, criação, sorteio, súmula, pódio, PWA offline)
+cd e2e; node offline.mjs         # 7 cenários E2E do modo offline (internet cortada no navegador: Pelada, painel do organizador, visitante)
 cd e2e; node pelada-a11y.mjs     # auditoria de acessibilidade (axe-core) nas telas do app Pelada
 ```
 
@@ -123,7 +124,7 @@ Dica: marque **"Torneio de demonstração"** ao criar para ganhar 8 times de exe
 Abra **`/pelada/`** (na home do ArenaMaster, o botão destacado **"Organize a pelada"** leva para lá). É um app separado
 (`public/pelada/index.html`, manifesto, ícones e service worker próprios, escopo `/pelada/`), então dá para **favoritar** ou
 **instalar só o Pelada** na tela inicial (Chrome/Android: *Instalar app*; iPhone: *Compartilhar → Adicionar à Tela de Início*).
-A interface é pré-carregada pelo service worker e abre sem internet; os dados sempre vêm da rede.
+A interface é pré-carregada pelo service worker e **o app inteiro funciona sem internet** (veja [Modo offline](#modo-offline-funciona-sem-internet-e-sincroniza-sozinho)).
 
 | Tela | Rota |
 | --- | --- |
@@ -160,19 +161,61 @@ API em `lib/routes/peladas.js` (`/api/pelada/*`), regras em `lib/domain/pelada.j
 (compartilhadas com o navegador), tela em `public/assets/js/pelada/`. Como as contas e peladas ficam no mesmo armazenamento do
 restante do projeto, **na Vercel é preciso conectar o Redis** (passo acima) para os dados não se perderem; sem isso o app mostra um aviso amarelo.
 
+## Modo offline (funciona sem internet e sincroniza sozinho)
+
+Os dois apps (ArenaMaster e Pelada) continuam funcionando quando a internet cai. O que a pessoa faz **fica guardado no aparelho**
+e, quando a conexão volta, é **enviado sozinho, em ordem, sem duplicar nada**. Um selo no canto da tela mostra o estado
+(*Sem internet*, *N alterações guardadas*, *Sincronizando…*, *Tudo sincronizado*); tocando nele abre o painel **Sincronização**
+com a lista do que está esperando e do que o servidor recusou.
+
+| Parte do sistema | Sem internet |
+| --- | --- |
+| **Abrir os apps** (telas, fontes, ícones) | ✅ O service worker (`/sw.js` no ArenaMaster, `/pelada/sw.js` no Pelada) guarda toda a interface. Se a internet estiver só *lenta*, após 4 s usa a cópia guardada. |
+| **Pelada — dia de jogo** (presença, convidados, sorteio, escolher times, cronômetro, gols, jogador de fora, encerrar partida e criar a próxima, gols do dia, mover jogador) | ✅ Funciona por completo, com as **mesmas regras do servidor**. |
+| **Pelada — gestão** (editar nome/regras, datas, entrar na pelada) | ✅ Funciona (trocar *foto* ou *capa* exige internet). |
+| **ArenaMaster — organizador** (placar ao vivo, lances, relógio, encerrar/reabrir partida, cadastrar/editar/confirmar/remover times, sorteio, configurações, transmissão) | ✅ Funciona por completo. Cadastrar time **com emblema** exige internet. |
+| **ArenaMaster — visitante** (ver torneio, jogos, chaveamento, times) | ✅ Mostra a última cópia vista. A **inscrição gratuita** feita sem internet é guardada e enviada sozinha quando a conexão volta (o código do capitão aparece na hora do envio). |
+| **Pagamento (PIX/cartão), inscrição com taxa, repescagem** | ❌ Precisa de internet (o servidor reserva a vaga e fala com o provedor). O formulário não se perde. |
+| **Criar conta / entrar / sair / trocar senha, criar ou excluir pelada/torneio, convites, reembolso** | ❌ Precisam de internet. Quem já está logado continua logado (o perfil fica no aparelho). |
+
+**Como funciona (resumo técnico)**
+
+- `public/assets/js/offline/` — `engine.js` (fila, envio, "rebase"), `storage.js` (IndexedDB, com reserva em localStorage/memória),
+  `plugins/*` (um por tipo de documento), `ui.js` (selo e painel), `sw-core.js` (núcleo dos service workers).
+- **Leitura**: cada resposta do servidor é guardada no aparelho (separada por usuário). Para pelada e torneio o servidor também
+  envia, quando o aparelho pede (`X-Replica`), **uma cópia do documento**; é ela que permite prever o resultado das ações.
+- **Escrita**: com internet, a chamada segue como sempre. Sem internet, a ação é aplicada na cópia local pelo **mesmo código do servidor**
+  (`public/assets/js/shared/domain/*-actions.js`) e entra na fila (IndexedDB). A tela atualiza na hora, como se tivesse salvo.
+- **Envio**: ao voltar a internet (evento `online`, volta ao app, ou novas tentativas a cada 3–30 s), a fila é enviada em ordem.
+  Cada operação leva um **id** (`X-Op-Id`) e a **hora em que foi feita** (`X-Op-At`: o cronômetro e os horários ficam certos mesmo se o envio
+  atrasar). O documento guarda os últimos ids aplicados, então **reenviar a mesma operação nunca duplica um gol ou um lance** (ex.: a internet
+  caiu justo depois de o servidor gravar). Ids e sorteios são **determinísticos por operação**, então o que o aparelho previu é exatamente
+  o que o servidor grava (há testes de paridade).
+- **Conflitos**: o servidor sempre tem a palavra final. Mudanças de outras pessoas feitas enquanto o aparelho estava offline se juntam às
+  dele. Se o servidor recusar uma operação (ex.: a partida foi excluída em outro aparelho), ela vai para a lista *"Não foi possível enviar"*
+  do painel Sincronização, com o motivo, e as demais seguem.
+- **Sessão expirada**: a fila fica guardada e espera a pessoa entrar de novo. **Sair da conta** com itens não enviados pede confirmação
+  (e exige internet, pois o servidor encerra a sessão).
+- **Limites**: no iPhone/Safari o navegador pode apagar dados de sites que ficam muito tempo sem uso; instalar o app na tela inicial evita isso.
+  Se o navegador não permitir armazenamento durável, o painel avisa.
+- Depois de adicionar/renomear arquivos JS do front-end, rode `npm run sw` para atualizar as listas de arquivos dos service workers
+  (há teste que confere).
+
 ## Estrutura
 
 ```
 api/index.js            função serverless da Vercel (todas as rotas /api/*)
 lib/                    backend (sem dependências)
-  router.js · handler.js · routes/*     API REST
-  domain/*                              regras: torneio, times, chaveamento, ao vivo, pagamentos, visões
+  router.js · handler.js · routes/*     API REST (as ações de pelada/torneio vêm de shared/domain/*-actions.js)
   payments/*                            provedores (modo teste e Mercado Pago)
-  store/*                               armazenamento (arquivo local, Redis REST/Upstash/Vercel KV, memória)
+  store/*                               armazenamento (arquivo local, Redis REST/Upstash/Vercel KV, Supabase, memória)
 public/pelada/          app Pelada instalável (index.html, manifest, service worker, ícones)
+public/sw.js            service worker do ArenaMaster (escopo /)
 public/                 front-end (HTML + ES modules + CSS, sem build)
   assets/js/pages/*                     telas: home, login, convite, admin/*, visitor/*
-  assets/js/shared/*                    código compartilhado servidor/navegador (modalidades, validadores)
+  assets/js/offline/*                   modo offline: motor, armazenamento, plugins, selo de sincronização, núcleo dos service workers
+  assets/js/shared/*                    código compartilhado servidor/navegador (modalidades, validadores, rand/route/errors)
+  assets/js/shared/domain/*             regras: torneio, times, chaveamento, ao vivo, pagamentos, visões, pelada e suas "ações"
 server.js               servidor de desenvolvimento local
 tests/unit/*            testes unitários e de API
 e2e/                    testes de ponta a ponta (Playwright)
@@ -193,3 +236,5 @@ legacy/                 protótipo original
 - **Biometria (FaceMatch)** do protótipo original não foi mantida: era uma simulação. O painel mostra "Atletas validados" e "Fraudes barradas" com base em dados reais (elencos válidos e CPFs duplicados entre times).
 - O "sorteio inteligente" é um algoritmo de otimização (não usa modelo de IA); a semente garante auditoria.
 - Atualização ao vivo por *polling* (3–6 s); pode evoluir para SSE/WebSocket.
+- Modo offline: criar conta/pelada/torneio, pagamento e foto/emblema ainda exigem internet (veja [Modo offline](#modo-offline-funciona-sem-internet-e-sincroniza-sozinho)).
+  Quando duas pessoas alteram o *mesmo* dado enquanto uma está offline, vale a regra do servidor ao sincronizar (sem fusão campo a campo).

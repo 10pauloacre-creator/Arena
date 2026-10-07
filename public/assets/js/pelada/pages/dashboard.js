@@ -1,6 +1,6 @@
 // Dashboard do jogador: peladas que organiza, peladas em que participa, criar nova e entrar por ID.
 import { html, render, ic, $ } from '../../ui/dom.js';
-import { api } from '../../api.js';
+import { api, offlineEngine } from '../../api.js';
 import { S, setPlayer } from '../session.js';
 import { navigate } from '../../router.js';
 import { page, wireShell, dayShort } from '../ui/shell.js';
@@ -28,6 +28,8 @@ export default async function (ctx) {
   try {
     const { created, joined } = await api.get('/pelada/mine');
     if (!ctx.isCurrent()) return;
+    // guarda no aparelho as peladas do usuário: assim abrem (e funcionam) mesmo sem internet no dia do jogo
+    offlineEngine()?.prefetch([...created, ...joined].slice(0, 12).map(p => `/pelada/peladas/${encodeURIComponent(p.id)}`));
     $('#lists', ctx.root).innerHTML = html`
       <section class="dash-sec"><h2 class="section-title">Peladas que eu organizo</h2>
         ${created.length ? html`<div class="pel-list">${created.map(card)}</div>` : html`<div class="empty">${ic('trophy')}<strong>Você ainda não criou nenhuma pelada</strong><span>Defina nome, regras e datas em um minuto e compartilhe o link de convite.</span><a class="btn btn-primary" href="/pelada/nova">${ic('plus', { size: 18 })} Criar minha primeira pelada</a></div>`}</section>
