@@ -37,7 +37,11 @@ function findChrome() {
 }
 
 export async function launch() {
-  return chromium.launch({ executablePath: findChrome(), args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  const executablePath = findChrome();
+  if (executablePath) return chromium.launch({ executablePath, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  // sem Chromium do Playwright: usa o Chrome ou o Edge instalados no computador (ex.: Windows)
+  for (const channel of ['chrome', 'msedge']) { try { return await chromium.launch({ channel }); } catch { /* tenta o próximo */ } }
+  throw new Error('Nenhum navegador encontrado. Instale o Chrome/Edge ou defina CHROME_PATH com o caminho do executável.');
 }
 
 export const DESKTOP = { viewport: { width: 1440, height: 900 }, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' };

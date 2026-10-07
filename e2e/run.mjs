@@ -1,9 +1,10 @@
 // Testes de ponta a ponta: fluxo completo do organizador, do visitante (PIX e cartão), jogos ao vivo e repescagem.
 // Uso: cd e2e && npm install && node run.mjs   (usa o Chromium instalado; CHROME_PATH opcional)
 import { mkdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { startApp, launch, DESKTOP, MOBILE, apiSignup, apiCall, loginContext } from './lib.mjs';
 
-const SHOTS = new URL('./shots/', import.meta.url).pathname;
+const SHOTS = fileURLToPath(new URL('./shots/', import.meta.url));
 mkdirSync(SHOTS, { recursive: true });
 
 const app = await startApp();
