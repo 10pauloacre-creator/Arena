@@ -42,11 +42,33 @@ const testPng = async () => {
   await p.setContent('<body style="margin:0"><div style="width:900px;height:600px;background:linear-gradient(135deg,#f6b21b,#12a150 60%,#0a1a3d);display:grid;place-items:center;font:800 120px sans-serif;color:#fff">⚽</div></body>');
   const buf = await p.screenshot({ type: 'png' }); await p.close(); return buf;
 };
-async function pickImage(page, trigger, buffer) {
+// JPEG gravado "deitado" (600×300: metade esquerda vermelha, direita azul) com EXIF Orientation=6, como as fotos
+// tiradas em pé no iPhone. Na posição certa ele fica em pé: vermelho em cima, azul embaixo.
+const exifJpeg = async () => {
+  const p = await browser.newPage();
+  const b64 = await p.evaluate(() => {
+    const c = document.createElement('canvas'); c.width = 600; c.height = 300;
+    const x = c.getContext('2d'); x.fillStyle = '#f00'; x.fillRect(0, 0, 300, 300); x.fillStyle = '#00f'; x.fillRect(300, 0, 300, 300);
+    return c.toDataURL('image/jpeg', 0.95).split(',')[1];
+  });
+  await p.close();
+  const jpg = Buffer.from(b64, 'base64');
+  const exif = Buffer.concat([Buffer.from('Exif\0\0', 'latin1'), Buffer.from([0x4d, 0x4d, 0, 0x2a, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, 6, 0, 0, 0, 0, 0, 0])]);
+  const app1 = Buffer.concat([Buffer.from([0xff, 0xe1, (exif.length + 2) >> 8, (exif.length + 2) & 255]), exif]);
+  return Buffer.concat([jpg.subarray(0, 2), app1, jpg.subarray(2)]);
+};
+async function chooseImage(page, trigger, file) {
   const [fc] = await Promise.all([page.waitForEvent('filechooser'), trigger()]);
-  await fc.setFiles({ name: 'foto.png', mimeType: 'image/png', buffer });
+  // no iPhone, um <input type=file> fora da página pode ser descartado com o seletor aberto (a foto some)
+  assert(await fc.element().evaluate(el => el.isConnected), 'o campo de arquivo fica na página enquanto o seletor está aberto');
+  await fc.setFiles(file);
   const dlg = page.locator('dialog:has(.crop-view)');
   await dlg.locator('.crop-view').waitFor(T);
+  assert(await page.locator('input[type=file]').count() === 0, 'o campo de arquivo sai da página depois da escolha');
+  return dlg;
+}
+async function pickImage(page, trigger, buffer) {
+  const dlg = await chooseImage(page, trigger, { name: 'foto.png', mimeType: 'image/png', buffer });
   await dlg.locator('[data-close="ok"]').click();
   await dlg.waitFor({ state: 'detached', timeout: 8000 });
 }
@@ -113,6 +135,30 @@ await test('recorte de foto: abre o editor, ajusta o zoom e salva no perfil', as
     await owner.reload();
     await owner.locator('.user-chip img').waitFor(T);
   });
+});
+
+await test('foto do iPhone no cadastro: respeita a orientação EXIF e não apaga o nome nem a data já digitados', async () => {
+  const ctx = await browser.newContext(MOBILE); const page = await ctx.newPage(); watch(page, 'iphone');
+  await guard(page, async () => {
+    await page.goto(app.base + '/pelada/entrar');
+    await page.fill('#au-name', `Iara Lima ${stamp}`);
+    await page.fill('#au-birth', '07101995');
+    const dlg = await chooseImage(page, () => page.locator('[data-photo]').click(), { name: 'IMG_0001.jpg', mimeType: 'image/jpeg', buffer: await exifJpeg() });
+    const [topRight, bottomLeft] = await dlg.locator('.crop-view canvas').evaluate(c => {
+      const x = c.getContext('2d'), px = (a, b) => [...x.getImageData(a, b, 1, 1).data];
+      return [px(c.width - 40, 20), px(40, c.height - 20)];
+    });
+    assert(topRight[0] > 180 && topRight[2] < 90 && bottomLeft[2] > 180 && bottomLeft[0] < 90, `foto em pé (vermelho em cima, azul embaixo): ${topRight} / ${bottomLeft}`);
+    await dlg.locator('[data-close="ok"]').click();
+    await dlg.waitFor({ state: 'detached', timeout: 8000 });
+    await page.locator('.av-btn img').waitFor(T);
+    assert(await page.inputValue('#au-name') === `Iara Lima ${stamp}`, 'nome mantido após escolher a foto');
+    assert(await page.inputValue('#au-birth') === '07/10/1995', 'data de nascimento mantida após escolher a foto');
+    await page.click('[data-go]');
+    await page.waitForURL('**/pelada/painel');
+    await page.locator('.user-chip img').waitFor(T);
+  });
+  await ctx.close();
 });
 
 await test('conta salva neste aparelho: recarregar não desloga', async () => {
