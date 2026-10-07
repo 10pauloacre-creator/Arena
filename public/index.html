@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ArenaMaster AI</title></head>
+<body style="font-family:system-ui;padding:24px">
+<h1>ArenaMaster AI</h1>
+<p>Interface em construção. API: <code id="out">verificando…</code></p>
+<script type="module">
+  fetch('/api/health').then(r => r.json()).then(j => { document.getElementById('out').textContent = JSON.stringify(j); }).catch(e => { document.getElementById('out').textContent = 'erro ' + e; });
+</script>
+</body>
+</html>
