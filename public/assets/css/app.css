@@ -466,3 +466,12 @@
 /* acessibilidade: links dentro de texto não dependem só da cor */
 p a:not(.btn), .hint a, .form-note a, .center a { text-decoration: underline; text-underline-offset: 2px; }
 .empty .ico, .drop .prev { color: var(--muted); }
+
+/* ================= destaque do app Pelada (home) ================= */
+.btn-pelada { font-weight: 800; box-shadow: 0 8px 22px rgb(246 178 27 / .38); }
+.btn-pelada:hover { transform: translateY(-1px); }
+.pelada-promo { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 22px 24px; border-radius: var(--r-xl); color: #fff; background: linear-gradient(125deg, #052e1a, #0b3d24 55%, #0f7a40); box-shadow: 0 14px 32px rgb(5 46 26 / .22); }
+.pelada-promo .pp-ico { width: 58px; height: 58px; border-radius: 16px; background: rgb(255 255 255 / .12); display: grid; place-items: center; color: #ffc93c; flex: none; }
+.pelada-promo h2 { font-size: 22px; letter-spacing: -.02em; }
+.pelada-promo p { margin: 6px 0 0; color: #cfe8da; max-width: 62ch; font-size: 14.5px; }
+.pelada-promo .grow { min-width: 240px; }

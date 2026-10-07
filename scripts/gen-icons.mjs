@@ -24,7 +24,7 @@ const WANTED = {
   'ellipsis': 'ellipsis', 'layout-grid': 'layout-grid', 'sliders': 'sliders-horizontal', 'user-round': 'user-round', 'key-round': 'key-round',
   'mail-plus': 'mail-plus', 'layers': 'layers', 'activity': 'activity', 'zap': 'zap', 'wallet': 'wallet', 'party-popper': 'party-popper',
   'bar-chart': 'chart-column', 'line-chart': 'chart-line', 'square': 'square', 'arrow-up-right': 'arrow-up-right', 'message-circle': 'message-circle',
-  'camera': 'camera', 'filter': 'funnel', 'handshake': 'handshake', 'target': 'target', 'crown': 'crown', 'hourglass': 'hourglass',
+  'camera': 'camera', 'filter': 'funnel', 'handshake': 'handshake', 'target': 'target', 'crown': 'crown', 'hourglass': 'hourglass', 'shuffle': 'shuffle',
 };
 
 const body = svg => {
