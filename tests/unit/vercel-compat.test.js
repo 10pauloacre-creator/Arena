@@ -14,7 +14,8 @@ before(async () => {
   server = createServer(async (req, res) => {
     const u = new URL(req.url, 'http://x');
     // 1) reescrita
-    const path = u.pathname.replace(/^\/api\/?/, '');
+    // (vercel.json) /pelada-img/:path* → /api/index?__p=pelada/img/:path*
+    const path = u.pathname.startsWith('/pelada-img/') ? 'pelada/img/' + u.pathname.slice('/pelada-img/'.length) : u.pathname.replace(/^\/api\/?/, '');
     const q = new URLSearchParams(u.search); q.set('__p', path);
     req.url = `/api/index?${q.toString()}`;
     // 2) corpo já interpretado, como no runtime da Vercel
@@ -55,4 +56,20 @@ test('rotas funcionam com a reescrita da Vercel (__p) e corpo pré-interpretado'
 test('corpo vazio em POST sem JSON (logout) e métodos incorretos', async () => {
   assert.equal((await call('POST', '/auth/logout')).status, 200);
   assert.equal((await call('GET', '/auth/login')).status, 405);
+});
+
+test('app Pelada: conta, pelada e imagem funcionam com a reescrita da Vercel (/pelada-img → __p)', async () => {
+  const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const su = await call('POST', '/pelada/auth/signup', { name: 'Vercel Pelada', birth: '10/10/1990', avatar: PNG });
+  assert.equal(su.status, 200);
+  assert.match(su.cookie, /^pl_session=/);
+  const made = await call('POST', '/pelada/peladas', { name: 'Pelada Vercel', gender: 'feminino', minPerTeam: 5, days: [{ date: '2030-01-01' }] }, su.cookie);
+  assert.equal(made.status, 200);
+  const id = made.data.pelada.id;
+  assert.equal((await call('GET', `/pelada/peladas/${id}`)).data.pelada.invite, undefined);
+  assert.equal((await call('GET', `/pelada/peladas/${id}`, undefined, su.cookie)).data.pelada.invite.id, id);
+  // a URL pública das imagens é /pelada-img/...; a Vercel reescreve para /api/index?__p=pelada/img/...
+  const res = await fetch(`${base}/pelada-img/u/${su.data.player.id}?v=1`);
+  assert.equal(res.status, 200); assert.equal(res.headers.get('content-type'), 'image/png');
+  assert.equal((await call('POST', '/pelada/auth/logout', undefined, su.cookie)).status, 200);
 });

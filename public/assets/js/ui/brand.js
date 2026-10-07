@@ -31,6 +31,6 @@ export function wireMenus(root, signal) {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); }, { signal });
 }
 
-/** Aviso exibido quando o servidor não tem banco persistente (ex.: Vercel sem Redis conectado). */
+/** Aviso exibido quando o servidor não tem banco persistente (ex.: Vercel sem banco conectado). */
 export const storageBanner = () => session.config?.storage?.persistent === false
-  ? html`<div class="storage-warn">⚠ Ambiente de demonstração sem banco de dados: contas e torneios podem ser apagados a qualquer momento. Conecte o Upstash Redis na Vercel (veja o README) para guardar os dados de verdade.</div>` : '';
+  ? html`<div class="storage-warn">⚠ Ambiente de demonstração sem banco de dados: contas e torneios podem ser apagados a qualquer momento. ${session.config.storage.note || 'Conecte um banco na Vercel (veja o README) para guardar os dados de verdade.'}</div>` : '';

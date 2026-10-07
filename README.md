@@ -4,6 +4,9 @@ Plataforma de torneios com **painel do organizador** e **página do visitante**:
 inscrição de times com pagamento (PIX ou cartão), sorteio de chaveamento, jogos ao vivo,
 repescagem beneficente e divulgação (flyer + QR Code).
 
+Inclui também o **app Pelada** (`/pelada/`): um segundo app, em HTML próprio e **instalável como PWA**, para organizar
+peladas entre amigos (lista de presença, sorteio de times, súmula com cronômetro e artilharia). Veja [App Pelada](#app-pelada-pwa).
+
 - **Organizador**: cria conta (e-mail + senha), cria torneios, edita e **salva** as configurações,
   convida outros administradores por **link de convite** e gerencia times, jogos e chaveamento.
 - **Visitante** (sem login): entra pelo **link** ou digitando o **ID** do torneio (ex.: `AM-2026-9843`),
@@ -42,10 +45,12 @@ Os dados locais ficam em `.data/arena.json` (ignorado pelo git). Apague a pasta 
 ### Testes
 
 ```powershell
-npm test                         # 109 testes unitários e de API (node:test, sem dependências)
+npm test                         # 158 testes unitários e de API (node:test, sem dependências)
 npm run lint                     # verifica imports não utilizados
 cd e2e; node a11y.mjs            # auditoria de acessibilidade (axe-core) nas principais telas
-cd e2e; npm install; node run.mjs   # 32 cenários E2E com Playwright (usa o Chromium instalado)
+cd e2e; npm install; node run.mjs   # 32 cenários E2E do ArenaMaster com Playwright (usa o Chromium instalado)
+cd e2e; node pelada.mjs          # 20 cenários E2E do app Pelada (conta, criação, pelada demo, sorteio, súmula, pódio, PWA offline)
+cd e2e; node pelada-a11y.mjs     # auditoria de acessibilidade (axe-core) nas telas do app Pelada
 ```
 
 ---
@@ -66,6 +71,14 @@ Para usar de verdade (2 minutos):
 2. Conecte ao projeto (marque Production **e** Preview). A integração cria sozinha as variáveis
    `KV_REST_API_URL` e `KV_REST_API_TOKEN` (também aceitamos `UPSTASH_REDIS_REST_URL/TOKEN`).
 3. Faça um novo deploy (**Redeploy**). Pronto: contas, torneios e pagamentos passam a ser persistentes.
+
+**Já usa o Supabase na Vercel?** Também funciona, sem Redis:
+
+1. No Supabase do projeto (Vercel → Storage → seu Supabase → *Open in Supabase*), abra **SQL Editor**, cole o conteúdo de
+   [`supabase/arena_kv.sql`](supabase/arena_kv.sql) e clique em **Run** (cria a tabela `arena_kv`, só o servidor acessa).
+2. Garanta que o projeto da Vercel tenha `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` (a integração cria; aceitamos também
+   `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SECRET_KEY`). Marque Production **e** Preview.
+3. **Redeploy**. Se houver Redis e Supabase ao mesmo tempo, o Redis tem prioridade.
 
 Opcional: defina `AUTH_SECRET` (qualquer texto longo e aleatório). Se não definir, um segredo aleatório é gerado e guardado no banco.
 
@@ -124,6 +137,54 @@ Tudo isso é definido na criação do torneio e pode ser alterado depois em **Co
 
 ---
 
+## App Pelada (PWA)
+
+Abra **`/pelada/`** (na home do ArenaMaster, o botão destacado **"Organize a pelada"** leva para lá). É um app separado
+(`public/pelada/index.html`, manifesto, ícones e service worker próprios, escopo `/pelada/`), então dá para **favoritar** ou
+**instalar só o Pelada** na tela inicial (Chrome/Android: *Instalar app*; iPhone: *Compartilhar → Adicionar à Tela de Início*).
+A interface é pré-carregada pelo service worker e abre sem internet; os dados sempre vêm da rede.
+
+| Tela | Rota |
+| --- | --- |
+| Início / "Organize a pelada" (sem conta → autenticação rápida; com conta → Dashboard) | `/pelada/` · `/pelada/organizar` |
+| Autenticação rápida · Dashboard · Criar/editar pelada | `/pelada/entrar` · `/pelada/painel` · `/pelada/nova` · `/pelada/p/ID/editar` |
+| Página da pelada (jogos, histórico público, artilharia, jogadores) | `/pelada/p/PL-XXXXXX` (link de convite) |
+| Dia de jogo (presença, sorteio, partidas, artilharia) | `/pelada/p/PL-XXXXXX/d/DIA` |
+
+- **Conta ultra-rápida**: *Nome* (usuário) + *Data de nascimento* (senha inicial), foto opcional com recorte/zoom. A sessão dura 1 ano
+  (cookie) e o perfil fica salvo no aparelho. A senha pode ser trocada no perfil (isso encerra as outras sessões). A data de nascimento é
+  uma senha fraca por definição: há limite de tentativas por nome/IP e a data nunca é guardada (só o hash scrypt).
+- **Pelada**: nome, foto, capa, categoria (feminino/masculino), mínimo por time, calendário de datas, **organização por data**
+  (igual ao padrão ou personalizada), partidas por dia (adicionar/excluir) e a opção **"Sem formação de times"** (só presença e gols individuais).
+  Cada pelada tem um ID (`PL-XXXXXX`) e um **link de convite que só o criador vê**.
+- **Pelada demo**: na tela de criação, o botão **"Criar pelada demo"** monta o jogo de hoje com **17 jogadores já confirmados** (nome e
+  sobrenome + foto de perfil), para ver a organização de um dia de jogo sem convidar ninguém: 17 ÷ 5 = 3 times, com as 2 sobras
+  distribuídas. O elenco é sorteado a cada clique entre 40 jogadores fictícios e **não é gravado no banco** (ficam só dentro da pelada;
+  as contas demo não têm senha nem reservam nomes). As fotos são avatares ilustrados gerados em código (`lib/domain/pelada-demo.js`),
+  sem arquivos nem rede; ao mudar o desenho, suba `DEMO_ART_VERSION` (as imagens ficam 1 ano em cache). A pelada recebe o selo
+  "Demonstração" e pode ser excluída normalmente (limite de 10 por hora por pessoa).
+- **Presença**: qualquer jogador logado marca/retira a presença no dia; o nome e a foto aparecem na hora (o criador também marca).
+- **Sorteio** (botão "Sortear Times", animação de 5 s): divide os confirmados pelo mínimo por time. Sobra de **3 ou mais** → o último time
+  fica incompleto e pode pegar jogadores de fora; sobra de **1 ou 2** → o time incompleto é desfeito e os jogadores são distribuídos nos
+  outros times (ex.: 6 jogadores). Cada time é "Time 2 - Valéria" (capitão sorteado); clicar no nome mostra as jogadoras. O criador pode
+  adicionar **convidados** (entram no sorteio, ou depois: inteiram um time ou ficam avulsos). Refazer o sorteio só até começar uma partida.
+  O primeiro sorteio do dia pode ser feito por qualquer confirmado; refazer é só do criador.
+- **Partidas e súmula**: botão "Adicionar partida", escolha dos dois times, cronômetro configurável, gols por jogador (lista de presentes,
+  "jogador de fora" e "sem autor"). Ao encerrar (ou quando o tempo acaba), a **próxima partida é criada sozinha**: quem ganha fica, o perdedor
+  vai para o fim da fila; no empate sai quem está há mais partidas seguidas na quadra.
+- **Histórico e artilharia**: resultados públicos; pódio *do dia* e *geral* com medalhas ouro/prata/bronze (empates dividem a colocação);
+  **Compartilhar Resultados** abre a tela de compartilhamento e copia para a área de transferência a imagem do **modelo exato do Canva**
+  em alta resolução (2172×2896, `public/pelada/share/modelo-compartilhamento.webp`). O sistema só troca o que varia: o **período**
+  (da primeira data da pelada até o dia da emissão; no "Do dia", a data do jogo), os **nomes**, os **gols** e as fotos nas molduras
+  (sem foto, aparecem as iniciais). Também baixa o PNG, envia pelo menu do celular ou copia o texto para o WhatsApp.
+  As fontes (Barlow Condensed e League Spartan, licença SIL OFL em `public/assets/fonts/OFL-LICENSE.txt`) ficam no próprio site.
+  Para trocar a arte: exporte o modelo do Canva **sem** os textos variáveis (2×) e substitua o arquivo `.webp`; as posições dos
+  textos estão em `public/assets/js/pelada/ui/share.js` (medidas do design de 1086×1448).
+
+API em `lib/routes/peladas.js` (`/api/pelada/*`), regras em `lib/domain/pelada.js` e `public/assets/js/shared/pelada.js`
+(compartilhadas com o navegador), tela em `public/assets/js/pelada/`. Como as contas e peladas ficam no mesmo armazenamento do
+restante do projeto, **na Vercel é preciso conectar o Redis** (passo acima) para os dados não se perderem; sem isso o app mostra um aviso amarelo.
+
 ## Estrutura
 
 ```
@@ -133,6 +194,7 @@ lib/                    backend (sem dependências)
   domain/*                              regras: torneio, times, chaveamento, ao vivo, pagamentos, visões
   payments/*                            provedores (modo teste e Mercado Pago)
   store/*                               armazenamento (arquivo local, Redis REST/Upstash/Vercel KV, memória)
+public/pelada/          app Pelada instalável (index.html, manifest, service worker, ícones)
 public/                 front-end (HTML + ES modules + CSS, sem build)
   assets/js/pages/*                     telas: home, login, convite, admin/*, visitor/*
   assets/js/shared/*                    código compartilhado servidor/navegador (modalidades, validadores)

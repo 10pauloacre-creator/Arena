@@ -508,7 +508,16 @@ p a:not(.btn), .hint a, .form-note a, .center a { text-decoration: underline; te
 @media (min-width: 640px) { .prize-view.multi { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); } }
 .prize-view h4 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 8px; }
 .prize-view ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.prize-view li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.prize-view li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .prize-view .place { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
 .prize-view li:first-child .place { color: #7a5200; }
 .prize-view .what { overflow-wrap: anywhere; }
+
+/* ================= destaque do app Pelada (home) ================= */
+.btn-pelada { font-weight: 800; box-shadow: 0 8px 22px rgb(246 178 27 / .38); }
+.btn-pelada:hover { transform: translateY(-1px); }
+.pelada-promo { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 22px 24px; border-radius: var(--r-xl); color: #fff; background: linear-gradient(125deg, #052e1a, #0b3d24 55%, #0f7a40); box-shadow: 0 14px 32px rgb(5 46 26 / .22); }
+.pelada-promo .pp-ico { width: 58px; height: 58px; border-radius: 16px; background: rgb(255 255 255 / .12); display: grid; place-items: center; color: #ffc93c; flex: none; }
+.pelada-promo h2 { font-size: 22px; letter-spacing: -.02em; }
+.pelada-promo p { margin: 6px 0 0; color: #cfe8da; max-width: 62ch; font-size: 14.5px; }
+.pelada-promo .grow { min-width: 240px; }

@@ -36,7 +36,8 @@ async function serveStatic(req, res, pathname) {
     if (s.isDirectory()) { file = join(file, 'index.html'); await stat(file); }
   } catch {
     if (isAsset || extname(rel)) { res.statusCode = 404; return res.end('Not found'); }
-    file = join(ROOT, 'index.html'); // fallback de SPA
+    // fallback de SPA: o app Pelada (PWA próprio) tem seu index.html em /pelada
+    file = rel === 'pelada' || rel.startsWith('pelada/') || rel.startsWith('pelada' + sep) ? join(ROOT, 'pelada', 'index.html') : join(ROOT, 'index.html');
   }
   const body = await readFile(file);
   res.statusCode = 200;
@@ -53,6 +54,8 @@ export function createAppServer() {
     try {
       const url = new URL(req.url, 'http://localhost');
       if (url.pathname === '/api' || url.pathname.startsWith('/api/')) return await apiHandler(req, res);
+      // imagens do módulo Pelada (mesma reescrita do vercel.json: /pelada-img/* → /api/pelada/img/*)
+      if (url.pathname.startsWith('/pelada-img/')) { req.url = '/api/pelada/img/' + url.pathname.slice('/pelada-img/'.length) + url.search; return await apiHandler(req, res); }
       if (req.method !== 'GET' && req.method !== 'HEAD') { res.statusCode = 405; return res.end('Method not allowed'); }
       return await serveStatic(req, res, url.pathname);
     } catch (err) {
