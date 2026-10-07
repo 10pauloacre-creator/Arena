@@ -57,7 +57,7 @@ export default async function (ctx) {
       <div class="pel-cover">${cover ? html`<img src="${cover}" alt="" decoding="async">` : ''}</div>
       <div class="pel-id">${peladaAvatar(p, 84)}<div class="grow" style="min-width:0"><h1>${p.name}</h1>
         <div class="row wrap" style="gap:8px;margin-top:8px"><span class="badge ${p.gender === 'feminino' ? 'pink' : 'info'}">${g.emoji} ${g.label}</span><span class="badge">${ic('users', { size: 13 })} ${p.members.length} ${p.members.length === 1 ? 'participante' : 'participantes'}</span>
-          <span class="badge">mín. ${p.minPerTeam} por time</span>${p.noTeams ? html`<span class="badge warn">Sem formação de times</span>` : ''}
+          <span class="badge">mín. ${p.minPerTeam} por time</span>${p.noTeams ? html`<span class="badge warn">Sem formação de times</span>` : ''}${p.demo ? html`<span class="badge warn">Demonstração</span>` : ''}
           <button type="button" class="badge idchip" data-copy="${p.id}" title="Copiar ID" aria-label="Copiar ID ${p.id}">ID ${p.id} ${ic('copy', { size: 13 })}</button></div>
         <p class="muted-on-dark small" style="margin:8px 0 0">Organizada por <b>${ownerP?.name || '—'}</b></p></div></div>
     </header>`;
