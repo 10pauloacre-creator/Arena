@@ -2,8 +2,8 @@
 // sorteio de times, fila de partidas, placar e artilharia.
 
 export const GENDERS = {
-  masculino: { label: 'Masculino', player: 'jogador', players: 'jogadores', article: 'os', emoji: '👨' },
-  feminino: { label: 'Feminino', player: 'jogadora', players: 'jogadoras', article: 'as', emoji: '👩' },
+  masculino: { label: 'Masculino', adj: 'masculina', player: 'jogador', players: 'jogadores', article: 'os', emoji: '👨' },
+  feminino: { label: 'Feminino', adj: 'feminina', player: 'jogadora', players: 'jogadoras', article: 'as', emoji: '👩' },
 };
 
 // ---------------------------------------------------------------- nomes / senha / ID
@@ -77,66 +77,90 @@ export function mulberry32(a) {
   };
 }
 
-/** Quantidade mínima de presentes para conseguir formar ao menos 2 times com o mínimo `m`. */
-export const minPlayersForDraw = m => (m > 3 ? Math.min(2 * m, m + 3) : 2 * m);
+/** Quantidade mínima de presentes para formar ao menos 2 times completos com o mínimo `m`. */
+export const minPlayersForDraw = m => 2 * m;
 
 /**
- * Plano de tamanhos dos times (regras estritas):
- *  - k = floor(n / m) times completos; r = n mod m.
- *  - Regra A: se r ≥ 3 (e < m), o time incompleto se mantém (pode pegar jogadores de fora).
- *  - Regra B: se 0 < r < 3, o time incompleto é dissolvido e os r jogadores vão, um a um, para times diferentes.
- * Retorna { ok, sizes, extras, incomplete, error }.
+ * Plano do sorteio (sem "time incompleto"):
+ *  - k = floor(n / m) times completos, de exatamente `m` jogadores;
+ *  - r = n mod m jogadores sobram e formam a CERCA: aguardam a próxima partida e entram no time que perder.
+ * Retorna { ok, sizes, fence, k, r, error }.
  */
 export function planTeams(n, m) {
   n = Math.floor(n); m = Math.floor(m);
   if (!(m >= 2)) return { ok: false, error: 'O mínimo por time precisa ser de ao menos 2 jogadores.' };
   const k = Math.floor(n / m), r = n % m;
-  let sizes, extras = 0, incomplete = null;
-  if (r === 0) sizes = Array(k).fill(m);
-  else if (r >= 3) { sizes = [...Array(k).fill(m), r]; incomplete = { index: k, size: r, missing: m - r }; }
-  else { sizes = Array(k).fill(m); extras = r; }
-  if (sizes.length < 2) {
-    const need = minPlayersForDraw(m);
-    return { ok: false, sizes, extras, incomplete, error: `Faltam jogadores: para sortear ao menos 2 times com mínimo de ${m} é preciso ter ${need} presentes (há ${n}).` };
-  }
-  return { ok: true, sizes, extras, incomplete, k, r };
+  const sizes = Array(k).fill(m);
+  if (k < 2) return { ok: false, sizes, fence: r, k, r, error: `Faltam jogadores: para sortear ao menos 2 times com mínimo de ${m} é preciso ter ${minPlayersForDraw(m)} presentes (há ${n}).` };
+  return { ok: true, sizes, fence: r, k, r };
+}
+
+/** Capitão: sorteado entre os "integrantes principais" do time (`core`), de preferência quem tem conta; senão entre todos. */
+function pickCaptain(list, core, rnd) {
+  const real = p => !p.guest;
+  const pools = [list.filter(p => core.has(p.pid) && real(p)), list.filter(real), core.size ? list.filter(p => core.has(p.pid)) : [], list];
+  const pool = pools.find(x => x.length) || list;
+  return pool[Math.floor(rnd() * pool.length)].pid;
 }
 
 /**
- * Sorteia os times. `players` = [{ pid, name, guest? }]. Retorna { ok, teams, notes, plan } ou { ok:false, error }.
- * Time = { id, number, captain, players:[pid], incomplete, missing }.
+ * Forma floor(n / min) times de exatamente `min` jogadores; quem sobra vai para a Cerca.
+ * `must` = pids que não podem ficar de fora (a Cerca anterior): entram nos primeiros `mustTeams` times, repartidos entre eles
+ * (os demais lugares dos times são completados por sorteio). O capitão do time é um dos integrantes de `must`, se houver.
+ * Retorna { teams: [{ players: [pid], captain }], fence: [pid] }.
  */
-export function drawTeams(players, min, rnd = Math.random) {
+export function formTeams(players, min, rnd = Math.random, { must = [], mustTeams = 1 } = {}) {
+  const k = Math.floor(players.length / min);
+  const mustSet = new Set(must);
+  const mustList = shuffle(players.filter(p => mustSet.has(p.pid)), rnd);
+  const rest = shuffle(players.filter(p => !mustSet.has(p.pid)), rnd);
+  const lists = Array.from({ length: k }, () => []);
+  const lead = Math.min(Math.max(1, mustTeams), k);
+  const left = [];
+  for (const p of mustList) {
+    // primeiro os times da frente (o que tem menos gente); se lotarem, os seguintes
+    let at = -1;
+    for (let i = 0; i < lead; i++) if (lists[i].length < min && (at < 0 || lists[i].length < lists[at].length)) at = i;
+    if (at < 0) at = lists.findIndex(l => l.length < min);
+    if (at < 0) left.push(p); else lists[at].push(p);
+  }
+  const core = lists.map(l => new Set(l.map(p => p.pid)));
+  for (const l of lists) while (l.length < min && rest.length) l.push(rest.shift());
+  const fence = [...left, ...rest].map(p => p.pid);
+  const teams = lists.map((l, i) => ({ players: l.map(p => p.pid), captain: pickCaptain(l, core[i], rnd) }));
+  return { teams, fence };
+}
+
+export const joinNames = (pids, nameOf) => pids.map(nameOf).join(', ');
+const nPlayers = n => `${n} ${n === 1 ? 'jogador' : 'jogadores'}`;
+
+/**
+ * Frases do "Assistente do sorteio". `total` = jogadores sorteados, `teams` = quantos times saíram, `fence` = nova Cerca,
+ * `must` = Cerca anterior (entrada garantida) e `keptLabels` = times que se mantêm em quadra (sorteio com partida em andamento).
+ */
+export function drawNotes({ total, min, teams, fence, must = [], keptLabels = [], nameOf }) {
+  const notes = [];
+  if (keptLabels.length) notes.push(`${keptLabels.join(' e ')} ${keptLabels.length === 1 ? 'se mantém' : 'se mantêm'} com seus jogadores. Os outros ${total} (times de fora e Cerca) foram sorteados em ${teams} ${teams === 1 ? 'time' : 'times'}.`);
+  else notes.push(`${total} confirmados ÷ mínimo de ${min} → ${teams} ${teams === 1 ? 'time completo' : 'times completos'}.`);
+  if (fence.length) notes.push(`Sobraram ${nPlayers(fence.length)} (${joinNames(fence, nameOf)}): ficam na Cerca, aguardando a próxima partida, e entram no time que perder.`);
+  if (must.length) notes.push(`A Cerca anterior (${joinNames(must, nameOf)}) tem entrada garantida na ${keptLabels.length ? 'próxima' : 'primeira'} partida.`);
+  return notes;
+}
+
+/**
+ * Sorteia os times. `players` = [{ pid, name, guest? }]. Retorna { ok, teams, fence, notes, plan } ou { ok:false, error }.
+ * Time = { id, number, captain, players:[pid] }; `fence` = pids que sobraram (a Cerca).
+ * `must` = Cerca anterior, com entrada garantida nos dois primeiros times (os da primeira partida).
+ */
+export function drawTeams(players, min, rnd = Math.random, { must = [] } = {}) {
   const plan = planTeams(players.length, min);
   if (!plan.ok) return plan;
-  const order = shuffle(players, rnd);
-  const teams = [];
-  let at = 0;
-  for (const size of plan.sizes) { teams.push(order.slice(at, at + size)); at += size; }
-  const notes = [];
-  const label = [`${players.length} confirmados ÷ mínimo de ${min}`];
-  const full = plan.sizes.filter(s => s === min).length;
-  label.push(`${full} ${full === 1 ? 'time completo' : 'times completos'}`);
-
-  if (plan.extras) {
-    // Regra B: sobra < 3 → distribui um a um em times diferentes, sorteados
-    const leftovers = order.slice(at);
-    const targets = shuffle(teams.map((_, i) => i), rnd).slice(0, leftovers.length);
-    leftovers.forEach((p, i) => teams[targets[i]].push(p));
-    const names = leftovers.map(p => p.name).join(', ');
-    notes.push(`Sobraram ${leftovers.length} ${leftovers.length === 1 ? 'jogador' : 'jogadores'} (${names}): o time incompleto foi desfeito e ${leftovers.length === 1 ? 'ele foi' : 'eles foram'} distribuído${leftovers.length === 1 ? '' : 's'} nos times ${targets.map(i => i + 1).sort((a, b) => a - b).join(' e ')}, que ficam temporariamente com ${min + 1}.`);
-  } else if (plan.incomplete) {
-    notes.push(`Sobraram ${plan.incomplete.size} jogadores: o Time ${plan.incomplete.index + 1} fica com ${plan.incomplete.size} (faltam ${plan.incomplete.missing}) e pode pegar jogadores que estiverem de fora de outros times para equilibrar.`);
-  }
-  notes.unshift(`${label.join(' → ')}.`);
-
-  const out = teams.map((list, i) => {
-    const pool = list.filter(p => !p.guest);
-    const cap = (pool.length ? pool : list)[Math.floor(rnd() * (pool.length || list.length))];
-    const incomplete = !!plan.incomplete && i === plan.incomplete.index;
-    return { id: `t${i + 1}`, number: i + 1, captain: cap.pid, players: list.map(p => p.pid), incomplete, missing: incomplete ? min - list.length : 0 };
-  });
-  return { ok: true, teams: out, notes, plan };
+  const names = new Map(players.map(p => [p.pid, p.name]));
+  const nameOf = pid => names.get(pid) || '?';
+  const res = formTeams(players, min, rnd, { must, mustTeams: 2 });
+  const notes = drawNotes({ total: players.length, min, teams: plan.k, fence: res.fence, must: must.filter(pid => names.has(pid)), nameOf });
+  const teams = res.teams.map((t, i) => ({ id: `t${i + 1}`, number: i + 1, captain: t.captain, players: t.players }));
+  return { ok: true, teams, fence: res.fence, notes, plan };
 }
 
 /** "Time 2 - Valéria" */
@@ -144,6 +168,12 @@ export const teamLabel = (team, nameOf) => `Time ${team.number} - ${firstName(na
 
 // ---------------------------------------------------------------- partidas
 export const DEFAULT_MATCH_MIN = 10;
+
+/** Sorteio automático de jogadores: de quantas em quantas partidas (0 = nunca). */
+export const AUTO_EVERY_OPTIONS = [[1, 'A cada 1 partida'], [2, 'A cada 2 partidas'], [3, 'A cada 3 partidas'], [0, 'Nunca']];
+export const DEFAULT_AUTO_EVERY = 1;
+export const autoDrawLabel = org => !org?.autoDraw ? 'Sorteio automático desligado'
+  : org.autoEvery > 0 ? `Sorteio automático a cada ${org.autoEvery} ${org.autoEvery === 1 ? 'partida' : 'partidas'}` : 'Sorteio automático: nunca (só manual)';
 
 /** Placar a partir dos gols da partida: { [teamId]: n }. */
 export function matchScore(match) {

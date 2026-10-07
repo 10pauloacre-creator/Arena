@@ -99,7 +99,7 @@ test('POST /pelada/peladas/demo: exige conta, cria a pelada do dia com 17 jogado
   assert.equal((await owner.get('/pelada/mine')).data.created.find(x => x.id === normal.data.pelada.id).demo, false);
 });
 
-test('pelada demo: o dono sorteia 17 em 3 times (sobras distribuídas), cria partida e anota gol de quem veio da lista', async () => {
+test('pelada demo: o dono sorteia 17 em 3 times de 5 (2 na Cerca), cria partida e anota gol de quem veio da lista', async () => {
   const owner = await newPlayer();
   const { pelada: p, dayId } = (await owner.post('/pelada/peladas/demo')).data;
   const base = `/pelada/peladas/${p.id}/days/${dayId}`;
@@ -107,8 +107,9 @@ test('pelada demo: o dono sorteia 17 em 3 times (sobras distribuídas), cria par
   const draw = await owner.post(`${base}/draw`);
   assert.equal(draw.status, 200, JSON.stringify(draw.data));
   const d = draw.data.pelada.days[0];
-  assert.deepEqual(d.draw.teams.map(t => t.players.length).sort(), [5, 6, 6]);
-  assert.equal(new Set(d.draw.teams.flatMap(t => t.players)).size, DEMO_SIZE);
+  assert.deepEqual(d.draw.teams.map(t => t.players.length), [5, 5, 5]);
+  assert.equal(d.fence.length, 2); // as 2 sobras ficam na Cerca, aguardando a próxima partida
+  assert.equal(new Set([...d.draw.teams.flatMap(t => t.players), ...d.fence]).size, DEMO_SIZE);
   assert.ok(d.draw.teams.every(t => /^Time \d - \S+$/.test(t.label)), 'rótulo "Time N - Nome"');
 
   const [t1, t2] = d.draw.teams;

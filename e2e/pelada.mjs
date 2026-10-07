@@ -1,6 +1,7 @@
 // E2E do app Pelada (PWA): do botão "Organize a pelada" até artilharia e compartilhamento.
 // Uso: cd e2e && npm install && node pelada.mjs   (usa o Chromium instalado; CHROME_PATH opcional)
 import { mkdirSync } from 'node:fs';
+import * as fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { startApp, launch, DESKTOP, MOBILE } from './lib.mjs';
 
@@ -241,9 +242,9 @@ await test('presença: Marcar/Retirar Presença e o nome aparece na hora na List
 
 // ------------------------------------------------------------------ sorteio
 const names = []; // jogadores criados por API
-await test('sorteio: animação por 5 s, times "Time N - Capitã/o", sobra (regra B), convidado, clique no time mostra as jogadoras', async () => {
+await test('sorteio: animação por 5 s, times "Time N - Capitã/o", sobra vai para a Cerca, convidado, clique no time mostra as jogadoras', async () => {
   await guard(owner, async () => {
-    // 11 presentes no total → 2 times de 5 + 1 sobra (regra B → um time com 6)
+    // 11 presentes + 1 convidado = 12 → 2 times de 5 + 2 na Cerca
     for (let i = 1; i <= 9; i++) {
       const p = await apiPlayer(`Atleta ${stamp} ${String.fromCharCode(64 + i)}${i} Silva`);
       names.push(p);
@@ -257,7 +258,9 @@ await test('sorteio: animação por 5 s, times "Time N - Capitã/o", sobra (regr
     await owner.getByRole('button', { name: 'Adicionar', exact: false }).filter({ hasText: /^\s*Adicionar\s*$/ }).first().click();
     await owner.locator('.confirmed li', { hasText: 'Zé Convidado' }).waitFor(T);
     assert(await owner.locator('.confirmed li', { hasText: 'Zé Convidado' }).locator('.badge', { hasText: 'Convidado' }).count() === 1, 'selo de convidado');
-    // 12 presentes → 2 times de 5 + sobra de 2 → regra B (dois times com 6)
+    // quem não organiza não vê a opção de sortear (só o resultado)
+    assert(await guestPage.getByRole('button', { name: 'Sortear Times' }).count() === 0, 'jogadora não vê o botão de sortear');
+    await seen(guestPage, 'O organizador faz o sorteio');
     await shot(owner, '07-day-antes');
     // a jogadora assiste ao sorteio acontecer
     const t0 = Date.now();
@@ -273,7 +276,10 @@ await test('sorteio: animação por 5 s, times "Time N - Capitã/o", sobra (regr
     const titles = await owner.locator('.team-title').allTextContents();
     assert(titles.every(t => /^Time \d - \S+/.test(t.trim())), 'rótulos "Time N - Nome": ' + titles.join(' | '));
     await seen(owner, 'Assistente do sorteio');
-    await seen(owner, 'distribuído');
+    await seen(owner, 'ficam na Cerca');
+    await seen(owner, 'Cerca (2)');
+    assert(await owner.locator('.fence-box li').count() === 2, '2 jogadores na Cerca');
+    assert(await owner.locator('.badge', { hasText: 'incompleto' }).count() === 0, 'não existe mais time incompleto');
     // clicar no nome do time mostra os jogadores
     assert(await owner.locator('.team-body:visible').count() === 0, 'times começam fechados');
     await owner.locator('.team-head').first().click();
@@ -289,10 +295,12 @@ await test('sorteio: animação por 5 s, times "Time N - Capitã/o", sobra (regr
   });
 });
 
-await test('jogadora também vê "Sortear Times" antes do sorteio e o criador pode refazer só até começar a partida', async () => {
+await test('só o organizador sorteia: o botão "Sortear Times" fica sempre ativo para ele e não aparece para a jogadora', async () => {
   await guard(owner, async () => {
-    assert(await owner.getByRole('button', { name: 'Refazer sorteio' }).count() === 1, 'organizador pode refazer');
-    assert(await guestPage.getByRole('button', { name: 'Refazer sorteio' }).count() === 0, 'jogadora não refaz');
+    assert(await owner.getByRole('button', { name: 'Sortear Times' }).count() === 1, 'organizador vê o botão de sortear');
+    assert(await owner.getByRole('button', { name: 'Refazer sorteio' }).count() === 0, 'o botão agora é sempre "Sortear Times"');
+    assert(await guestPage.getByRole('button', { name: 'Sortear Times' }).count() === 0, 'jogadora não vê o botão de sortear');
+    await guestPage.locator('.team-card').first().waitFor({ timeout: 9000 }); // só vê o resultado
   });
 });
 
@@ -320,6 +328,9 @@ await test('partidas: "+" cria jogo com vagas, escolhe times, cronômetro, gols 
     await owner.waitForTimeout(1300);
     const clk = await owner.locator('.match').first().locator('[data-clock]').textContent();
     assert(clk !== '03:00' && /^02:5\d$/.test(clk), 'cronômetro andando: ' + clk);
+    // a Cerca aparece no rodapé da partida em andamento
+    const foot = owner.locator('.match.running .match-fence');
+    assert(await foot.count() === 1 && await foot.locator('li').count() === 2, 'Cerca no rodapé da partida: 2 jogadores');
     // gols: toque no jogador de cada time
     const chips = owner.locator('.match').first().locator('.sum-col');
     await chips.nth(0).locator('.chip-main').first().click();
@@ -447,6 +458,197 @@ await test('criação: "Criar pelada demo" monta o jogo de hoje com 17 jogadores
     await seen(p, 'Demonstração');
   });
   await ctx.close();
+});
+
+// ------------------------------------------------------------------ Cerca, sorteio automático e correções
+await test('configuração: "Sorteio automático de jogadores" com frequência (1, 2, 3 partidas ou nunca), no padrão e por data', async () => {
+  const o = await apiPlayer(`Config ${stamp}`);
+  const ctx = await playerContext(o, MOBILE); const p = await ctx.newPage(); watch(p, 'config');
+  await guard(p, async () => {
+    await p.goto(app.base + '/pelada/nova');
+    await p.fill('#pf-name', 'Pelada Automática');
+    await p.locator('label[for=pf-g-feminino]').click();
+    assert(await p.locator('input[name=autoDraw]').count() === 1 && !(await p.locator('input[name=autoDraw]').isChecked()), 'opção desligada por padrão');
+    assert(await p.locator('[data-auto-every]').count() === 0, 'frequência só aparece com a opção ligada');
+    await p.locator('input[name=autoDraw]').evaluate(el => el.click());
+    const opts = await p.locator('.auto-draw [data-auto-every]').allTextContents();
+    assert(opts.join('|') === 'A cada 1 partida|A cada 2 partidas|A cada 3 partidas|Nunca', 'opções: ' + opts.join('|'));
+    await p.locator('.auto-draw [data-auto-every="2"]').click();
+    await p.locator('.auto-draw [data-auto-every="2"][aria-pressed=true]').waitFor(T);
+    await p.locator(`[data-iso="${todayIso}"]`).click();
+    await p.locator(`[data-org=custom][data-date="${todayIso}"]`).click();
+    await p.locator(`.day-card[data-day="${todayIso}"] [data-auto-every="3"]`).waitFor(T); // a data herda e pode personalizar
+    assert(await p.locator(`.day-card[data-day="${todayIso}"] [data-auto-every="3"]`).isVisible(), 'frequência por data');
+    await p.locator(`.day-card[data-day="${todayIso}"] [data-auto-every="3"]`).click();
+    await shot(p, '18-config-auto');
+    await noOverflow(p, 'form com sorteio automático');
+    await p.click('#pf-go');
+    await p.waitForURL(/\/pelada\/p\/PL-[A-Z2-9]{6}/);
+    const id = p.url().match(/PL-[A-Z2-9]{6}/)[0];
+    const view = (await (await fetch(`${app.base}/api/pelada/peladas/${id}`)).json()).pelada;
+    assert(view.autoDraw === true && view.autoEvery === 2, 'padrão salvo: ' + view.autoDraw + '/' + view.autoEvery);
+    assert(view.days[0].custom && view.days[0].org.autoDraw && view.days[0].org.autoEvery === 3, 'data personalizada salva');
+    await p.goto(`${app.base}/pelada/p/${id}/editar`); // ao editar, os valores voltam preenchidos
+    await p.locator('.auto-draw [data-auto-every="2"][aria-pressed=true]').first().waitFor(T);
+  });
+  await ctx.close();
+});
+
+await test('Cerca + sorteio automático (demo de 17): Cerca no rodapé, sorteio ativo com partida em andamento, rotação ao encerrar e correção do placar', async () => {
+  const o = await apiPlayer(`Auto ${stamp}`);
+  const ctx = await playerContext(o, MOBILE); const p = await ctx.newPage(); watch(p, 'auto');
+  const call = async (method, path, body) => (await fetch(app.base + '/api' + path, { method, headers: { 'Content-Type': 'application/json', Cookie: o.cookie }, body: body ? JSON.stringify(body) : undefined })).json();
+  await guard(p, async () => {
+    const demo = await call('POST', '/pelada/peladas/demo');
+    const pid = demo.pelada.id, dayId = demo.dayId;
+    await call('PATCH', `/pelada/peladas/${pid}`, { autoDraw: true, autoEvery: 1 });
+    await p.goto(`${app.base}/pelada/p/${pid}/d/${dayId}`);
+    await seen(p, 'Auto a cada 1 partida');
+    await p.getByRole('button', { name: 'Sortear Times' }).click();
+    await p.locator('[data-team-toggle]').first().waitFor({ timeout: 15000 });
+    assert(await p.locator('[data-team-toggle]').count() === 3, '3 times de 5');
+    await seen(p, 'Cerca (2)');
+    const fenceNames = await p.locator('.fence-box li .grow').allTextContents();
+    assert(fenceNames.length === 2, 'Cerca com 2 jogadores');
+    // partida: escolhe os times e inicia
+    await p.getByRole('button', { name: 'Adicionar partida' }).click();
+    await p.locator('.match').first().waitFor(T);
+    await p.locator('.match').first().locator('[data-slot=a]').click();
+    await p.locator('dialog .pick').first().click();
+    await p.locator('.match').first().locator('[data-slot=b]').click();
+    await p.locator('dialog .pick:not([disabled])').first().click();
+    await p.locator('.match').first().getByRole('button', { name: 'Iniciar' }).click();
+    await p.locator('.match.running').waitFor(T);
+    assert(await p.locator('.match.running .match-fence li').count() === 2, 'Cerca no rodapé da partida em andamento');
+    // o sorteio continua ativo mesmo com a partida em andamento (define a próxima composição)
+    const playing = await p.locator('.match.running .slot-name').allTextContents();
+    await p.getByRole('button', { name: 'Sortear Times' }).click();
+    await seen(p, 'Sortear a próxima composição?');
+    await p.locator('dialog [data-close=ok]').click();
+    await p.locator('.shuffle').waitFor(T);
+    await p.locator('.shuffle').waitFor({ state: 'detached', timeout: 9000 });
+    await seen(p, 'se mantêm');
+    assert((await p.locator('.match.running .slot-name').allTextContents()).join() === playing.join(), 'os times em quadra continuam os mesmos');
+    assert(await p.locator('.match.running').count() === 1, 'a partida segue em andamento');
+    await shot(p, '19-sorteio-com-partida');
+    // gol, encerra: o vencedor fica, a Cerca entra no time que perdeu e há nova Cerca
+    await p.locator('.match.running .sum-col').nth(0).locator('.chip-main').first().click();
+    await p.waitForTimeout(400);
+    await p.getByRole('button', { name: 'Encerrar partida' }).click();
+    await p.locator('.match.finished').waitFor(T);
+    await seen(p, 'Sorteio automático:');
+    await seen(p, 'Nova Cerca');
+    assert(await p.locator('.match').nth(1).locator('.match-fence li').count() === 2, 'a próxima partida mostra a nova Cerca');
+    await shot(p, '20-rotacao');
+    // corrigir o placar da partida encerrada (só o organizador)
+    assert((await p.locator('.match.finished .big-score').allTextContents()).join('x') === '1x0', 'placar 1x0');
+    await p.locator('.match.finished details.fix summary').click();
+    await p.locator('.match.finished details.fix .sum-col').nth(1).locator('.chip-main').first().click();
+    await p.waitForFunction(() => [...document.querySelectorAll('.match.finished .big-score')].map(e => e.textContent).join('x') === '1x1', null, T);
+    assert(await p.locator('.match.finished details.fix[open]').count() === 1, 'a edição continua aberta depois de salvar');
+    await p.waitForTimeout(4200); // a atualização automática não fecha nem desfaz a correção
+    assert((await p.locator('.match.finished .big-score').allTextContents()).join('x') === '1x1', 'placar corrigido 1x1');
+    await noOverflow(p, 'dia com Cerca');
+    // quem só acompanha vê o resultado, sem botão de sortear nem edição
+    const viewer = await browser.newContext(MOBILE); const vp = await viewer.newPage(); watch(vp, 'espectador');
+    await vp.goto(`${app.base}/pelada/p/${pid}/d/${dayId}`);
+    await vp.locator('.team-card').first().waitFor(T);
+    assert(await vp.getByRole('button', { name: 'Sortear Times' }).count() === 0, 'visitante não vê "Sortear Times"');
+    assert(await vp.locator('details.fix').count() === 0, 'visitante não edita partida encerrada');
+    await viewer.close();
+  });
+  await ctx.close();
+});
+
+await test('botão de perfil: abre o menu e o perfil (uma vez só), mesmo depois de a página se atualizar sozinha', async () => {
+  await guard(owner, async () => {
+    await owner.goto(`${app.base}/pelada/p/${peladaId}`);
+    await owner.locator('[data-menu-btn]').waitFor(T);
+    await owner.waitForTimeout(6500); // passa pela atualização automática (a tela é redesenhada)
+    await owner.locator('[data-menu-btn]').click();
+    await owner.locator('.menu-pop:not([hidden])').waitFor(T);
+    await owner.locator('[data-profile]').click();
+    await owner.locator('dialog[open]').filter({ hasText: 'Meu perfil' }).waitFor(T);
+    assert(await owner.locator('dialog[open]').count() === 1, 'um único perfil aberto');
+    await owner.keyboard.press('Escape');
+  });
+});
+
+await test('sair da pelada: ícone no canto superior direito, confirmação, some da lista; gols dela continuam na artilharia; excluir jogador (organizador)', async () => {
+  await guard(guestPage, async () => {
+    // organizador não tem o ícone; a participante tem
+    await owner.goto(`${app.base}/pelada/p/${peladaId}`);
+    await owner.locator('.pel-head').waitFor(T);
+    assert(await owner.locator('.leave-btn').count() === 0, 'organizador não vê o ícone de sair');
+    // organizador exclui um jogador que fez gol (artilharia geral guarda os gols)
+    await owner.locator('[data-tab=artilharia]').click();
+    await owner.getByRole('button', { name: 'Artilharia Geral' }).click();
+    await owner.locator('.podium .pod-name').first().waitFor(T);
+    const scorers = [...await owner.locator('.podium .pod-name').allTextContents(), ...await owner.locator('.rank-rest .grow').allTextContents()].map(t => t.trim());
+    const victim = scorers.find(n => !n.includes('Valéria') && n.startsWith('Atleta'));
+    assert(victim, 'há um artilheiro que pode ser excluído: ' + scorers.join(', '));
+    const goalsBefore = await owner.locator('.podium .pod, .rank-rest li').filter({ hasText: victim }).first().textContent();
+    await owner.locator('[data-tab=jogadores]').click();
+    const row = owner.locator('.player-list li', { hasText: victim });
+    await row.locator('[data-rm-member]').click();
+    await seen(owner, 'continuam somando na artilharia');
+    await owner.locator('dialog [data-close=ok]').click();
+    await owner.locator('.player-list li', { hasText: victim }).waitFor({ state: 'detached', timeout: 9000 });
+    await owner.locator('[data-tab=artilharia]').click();
+    await owner.getByRole('button', { name: 'Artilharia Geral' }).click();
+    const after = await owner.locator('.podium .pod, .rank-rest li').filter({ hasText: victim }).first().textContent();
+    assert(after && after.replace(/\s+/g, '') === goalsBefore.replace(/\s+/g, ''), `gols do excluído continuam na artilharia: ${goalsBefore} → ${after}`);
+
+    // a participante sai da pelada
+    await guestPage.goto(`${app.base}/pelada/p/${peladaId}`);
+    await guestPage.locator('.leave-btn').waitFor(T);
+    const box = await guestPage.locator('.leave-btn').boundingBox(), head = await guestPage.locator('.pel-head').boundingBox();
+    assert(box.x + box.width > head.x + head.width - 40 && box.y < head.y + 40, 'ícone no canto superior direito da pelada');
+    await shot(guestPage, '21-sair');
+    await guestPage.locator('.leave-btn').click();
+    await seen(guestPage, 'Sair da pelada?');
+    await guestPage.locator('dialog [data-close=ok]').click();
+    await guestPage.waitForURL('**/pelada/painel', T);
+    await guestPage.waitForTimeout(600);
+    assert(await guestPage.locator('.pel-card', { hasText: 'Pelada das Quintas' }).count() === 0, 'a pelada não aparece mais para quem saiu');
+    // dá para voltar pelo convite
+    await guestPage.goto(inviteUrl);
+    await guestPage.locator('[data-join]').waitFor(T);
+  });
+});
+
+await test('login salvo no aparelho: mesmo sem o cookie de sessão o app continua logado (e o link de convite mostra a pré-visualização)', async () => {
+  const o = await apiPlayer(`Persistente ${stamp}`);
+  const ctx = await playerContext(o, MOBILE); const p = await ctx.newPage(); watch(p, 'login-salvo');
+  await guard(p, async () => {
+    await p.goto(app.base + '/pelada/painel');
+    await seen(p, 'Olá, Persistente');
+    const tk = await p.evaluate(() => localStorage.getItem('pelada.token.v1'));
+    assert(tk && tk.includes('.'), 'chave do aparelho guardada');
+    await ctx.clearCookies(); // o navegador apagou o cookie de sessão
+    await p.goto(app.base + '/pelada/painel');
+    await seen(p, 'Olá, Persistente');
+    const me = await p.evaluate(async () => (await (await fetch('/api/pelada/auth/me')).json()).player?.name);
+    assert(me && me.startsWith('Persistente'), 'sessão refeita no servidor: ' + me);
+    // sair de verdade apaga a chave do aparelho
+    await p.locator('[data-menu-btn]').click(); await p.locator('[data-profile]').click();
+    await p.locator('dialog [data-logout]').click();
+    await p.waitForURL('**/pelada/');
+    assert(await p.evaluate(() => localStorage.getItem('pelada.token.v1')) === null, 'chave apagada no logout');
+  });
+  await ctx.close();
+  // pré-visualização do link de convite (WhatsApp lê estas metatags): capa + foto de perfil + dados
+  const html = await (await fetch(inviteUrl)).text();
+  assert(/og:title" content="Pelada das Quintas FC · Pelada"/.test(html), 'og:title com o nome da pelada');
+  assert(/og:description" content="[^"]*Pelada masculina[^"]*participante[^"]*mín\. \d por time/.test(html), 'og:description com os dados da pelada');
+  const img = html.match(/og:image" content="([^"]+)"/)[1];
+  assert(img.includes(`/pelada-img/p/${peladaId}/preview`), 'og:image é a prévia montada com capa + foto: ' + img);
+  const res = await fetch(img);
+  const buf = Buffer.from(await res.arrayBuffer());
+  assert(res.headers.get('content-type') === 'image/jpeg' && buf.length > 4000 && buf.length <= 230_000, `prévia JPEG (${buf.length} bytes)`);
+  const sof = buf.findIndex((b, i) => b === 0xff && (buf[i + 1] === 0xc0 || buf[i + 1] === 0xc2));
+  assert(buf.readUInt16BE(sof + 7) === 1200 && buf.readUInt16BE(sof + 5) === 630, 'prévia 1200×630');
+  await fs.writeFile(`${SHOTS}pel_preview_link.jpg`, buf);
 });
 
 // ------------------------------------------------------------------ PWA

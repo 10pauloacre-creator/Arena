@@ -4,7 +4,7 @@ import { openDialog } from '../../ui/dialog.js';
 import { toast } from '../../ui/toast.js';
 import { setFieldError, clearErrors, applyApiError } from '../../ui/forms.js';
 import { api } from '../../api.js';
-import { setPlayer } from '../session.js';
+import { rememberLogin } from '../session.js';
 import { maskDate, parseBirth } from '../../shared/pelada.js';
 import { pickAndCrop } from './cropper.js';
 
@@ -79,7 +79,7 @@ export function mountAuth(root, { mode = 'signup', onDone, intro = '' } = {}) {
     const btn = $('[data-go]', form); setBusy(btn, true);
     try {
       const r = await api.post(signup ? '/pelada/auth/signup' : '/pelada/auth/login', body);
-      setPlayer(r.player);
+      rememberLogin(r);
       onDone?.(r.player);
     } catch (err) {
       setBusy(btn, false);

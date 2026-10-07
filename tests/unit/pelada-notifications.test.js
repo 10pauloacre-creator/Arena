@@ -289,3 +289,43 @@ test('o nome atualizado da pelada aparece nas notificações', async () => {
   const items = (await inbox(ana)).items.filter(i => i.pelada.id === id);
   assert.ok(items.length && items.every(i => i.pelada.name === 'Pelada Renomeada'));
 });
+
+test('Cerca e sorteio automático nos avisos: quem sobra é avisado, o resultado guarda os times da época e quem sai deixa de receber', async () => {
+  const s = await setup(4, { min: 2 });
+  const { owner, players, id, base } = s;
+  const [ana, bia, carla, dani] = players;
+  const dayId = s.dayId;
+  assert.equal((await owner.patch(`/pelada/peladas/${id}`, { autoDraw: true, autoEvery: 1 })).status, 200);
+  for (const c of [owner, ana, bia, carla, dani]) assert.equal((await c.post(`${base}/presence`, { present: true })).status, 200);
+
+  // 5 presentes, mínimo 2: dois times de 2 e 1 jogador na Cerca, que é avisado
+  assert.equal((await owner.post(`${base}/draw`)).status, 200);
+  let day = (await owner.get(`/pelada/peladas/${id}`)).data.pelada.days.find(d => d.id === dayId);
+  assert.equal(day.fence.length, 1);
+  const fenceUid = day.fence[0].slice(2);
+  const fenceClient = [ana, bia, carla, dani].find(c => c.player.id === fenceUid);
+  const fenceMsg = (await inbox(fenceClient)).items.find(i => i.type === 'draw');
+  assert.match(fenceMsg.text, /Você ficou na Cerca: aguarda a próxima partida e entra no time que perder\./);
+  assert.ok(!/Você está no/.test(fenceMsg.text));
+
+  // partida + resultado: o aviso usa os times que jogaram, mesmo que o sorteio automático os mude em seguida
+  const [t1, t2] = day.draw.teams;
+  const mid = (await owner.post(`${base}/matches`, { a: t1.id, b: t2.id })).data.matchId;
+  await owner.post(`${base}/matches/${mid}/timer`, { action: 'start' });
+  await owner.post(`${base}/matches/${mid}/goals`, { teamId: t1.id });
+  const fin = await owner.post(`${base}/matches/${mid}/finish`);
+  assert.equal(fin.status, 200);
+  assert.ok(fin.data.info.rotation, 'sorteio automático a cada 1 partida');
+  const res = (await inbox(ana)).items.find(i => i.type === 'result');
+  assert.ok(res.text.startsWith(`${t1.label} 1 × 0 ${t2.label}.`), res.text);
+  // a Cerca entrou no time que perdeu: o aviso do sorteio acompanha ("você está no Time X")
+  day = (await owner.get(`/pelada/peladas/${id}`)).data.pelada.days.find(d => d.id === dayId);
+  const nowIn = day.draw.teams.find(t => t.players.includes(`u:${fenceUid}`));
+  assert.ok(nowIn);
+  assert.ok((await inbox(fenceClient)).items.find(i => i.type === 'draw').text.endsWith(`Você está no ${nowIn.label}.`));
+
+  // sair da pelada: sai da caixa (a pelada some dele) e os outros não são avisados da própria saída
+  assert.equal((await dani.post(`/pelada/peladas/${id}/leave`)).status, 200);
+  assert.equal((await inbox(dani)).items.filter(i => i.text.includes(`Pelada N`)).length, 0);
+  assert.equal((await dani.get('/pelada/mine')).data.joined.length, 0);
+});

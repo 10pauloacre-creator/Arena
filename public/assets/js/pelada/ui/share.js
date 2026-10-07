@@ -44,8 +44,8 @@ export function resultsData(pel, { scope, dayId }, { origin = location.origin, t
   const general = scope === 'general' || !day;
   const nameOf = pid => pel.people[pid]?.name || '?';
   const ranking = (general ? pel.ranking : day.ranking).map(r => ({ pid: r.pid, name: nameOf(r.pid), goals: r.goals, rank: r.rank, medal: r.medal, av: pel.people[r.pid]?.av || 0 }));
-  const label = (d, teamId) => d.draw?.teams.find(t => t.id === teamId)?.label || 'Time';
-  const rowsOf = d => d.matches.filter(m => m.status === 'finished' && m.a && m.b).map(m => ({ a: label(d, m.a), b: label(d, m.b), sa: m.score.a, sb: m.score.b }));
+  // os times mudam de jogadores nos sorteios: a partida encerrada guarda como eram (m.teams)
+  const rowsOf = d => d.matches.filter(m => m.status === 'finished' && m.a && m.b).map(m => ({ a: m.teams?.a?.label || 'Time', b: m.teams?.b?.label || 'Time', sa: m.score.a, sb: m.score.b }));
   let results = [];
   if (general) {
     for (const d of [...pel.days].reverse()) { if (results.length >= 4) break; results.push(...rowsOf(d).reverse()); }

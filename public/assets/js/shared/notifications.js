@@ -131,7 +131,7 @@ export function describe(ev, { viewerId, today } = {}) {
       const teams = Number.isInteger(d.teams) ? `: ${plural(d.teams, 'time', 'times')}` : '';
       return {
         title: d.redo ? 'Sorteio refeito' : 'Times sorteados',
-        text: `${who} ${d.redo ? 'refez o sorteio' : 'sorteou os times'} do ${jogo}${teams}.${mine ? ` Você está no ${mine}.` : ''}`,
+        text: `${who} ${d.redo ? 'refez o sorteio' : 'sorteou os times'} do ${jogo}${teams}.${mine === 'Cerca' ? ' Você ficou na Cerca: aguarda a próxima partida e entra no time que perder.' : mine ? ` Você está no ${mine}.` : ''}`,
       };
     }
     case 'match': {

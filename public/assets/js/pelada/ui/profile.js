@@ -4,7 +4,7 @@ import { openDialog } from '../../ui/dialog.js';
 import { toast } from '../../ui/toast.js';
 import { setFieldError, clearErrors, applyApiError } from '../../ui/forms.js';
 import { api } from '../../api.js';
-import { S, setPlayer, logout } from '../session.js';
+import { S, setPlayer, saveToken, logout } from '../session.js';
 import { pickAndCrop } from './cropper.js';
 import { playerAvatar } from './img.js';
 import { navigate } from '../../router.js';
@@ -51,7 +51,8 @@ export function openProfile() {
     if (form.next.value.length < 4) { setFieldError($('[data-f=next]', form), 'A nova senha precisa ter ao menos 4 caracteres.'); return; }
     const btn = $('[data-go]', form); setBusy(btn, true);
     try {
-      await api.post('/pelada/auth/password', { current: form.current.value, next: form.next.value });
+      const r = await api.post('/pelada/auth/password', { current: form.current.value, next: form.next.value });
+      saveToken(r.token); // a senha nova invalida as chaves antigas: este aparelho recebe uma nova
       toast('Senha alterada. Use a nova senha no próximo acesso.', { type: 'success' });
       form.reset(); setBusy(btn, false);
     } catch (err) {

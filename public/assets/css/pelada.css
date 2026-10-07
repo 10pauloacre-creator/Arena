@@ -269,7 +269,6 @@ h1 { line-height: 1.12; }
 .teams-grid { align-items: start; display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 640px) { .teams-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .team-card { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); overflow: hidden; box-shadow: var(--shadow-sm); }
-.team-card.incomplete { border-color: #f3dca4; }
 .team-card.reveal { animation: reveal .6s var(--ease) both; animation-delay: calc(var(--i) * 140ms); }
 @keyframes reveal { 0% { opacity: 0; transform: translateY(24px) scale(.9) rotate(-2deg); } 60% { transform: translateY(-4px) scale(1.03) rotate(.6deg); } 100% { opacity: 1; transform: none; } }
 .team-head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border: 0; background: transparent; text-align: left; cursor: pointer; }
@@ -278,14 +277,28 @@ h1 { line-height: 1.12; }
 .team-num.sm { width: 26px; height: 26px; border-radius: 8px; font-size: 13px; }
 .team-title { font-weight: 800; flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 15.5px; }
 .team-count { font-size: 12.5px; color: var(--muted); font-weight: 600; white-space: nowrap; }
-.team-warn { display: flex; gap: 8px; align-items: flex-start; padding: 8px 14px; background: var(--amber-50); color: #7a4f06; font-size: 12.5px; font-weight: 600; border-top: 1px solid #f3dca4; }
-.team-warn .ico { margin-top: 2px; flex: none; }
 .team-body { padding: 4px 14px 12px; border-top: 1px solid var(--line); }
 .team-players { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .team-players li { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
 .team-players select { min-height: 34px; padding: 2px 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: #fff; font-size: 13px; max-width: 170px; }
-.free-box { margin-top: 14px; padding: 14px; border-radius: var(--r-md); background: var(--surface-2); border: 1px dashed var(--line-strong); }
-.free-box h4 { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.fence-box { margin-top: 14px; padding: 14px; border-radius: var(--r-md); background: var(--surface-2); border: 1px dashed var(--line-strong); }
+.fence-box h4 { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.draw-log { margin-top: 8px; }
+.draw-log summary { cursor: pointer; font-weight: 700; font-size: 13px; color: var(--pl-700); }
+/* Cerca no rodapé da partida */
+.match-fence { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); border: 1px dashed var(--line-strong); font-size: 13px; }
+.mf-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; color: var(--ink); }
+.mf-list { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.mf-list li { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px 2px 2px; border-radius: 99px; background: var(--surface); border: 1px solid var(--line); font-weight: 700; }
+.mf-hint { color: var(--muted); font-size: 12.5px; }
+/* sair da pelada (canto superior direito da pelada) e excluir jogador */
+.leave-btn { position: absolute; top: 12px; right: 12px; z-index: 3; width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; border: 1px solid rgb(255 255 255 / .35); background: rgb(0 0 0 / .42); color: #fff; backdrop-filter: blur(6px); cursor: pointer; }
+.leave-btn:hover { background: rgb(180 30 50 / .85); }
+.icon-btn.danger { color: var(--red); }
+.icon-btn.danger:hover { background: var(--red-50); }
+/* sorteio automático de jogadores (configuração) */
+.auto-draw { padding: 14px; border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--line); }
+.auto-draw .seg { flex-wrap: wrap; }
 .loose-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .loose-list li { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 12px; background: var(--surface-2); }
 .loose-n { min-width: 34px; text-align: center; font-weight: 800; font-size: 22px; font-variant-numeric: tabular-nums; }

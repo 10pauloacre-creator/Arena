@@ -57,6 +57,13 @@ export function createAppServer() {
       // imagens do módulo Pelada (mesma reescrita do vercel.json: /pelada-img/* → /api/pelada/img/*)
       if (url.pathname.startsWith('/pelada-img/')) { req.url = '/api/pelada/img/' + url.pathname.slice('/pelada-img/'.length) + url.search; return await apiHandler(req, res); }
       if (req.method !== 'GET' && req.method !== 'HEAD') { res.statusCode = 405; return res.end('Method not allowed'); }
+      // link de convite: o app com a pré-visualização da pelada nas metatags (mesma reescrita do vercel.json)
+      const invite = /^\/pelada\/p\/([^/]+)\/?$/.exec(url.pathname);
+      if (invite) {
+        res.setHeader('Content-Security-Policy', CSP); res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+        req.url = '/api/pelada/page/' + invite[1] + url.search;
+        return await apiHandler(req, res);
+      }
       return await serveStatic(req, res, url.pathname);
     } catch (err) {
       console.error(err);
