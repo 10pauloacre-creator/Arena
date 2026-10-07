@@ -1,7 +1,7 @@
 /* Modo escuro — sobrescreve os tokens e as superfícies com cor fixa. */
-#theme-toggle { position: fixed; right: 14px; bottom: calc(var(--bottomnav-h, 0px) + 14px + env(safe-area-inset-bottom)); z-index: 90; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer; box-shadow: var(--shadow-md); display: grid; place-items: center; padding: 0; }
-@media (min-width: 900px) { #theme-toggle { bottom: 18px; } }
-@media print { #theme-toggle { display: none; } }
+/* seletor "Aparência" do perfil (Automático / Claro / Escuro) */
+.appearance { display: grid; gap: 8px; }
+.appearance .seg button { flex: 1; }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -25,7 +25,7 @@
 [data-theme="dark"] .copy-field input, [data-theme="dark"] .team-players select, [data-theme="dark"] .chip,
 [data-theme="dark"] .amount-chip label { background: var(--surface); color: var(--ink); }
 [data-theme="dark"] .seg { background: var(--surface-2); }
-[data-theme="dark"] .seg [aria-pressed="true"], [data-theme="dark"] .seg [aria-current="page"] { background: var(--surface); color: var(--ink); }
+[data-theme="dark"] .seg [aria-pressed="true"], [data-theme="dark"] .seg [aria-current="page"] { background: var(--line-strong); color: var(--ink); }
 [data-theme="dark"] .tile .t-ico, [data-theme="dark"] .ev .i { background: var(--surface-2); color: var(--ink-2); }
 [data-theme="dark"] .emb.tbd, [data-theme="dark"] .drop .prev { background: var(--line-strong); }
 [data-theme="dark"] .skeleton, [data-theme="dark"] .progress, [data-theme="dark"] .rank-row .bar { background: var(--line); }

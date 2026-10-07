@@ -3,6 +3,7 @@ import { html, ic, $, setBusy } from '../../ui/dom.js';
 import { openDialog } from '../../ui/dialog.js';
 import { toast } from '../../ui/toast.js';
 import { setFieldError, clearErrors, applyApiError } from '../../ui/forms.js';
+import { appearanceHTML, wireAppearance } from '../../ui/appearance.js';
 import { api } from '../../api.js';
 import { S, setPlayer, logout } from '../session.js';
 import { pickAndCrop } from './cropper.js';
@@ -17,6 +18,7 @@ export function openProfile() {
     body: html`<div class="stack">
       <div class="row" style="gap:16px"><span data-avatar>${playerAvatar(me, 72)}</span>
         <div class="grow"><strong style="font-size:18px">${me.name}</strong><div class="row wrap" style="gap:8px;margin-top:8px"><button class="btn btn-sm" data-photo>${ic('camera', { size: 16 })} Trocar foto</button><button class="btn btn-sm btn-ghost" data-photo-remove ${me.av ? '' : 'hidden'}>Remover</button></div></div></div>
+      ${appearanceHTML()}
       <form class="stack" data-pass novalidate>
         <h4 style="margin:6px 0 0;font-size:15px">Trocar senha</h4>
         <p class="muted small" style="margin:0">Hoje sua senha é a sua data de nascimento. Crie uma senha própria (mínimo de 4 caracteres) se quiser.</p>
@@ -28,6 +30,7 @@ export function openProfile() {
     </div>`,
     foot: html`<button class="btn btn-outline-danger" data-logout>${ic('log-out', { size: 16 })} Sair da conta</button><button class="btn" data-close>Fechar</button>`,
   });
+  wireAppearance(d.el);
   const refresh = () => { $('[data-avatar]', d.el).innerHTML = playerAvatar(S.player, 72).s; $('[data-photo-remove]', d.el).hidden = !S.player.av; };
   d.el.addEventListener('click', async e => {
     if (e.target.closest('[data-photo]')) {

@@ -115,6 +115,33 @@ await test('recorte de foto: abre o editor, ajusta o zoom e salva no perfil', as
   });
 });
 
+await test('aparência: sem botão flutuante, segue o tema do celular e a opção fica no perfil', async () => {
+  await guard(owner, async () => {
+    const theme = () => owner.evaluate(() => document.documentElement.dataset.theme);
+    const becomes = async (v, msg) => { await owner.waitForFunction(x => document.documentElement.dataset.theme === x, v, { timeout: 4000 }).catch(() => {}); assert(await theme() === v, msg); };
+    assert(await owner.locator('#theme-toggle').count() === 0, 'sem botão flutuante de tema');
+    await owner.emulateMedia({ colorScheme: 'dark' });
+    await becomes('dark', 'automático segue o celular escuro');
+    await owner.emulateMedia({ colorScheme: 'light' });
+    await becomes('light', 'automático segue o celular claro');
+    await owner.locator('[data-menu-btn]').click();
+    await owner.locator('[data-profile]').click();
+    await owner.locator('dialog [data-theme-mode=auto][aria-pressed=true]').waitFor(T);
+    await owner.locator('dialog [data-theme-mode=dark]').click();
+    assert(await theme() === 'dark', 'escolha manual: escuro');
+    await owner.locator('dialog [data-theme-mode=dark][aria-pressed=true]').waitFor(T);
+    await shot(owner, '03b-perfil-escuro');
+    await owner.reload();
+    assert(await theme() === 'dark', 'escolha lembrada após recarregar');
+    await owner.locator('[data-menu-btn]').click();
+    await owner.locator('[data-profile]').click();
+    await owner.locator('dialog [data-theme-mode=auto]').click();
+    assert(await theme() === 'light', 'volta ao automático (celular claro)');
+    await owner.keyboard.press('Escape');
+    await owner.emulateMedia({ colorScheme: null });
+  });
+});
+
 await test('conta salva neste aparelho: recarregar não desloga', async () => {
   await guard(owner, async () => {
     await owner.goto(app.base + '/pelada/');

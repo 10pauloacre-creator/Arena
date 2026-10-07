@@ -1,26 +1,23 @@
-// Tema claro/escuro: segue o sistema na 1ª visita e lembra a escolha do usuário.
+// Tema claro/escuro: por padrão segue o tema do celular/computador (automático).
+// A escolha manual (claro ou escuro) fica no perfil e é lembrada neste aparelho. Não há botão flutuante.
 (function () {
   var KEY = 'am-theme', root = document.documentElement;
-  var saved = null;
-  try { saved = localStorage.getItem(KEY); } catch (e) {}
-  var dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
-  function apply(d) {
-    root.setAttribute('data-theme', d ? 'dark' : 'light');
+  var mq = matchMedia('(prefers-color-scheme: dark)');
+  function read() { try { var v = localStorage.getItem(KEY); return v === 'dark' || v === 'light' ? v : 'auto'; } catch (e) { return 'auto'; } }
+  function apply() {
+    var mode = read(), dark = mode === 'auto' ? mq.matches : mode === 'dark';
+    root.setAttribute('data-theme', dark ? 'dark' : 'light');
     var m = document.querySelector('meta[name="theme-color"]');
-    if (m) { if (!m.dataset.light) m.dataset.light = m.content; m.content = d ? '#0a0f1d' : m.dataset.light; }
-    var b = document.getElementById('theme-toggle');
-    if (b) { b.setAttribute('aria-pressed', d ? 'true' : 'false'); b.textContent = d ? '☀️' : '🌙'; b.title = d ? 'Modo claro' : 'Modo escuro'; b.setAttribute('aria-label', b.title); }
+    if (m) { if (!m.dataset.light) m.dataset.light = m.content; m.content = dark ? '#0a0f1d' : m.dataset.light; }
   }
-  apply(dark);
-  document.addEventListener('DOMContentLoaded', function () {
-    var b = document.createElement('button');
-    b.id = 'theme-toggle'; b.type = 'button';
-    b.addEventListener('click', function () {
-      dark = !dark;
-      try { localStorage.setItem(KEY, dark ? 'dark' : 'light'); } catch (e) {}
-      apply(dark);
-    });
-    document.body.appendChild(b);
-    apply(dark);
-  });
+  window.AMTheme = {
+    get: read,
+    set: function (mode) {
+      try { if (mode === 'auto') localStorage.removeItem(KEY); else localStorage.setItem(KEY, mode); } catch (e) {}
+      apply();
+    },
+  };
+  apply();
+  if (mq.addEventListener) mq.addEventListener('change', apply); else if (mq.addListener) mq.addListener(apply);
+  document.addEventListener('DOMContentLoaded', apply);
 })();
