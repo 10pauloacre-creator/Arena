@@ -1,6 +1,6 @@
 // Service worker do app Pelada (escopo /pelada/): abre o app sem internet e acelera as telas.
 // Dados (/api) nunca são guardados; as telas e os arquivos do app usam "rede primeiro, cache como reserva".
-const VERSION = 'pelada-v3';
+const VERSION = 'pelada-v4';
 const SHELL = [
   '/pelada/',
   '/assets/css/base.css',
@@ -29,16 +29,20 @@ const SHELL = [
   '/assets/js/shared/dates.js',
   '/assets/js/shared/validators.js',
   '/assets/js/shared/pelada.js',
+  '/assets/js/shared/notifications.js',
   '/assets/js/pelada/data.js',
   '/assets/js/pelada/main.js',
+  '/assets/js/pelada/notify.js',
   '/assets/js/pelada/pages/auth.js',
   '/assets/js/pelada/pages/dashboard.js',
   '/assets/js/pelada/pages/day.js',
   '/assets/js/pelada/pages/form.js',
   '/assets/js/pelada/pages/home.js',
+  '/assets/js/pelada/pages/notifications.js',
   '/assets/js/pelada/pages/notfound.js',
   '/assets/js/pelada/pages/organizar.js',
   '/assets/js/pelada/pages/pelada.js',
+  '/assets/js/pelada/pages/settings.js',
   '/assets/js/pelada/pwa.js',
   '/assets/js/pelada/session.js',
   '/assets/js/pelada/ui/auth.js',
@@ -46,6 +50,7 @@ const SHELL = [
   '/assets/js/pelada/ui/cropper.js',
   '/assets/js/pelada/ui/img.js',
   '/assets/js/pelada/ui/match.js',
+  '/assets/js/pelada/ui/notifications.js',
   '/assets/js/pelada/ui/podium.js',
   '/assets/js/pelada/ui/poll.js',
   '/assets/js/pelada/ui/profile.js',

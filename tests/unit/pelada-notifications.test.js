@@ -93,6 +93,13 @@ test('quem entra na pelada e quem confirma presença: todos são avisados, menos
   // repetir a mesma presença não gera outro aviso
   await ana.post(`${base}/presence`, { present: true });
   assert.equal((await inbox(owner)).items.filter(i => i.type === 'presence').length, 1);
+
+  // quem marca presença sem ter entrado antes também "entrou na pelada"
+  const nova = await newPlayer('Direto Na Lista Costa');
+  assert.equal((await nova.post(`${base}/presence`, { present: true })).status, 200);
+  const t = await texts(owner);
+  assert.ok(t.includes('Direto Na Lista Costa entrou na pelada.'));
+  assert.ok(t.includes('Direto Na Lista Costa confirmou presença no jogo de hoje (2 confirmados).'));
 });
 
 test('marcar e desmarcar em seguida não avisa; desistência depois de um tempo avisa', async () => {

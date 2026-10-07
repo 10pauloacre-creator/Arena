@@ -10,7 +10,7 @@ function walk(dir) {
   return readdirSync(dir).flatMap(n => {
     const p = join(dir, n);
     if (statSync(p).isDirectory()) return n === 'vendor' ? [] : walk(p);
-    return p.endsWith('.js') && n !== 'main.js' ? [p] : [];
+    return p.endsWith('.js') && n !== 'main.js' && n !== 'theme.js' ? [p] : []; // theme.js é script clássico (roda antes do CSS), não módulo
   });
 }
 
