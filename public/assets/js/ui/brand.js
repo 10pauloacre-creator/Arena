@@ -24,7 +24,7 @@ export function wireMenus(root, signal) {
   root.addEventListener('click', async e => {
     const btn = e.target.closest('[data-menu-btn]');
     if (btn) { const pop = btn.parentElement.querySelector('.menu-pop'); const open = pop.hidden; close(); pop.hidden = !open; btn.setAttribute('aria-expanded', String(open)); e.stopPropagation(); return; }
-    if (e.target.closest('[data-logout]')) { await logout(); navigate('/'); return; }
+    if (e.target.closest('[data-logout]')) { if (await logout()) navigate('/'); return; }
     if (!e.target.closest('.menu-pop')) close();
   });
   document.addEventListener('click', e => { if (!e.target.closest('[data-menu]')) close(); }, { signal });

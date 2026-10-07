@@ -11,6 +11,7 @@
     "test": "node --test --test-concurrency=1 \"tests/unit/*.test.js\"",
     "test:e2e": "node e2e/run.mjs",
     "icons": "node scripts/gen-icons.mjs node_modules/lucide-static/icons",
-    "lint": "node scripts/lint-imports.mjs"
+    "lint": "node scripts/lint-imports.mjs",
+    "sw": "node scripts/gen-sw-shell.mjs"
   }
 }

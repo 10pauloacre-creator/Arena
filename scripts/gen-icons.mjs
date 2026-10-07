@@ -38,8 +38,9 @@ for (const [name, file] of Object.entries(WANTED)) {
   catch { console.error('Ícone não encontrado:', file); process.exitCode = 1; }
 }
 
-// Ícones próprios (lucide não possui bola de futebol / basquete)
+// Ícones próprios (lucide não possui bola de futebol / basquete) e o wifi-off (Lucide, ISC) usado no modo offline
 map.soccer = '<circle cx="12" cy="12" r="10"/><path d="m12 7.2 3.9 2.8-1.5 4.6H9.6L8.1 10z"/><path d="M12 7.2V2.1M15.9 10l4.9-1.6M14.4 14.6l3 4.1M9.6 14.6l-3 4.1M8.1 10 3.2 8.4"/>';
+map['wifi-off'] = '<path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/>';
 map.basketball = '<circle cx="12" cy="12" r="10"/><path d="M12 2v20M2 12h20"/><path d="M4.9 4.9c3.3 3.3 3.3 10.9 0 14.2M19.1 4.9c-3.3 3.3-3.3 10.9 0 14.2"/>';
 
 const out = `// ARQUIVO GERADO por scripts/gen-icons.mjs — não edite à mão.
