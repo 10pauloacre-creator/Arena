@@ -8,7 +8,7 @@
 
   --ink: #0e1730;
   --ink-2: #3b4a66;
-  --muted: #6b7a93;
+  --muted: #5d6c85;
   --faint: #98a4b8;
 
   --bg: #f3f5f9;
@@ -23,9 +23,9 @@
   --hero-1: #0a1a3d;
   --hero-2: #0d2a66;
 
-  --blue: #1b6dff;
-  --blue-600: #135ce0;
-  --blue-700: #0f4cc0;
+  --blue: #1a66f0;
+  --blue-600: #1257d6;
+  --blue-700: #0e47b3;
   --blue-50: #eaf1ff;
   --blue-100: #d7e5ff;
 
@@ -91,7 +91,7 @@ button { cursor: pointer; }
 }
 .btn:hover { background: var(--surface-2); border-color: var(--faint); text-decoration: none; }
 .btn:active { transform: translateY(1px); }
-.btn-primary { background: var(--blue); border-color: var(--blue); color: #fff; box-shadow: 0 6px 16px rgb(27 109 255 / .28); }
+.btn-primary { background: var(--blue); border-color: var(--blue); color: #fff; box-shadow: 0 6px 16px rgb(26 102 240 / .28); }
 .btn-primary:hover { background: var(--blue-600); border-color: var(--blue-600); }
 .btn-dark { background: var(--navy); border-color: var(--navy); color: #fff; }
 .btn-dark:hover { background: var(--navy-3); border-color: var(--navy-3); }

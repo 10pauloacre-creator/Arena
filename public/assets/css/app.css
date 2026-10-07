@@ -123,7 +123,7 @@
 .feed .f-ico.gold { background: var(--gold-50); color: var(--gold); }
 .feed .f-ico.red { background: var(--red-50); color: var(--red); }
 .feed .f-ico.green { background: var(--green-50); color: var(--green); }
-.feed time { color: var(--faint); font-size: 12px; display: block; }
+.feed time { color: var(--muted); font-size: 12px; display: block; }
 
 .two { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
 @media (min-width: 1000px) { .two { grid-template-columns: repeat(2, minmax(0, 1fr)); } .two.wide-left { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } }
@@ -224,7 +224,7 @@
 .slot.win { border-left-color: var(--blue); background: linear-gradient(90deg, var(--blue-50), transparent); }
 .slot.win .s-score { color: var(--blue); }
 .slot.lose { opacity: .55; }
-.slot.tbd { color: var(--faint); font-style: italic; font-size: 13.5px; }
+.slot.tbd { color: var(--muted); font-style: italic; font-size: 13.5px; }
 .slot.benef { border-left-color: #f6b21b; }
 .match .note { padding: 5px 12px 7px; font-size: 12px; color: var(--gold); border-top: 1px dashed var(--line); font-weight: 600; }
 .playin { border: 1px dashed #e5b24a; border-radius: 14px; padding: 10px 12px; background: var(--gold-50); font-size: 13px; margin-bottom: 12px; }
@@ -367,7 +367,7 @@
 .team-card details summary::-webkit-details-marker { display: none; }
 .team-card details[open] summary { margin-bottom: 10px; }
 .stepper { display: flex; gap: 6px; align-items: center; }
-.stepper .st { flex: 1; display: grid; gap: 6px; font-size: 12px; font-weight: 700; color: var(--faint); text-align: center; }
+.stepper .st { flex: 1; display: grid; gap: 6px; font-size: 12px; font-weight: 700; color: var(--muted); text-align: center; }
 .stepper .st i { display: block; height: 4px; border-radius: 99px; background: var(--line-strong); }
 .stepper .st.on { color: var(--blue); } .stepper .st.on i { background: var(--blue); }
 .stepper .st.done { color: var(--ink-2); } .stepper .st.done i { background: var(--blue); }
@@ -462,3 +462,7 @@
 .ilink { display: inline-flex; align-items: center; gap: 6px; }
 .v-tabs .seg .sm { display: none; }
 @media (max-width: 559px) { .v-tabs .seg .lg { display: none; } .v-tabs .seg .sm { display: inline; } }
+
+/* acessibilidade: links dentro de texto não dependem só da cor */
+p a:not(.btn), .hint a, .form-note a, .center a { text-decoration: underline; text-underline-offset: 2px; }
+.empty .ico, .drop .prev { color: var(--muted); }

@@ -7,6 +7,7 @@ import { teamFieldsHTML, wireTeamFields } from '../../ui/teamform.js';
 import { createRosterEditor } from '../../ui/roster.js';
 import { api } from '../../api.js';
 import { fmtBRL, fmtDateTime } from '../../shared/format.js';
+import { downloadCsv } from '../../ui/csv.js';
 
 
 export default function (app) {
@@ -43,7 +44,8 @@ export default function (app) {
     const reg = t.registration;
     return html`
       <div class="page-head"><div><h2>Times e inscrições</h2><p>${t.teamsConfirmed} de ${t.maxTeams} vagas preenchidas · ${reg.open ? 'inscrições abertas' : (reg.reason || 'inscrições encerradas')}</p></div>
-        <button class="btn btn-primary" data-act="add" ${t.bracket ? 'disabled title="O chaveamento já foi sorteado"' : ''}>${ic('user-plus', { size: 18 })} Adicionar time</button></div>
+        <div class="row wrap"><button class="btn" data-act="csv-teams" ${t.teams.length ? '' : 'disabled'}>${ic('download', { size: 16 })} Exportar times</button><button class="btn" data-act="csv-athletes" ${t.teams.length ? '' : 'disabled'}>${ic('download', { size: 16 })} Exportar atletas</button>
+        <button class="btn btn-primary" data-act="add" ${t.bracket ? 'disabled title="O chaveamento já foi sorteado"' : ''}>${ic('user-plus', { size: 18 })} Adicionar time</button></div></div>
       ${paymentsCard(t)}
       <div class="card flush">
         <div style="padding:14px 18px;border-bottom:1px solid var(--line)"><div class="seg" role="group" aria-label="Filtrar times">${FILTERS.map(([k, l]) => html`<button type="button" data-filter="${k}" aria-pressed="${filter === k}">${l}${k === 'pending' ? html` <span class="badge warn" style="padding:0 7px">${t.teams.filter(x => x.status === 'pending_payment').length}</span>` : ''}</button>`)}</div></div>
@@ -52,6 +54,20 @@ export default function (app) {
   }
 
   // ---------------------------------------------------------------- detalhes
+  const slug = () => app.t.id.toLowerCase();
+  function exportTeams() {
+    const t = app.t;
+    downloadCsv(`times-${slug()}.csv`, ['Time', 'Bairro/clube', 'Responsável', 'WhatsApp', 'E-mail', 'Atletas', 'Situação', 'Forma de pagamento', 'Inscrito em'],
+      t.teams.map(x => [x.name, x.origin, x.captain.name, x.captain.phone, x.captain.email, x.players.length, (TEAM_STATUS[x.status] || [x.status])[0], PAY_METHOD[x.paidVia] || '', fmtDateTime(x.createdAt)]));
+    toast('Lista de times exportada (CSV).', { type: 'success', ms: 2200 });
+  }
+  function exportAthletes() {
+    const t = app.t, official = t.type === 'oficial';
+    downloadCsv(`atletas-${slug()}.csv`, ['Time', 'Camisa', 'Atleta', ...(official ? ['CPF', 'RG', 'Documento (PDF)'] : [])],
+      t.teams.filter(x => x.status === 'confirmed').flatMap(x => x.players.map(p => [x.name, p.number, p.name, ...(official ? [p.cpf, p.rg, p.doc?.name || ''] : [])])));
+    toast('Lista de atletas exportada (CSV).', { type: 'success', ms: 2200 });
+  }
+
   function openTeamDialog(id) {
     const t = app.t, x = t.teams.find(y => y.id === id); if (!x) return;
     const [label, cls] = TEAM_STATUS[x.status] || [x.status, ''];
@@ -143,6 +159,8 @@ export default function (app) {
       on(root, 'click', '[data-act]', async (e, el) => {
         const act = el.dataset.act, tid = el.closest('[data-tid]')?.dataset.tid;
         if (act === 'add') openAddDialog();
+        if (act === 'csv-teams') exportTeams();
+        if (act === 'csv-athletes') exportAthletes();
         if (act === 'view') openTeamDialog(tid);
         if (act === 'confirm') await confirmTeam(tid);
         if (act === 'copy-link') { await navigator.clipboard?.writeText(app.visitorUrl()).catch(() => {}); toast('Link copiado!', { type: 'success', ms: 2000 }); }

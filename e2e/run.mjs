@@ -535,6 +535,8 @@ await test('times: admin edita (nome, força) e remove um time pela interface', 
     await p.locator('.team-row', { hasText: 'Beta FC' }).getByRole('button', { name: 'Detalhes' }).click();
     await p.locator('dialog [data-act=remove]').click();
     await p.locator('dialog').getByRole('button', { name: 'Remover' }).click();
+    const [csv] = await Promise.all([p.waitForEvent('download', { timeout: 8000 }), p.getByRole('button', { name: 'Exportar times' }).click()]);
+    assert(/^times-am-\d{4}-\d+\.csv$/.test(csv.suggestedFilename()), 'CSV de times: ' + csv.suggestedFilename());
     await seen(p, 'Time removido'); await p.waitForTimeout(300);
     assert(await p.locator('.team-row', { hasText: 'Beta FC' }).count() === 0, 'Beta FC removido da lista');
   });

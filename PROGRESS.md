@@ -3,7 +3,7 @@
 Este arquivo existe para que uma sessão interrompida possa continuar de onde parou.
 
 ## Estado: funcional e testado
-- Backend completo (`lib/`, `api/index.js`, `server.js`) + 92 testes unitários/API (`npm test`).
+- Backend completo (`lib/`, `api/index.js`, `server.js`) + 93 testes unitários/API (`npm test`).
 - Front-end completo: home com grade de torneios, login/cadastro, convite de administradores, painel do admin
   (Painel, Times, Ao vivo, Chaveamento, Marketing, Configurações) e página do visitante
   (início, jogos, chaveamento, times, inscrição com PIX/cartão, meu time + repescagem).

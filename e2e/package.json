@@ -3,6 +3,11 @@
   "private": true,
   "type": "module",
   "description": "Testes de ponta a ponta (Playwright). Uso: cd e2e && npm install && npm test",
-  "scripts": { "test": "node run.mjs" },
-  "dependencies": { "playwright-core": "^1.50.0" }
+  "scripts": {
+    "test": "node run.mjs"
+  },
+  "dependencies": {
+    "axe-core": "^4.14.0",
+    "playwright-core": "^1.50.0"
+  }
 }

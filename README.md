@@ -42,8 +42,9 @@ Os dados locais ficam em `.data/arena.json` (ignorado pelo git). Apague a pasta 
 ### Testes
 
 ```powershell
-npm test                         # 92 testes unitários e de API (node:test, sem dependências)
+npm test                         # 93 testes unitários e de API (node:test, sem dependências)
 npm run lint                     # verifica imports não utilizados
+cd e2e; node a11y.mjs            # auditoria de acessibilidade (axe-core) nas principais telas
 cd e2e; npm install; node run.mjs   # 28 cenários E2E com Playwright (usa o Chromium instalado)
 ```
 
@@ -93,11 +94,12 @@ Quando o provedor confirma o pagamento, o time é confirmado automaticamente. Se
 2. No **Painel**, edite nome/data/modalidade e clique em **Salvar alterações**.
 3. Em **Configurações**: prazo (data e hora), valor da inscrição, vagas (4/8/16/32), tipo (amador/oficial), repescagem e
    **convites de administrador** (link de uso único, válido por 7 dias).
-4. Compartilhe o **link do visitante** (aba Marketing tem flyer com QR Code e texto pronto para WhatsApp).
-5. Quando as inscrições terminarem: **Chaveamento → Sortear**. O sorteio equilibra a força dos times, evita confrontos do
+4. Em **Times**, exporte a lista de times e de atletas em CSV (abre direto no Excel).
+5. Compartilhe o **link do visitante** (aba Marketing tem flyer com QR Code e texto pronto para WhatsApp).
+6. Quando as inscrições terminarem: **Chaveamento → Sortear**. O sorteio equilibra a força dos times, evita confrontos do
    mesmo bairro/clube na 1ª fase, dá *byes* quando o número de times não fecha a chave e registra uma semente auditável.
-6. Em **Ao vivo**: placar, relógio, gols, cartões, pênaltis (empate), encerrar e avançar. Visitantes veem em tempo real.
-7. **Repescagem beneficente**: time eliminado doa (PIX/cartão) e disputa uma revanche contra quem o eliminou.
+7. Em **Ao vivo**: placar, relógio, gols, cartões, pênaltis (empate), encerrar e avançar. Visitantes veem em tempo real.
+8. **Repescagem beneficente**: time eliminado doa (PIX/cartão) e disputa uma revanche contra quem o eliminou.
 
 Dica: marque **"Torneio de demonstração"** ao criar para ganhar 8 times de exemplo e testar tudo sem inscrições reais.
 
