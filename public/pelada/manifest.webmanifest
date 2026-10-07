@@ -1,0 +1,25 @@
+{
+  "id": "/pelada/",
+  "name": "Pelada — organize, sorteie e marque os gols",
+  "short_name": "Pelada",
+  "description": "Lista de presença, sorteio de times, súmula e artilharia da sua pelada.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "/pelada/?source=pwa",
+  "scope": "/pelada/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b3d24",
+  "theme_color": "#0b3d24",
+  "categories": ["sports", "social"],
+  "icons": [
+    { "src": "/pelada/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/pelada/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/pelada/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/pelada/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Minhas peladas", "short_name": "Painel", "url": "/pelada/painel", "icons": [{ "src": "/pelada/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Criar nova pelada", "short_name": "Nova pelada", "url": "/pelada/nova", "icons": [{ "src": "/pelada/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
