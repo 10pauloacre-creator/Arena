@@ -71,7 +71,7 @@ function tournamentCard(t) {
 }
 
 async function loggedIn(ctx) {
-  render(ctx.root, html`${topbar()}<main class="home"><div class="row between wrap"><div><h1 style="font-size:28px">Meus torneios</h1><p class="muted">Olá, ${session.user.name.split(' ')[0]}! Escolha um torneio para gerenciar ou crie um novo.</p></div><button class="btn btn-primary" data-new>${ic('plus', { size: 18 })} Novo torneio</button></div><div id="grid" class="t-grid">${[1, 2, 3].map(() => html`<div class="skeleton" style="height:240px;border-radius:16px"></div>`)}</div></main>`);
+  render(ctx.root, html`${topbar()}<main class="home"><div class="row between wrap"><div><h1 style="font-size:28px">Meus torneios</h1><p class="muted">Olá, ${session.user.name.split(' ')[0]}! Escolha um torneio para gerenciar ou crie um novo.</p></div><div class="row wrap" style="gap:10px"><a class="btn btn-gold btn-pelada" href="/pelada/organizar" data-external>${ic('soccer', { size: 18 })} Organize a pelada</a><button class="btn btn-primary" data-new>${ic('plus', { size: 18 })} Novo torneio</button></div></div><div id="grid" class="t-grid">${[1, 2, 3].map(() => html`<div class="skeleton" style="height:240px;border-radius:16px"></div>`)}</div></main>`);
   wire(ctx);
   try {
     const { tournaments } = await api.get('/tournaments');
@@ -90,7 +90,7 @@ function landing(ctx) {
     <section class="landing-hero">${heroArt('futsal')}
       <div><h1>Seu torneio, do <span class="acc">sorteio</span> ao campeão.</h1>
         <p>Abra inscrições com pagamento por PIX ou cartão, sorteie o chaveamento de forma justa e deixe todo mundo acompanhar os jogos ao vivo — tudo em um único painel.</p>
-        <div class="ctas"><a class="btn btn-lg btn-light" href="/cadastro">${ic('trophy', { size: 20 })} Criar meu torneio</a><a class="btn btn-lg" style="background:rgb(255 255 255 / .1);color:#fff;border-color:rgb(255 255 255 / .25)" href="/entrar">Já tenho conta</a></div></div>
+        <div class="ctas"><a class="btn btn-lg btn-gold btn-pelada" href="/pelada/organizar" data-external>${ic('soccer', { size: 20 })} Organize a pelada</a><a class="btn btn-lg btn-light" href="/cadastro">${ic('trophy', { size: 20 })} Criar meu torneio</a><a class="btn btn-lg" style="background:rgb(255 255 255 / .1);color:#fff;border-color:rgb(255 255 255 / .25)" href="/entrar">Já tenho conta</a></div></div>
       <form class="join-card" data-idform><h2 style="font-size:20px">Participar de um torneio</h2><p class="muted small" style="margin:0">Digite o ID que o organizador compartilhou (ou abra o link direto).</p>
         <div class="field"><label for="join-id" class="sr-only">ID do torneio</label><input id="join-id" name="id" placeholder="AM-2026-9843" autocomplete="off" maxlength="20" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em"></div>
         <button class="btn btn-primary btn-block" type="submit">Acessar torneio ${ic('arrow-right', { size: 18 })}</button></form>
@@ -99,7 +99,9 @@ function landing(ctx) {
       <div class="card feature"><span class="f-ico">${ic('qr-code', { size: 22 })}</span><h3>Inscrição com pagamento</h3><p>Cada time se inscreve pelo link, paga por PIX ou cartão e entra na lista assim que o pagamento é confirmado.</p></div>
       <div class="card feature"><span class="f-ico">${ic('network', { size: 22 })}</span><h3>Chaveamento justo</h3><p>Sorteio que equilibra as chaves, evita confrontos entre times do mesmo bairro e registra uma semente auditável.</p></div>
       <div class="card feature"><span class="f-ico">${ic('radio', { size: 22 })}</span><h3>Jogos ao vivo</h3><p>Placar, relógio e lances em tempo real para os visitantes, mais transmissão do YouTube ou Twitch.</p></div>
-    </section></main>`);
+    </section>
+    <section class="pelada-promo"><div class="pp-ico">${ic('soccer', { size: 30 })}</div><div class="grow"><h2>Vai jogar uma pelada com os amigos?</h2><p>Lista de presença, sorteio de times com animação, súmula com cronômetro e artilharia para compartilhar no WhatsApp. Abre em um app separado, que você pode instalar no celular.</p></div>
+      <a class="btn btn-lg btn-gold btn-pelada" href="/pelada/organizar" data-external>${ic('soccer', { size: 20 })} Organize a pelada</a></section></main>`);
   wire(ctx);
 }
 

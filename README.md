@@ -4,6 +4,9 @@ Plataforma de torneios com **painel do organizador** e **página do visitante**:
 inscrição de times com pagamento (PIX ou cartão), sorteio de chaveamento, jogos ao vivo,
 repescagem beneficente e divulgação (flyer + QR Code).
 
+Inclui também o **app Pelada** (`/pelada/`): um segundo app, em HTML próprio e **instalável como PWA**, para organizar
+peladas entre amigos (lista de presença, sorteio de times, súmula com cronômetro e artilharia). Veja [App Pelada](#app-pelada-pwa).
+
 - **Organizador**: cria conta (e-mail + senha), cria torneios, edita e **salva** as configurações,
   convida outros administradores por **link de convite** e gerencia times, jogos e chaveamento.
 - **Visitante** (sem login): entra pelo **link** ou digitando o **ID** do torneio (ex.: `AM-2026-9843`),
@@ -42,10 +45,12 @@ Os dados locais ficam em `.data/arena.json` (ignorado pelo git). Apague a pasta 
 ### Testes
 
 ```powershell
-npm test                         # 93 testes unitários e de API (node:test, sem dependências)
+npm test                         # 131 testes unitários e de API (node:test, sem dependências)
 npm run lint                     # verifica imports não utilizados
 cd e2e; node a11y.mjs            # auditoria de acessibilidade (axe-core) nas principais telas
-cd e2e; npm install; node run.mjs   # 28 cenários E2E com Playwright (usa o Chromium instalado)
+cd e2e; npm install; node run.mjs   # 28 cenários E2E do ArenaMaster com Playwright (usa o Chromium instalado)
+cd e2e; node pelada.mjs          # 19 cenários E2E do app Pelada (conta, criação, sorteio, súmula, pódio, PWA offline)
+cd e2e; node pelada-a11y.mjs     # auditoria de acessibilidade (axe-core) nas telas do app Pelada
 ```
 
 ---
@@ -105,6 +110,42 @@ Dica: marque **"Torneio de demonstração"** ao criar para ganhar 8 times de exe
 
 ---
 
+## App Pelada (PWA)
+
+Abra **`/pelada/`** (na home do ArenaMaster, o botão destacado **"Organize a pelada"** leva para lá). É um app separado
+(`public/pelada/index.html`, manifesto, ícones e service worker próprios, escopo `/pelada/`), então dá para **favoritar** ou
+**instalar só o Pelada** na tela inicial (Chrome/Android: *Instalar app*; iPhone: *Compartilhar → Adicionar à Tela de Início*).
+A interface é pré-carregada pelo service worker e abre sem internet; os dados sempre vêm da rede.
+
+| Tela | Rota |
+| --- | --- |
+| Início / "Organize a pelada" (sem conta → autenticação rápida; com conta → Dashboard) | `/pelada/` · `/pelada/organizar` |
+| Autenticação rápida · Dashboard · Criar/editar pelada | `/pelada/entrar` · `/pelada/painel` · `/pelada/nova` · `/pelada/p/ID/editar` |
+| Página da pelada (jogos, histórico público, artilharia, jogadores) | `/pelada/p/PL-XXXXXX` (link de convite) |
+| Dia de jogo (presença, sorteio, partidas, artilharia) | `/pelada/p/PL-XXXXXX/d/DIA` |
+
+- **Conta ultra-rápida**: *Nome* (usuário) + *Data de nascimento* (senha inicial), foto opcional com recorte/zoom. A sessão dura 1 ano
+  (cookie) e o perfil fica salvo no aparelho. A senha pode ser trocada no perfil (isso encerra as outras sessões). A data de nascimento é
+  uma senha fraca por definição: há limite de tentativas por nome/IP e a data nunca é guardada (só o hash scrypt).
+- **Pelada**: nome, foto, capa, categoria (feminino/masculino), mínimo por time, calendário de datas, **organização por data**
+  (igual ao padrão ou personalizada), partidas por dia (adicionar/excluir) e a opção **"Sem formação de times"** (só presença e gols individuais).
+  Cada pelada tem um ID (`PL-XXXXXX`) e um **link de convite que só o criador vê**.
+- **Presença**: qualquer jogador logado marca/retira a presença no dia; o nome e a foto aparecem na hora (o criador também marca).
+- **Sorteio** (botão "Sortear Times", animação de 5 s): divide os confirmados pelo mínimo por time. Sobra de **3 ou mais** → o último time
+  fica incompleto e pode pegar jogadores de fora; sobra de **1 ou 2** → o time incompleto é desfeito e os jogadores são distribuídos nos
+  outros times (ex.: 6 jogadores). Cada time é "Time 2 - Valéria" (capitão sorteado); clicar no nome mostra as jogadoras. O criador pode
+  adicionar **convidados** (entram no sorteio, ou depois: inteiram um time ou ficam avulsos). Refazer o sorteio só até começar uma partida.
+  O primeiro sorteio do dia pode ser feito por qualquer confirmado; refazer é só do criador.
+- **Partidas e súmula**: botão "Adicionar partida", escolha dos dois times, cronômetro configurável, gols por jogador (lista de presentes,
+  "jogador de fora" e "sem autor"). Ao encerrar (ou quando o tempo acaba), a **próxima partida é criada sozinha**: quem ganha fica, o perdedor
+  vai para o fim da fila; no empate sai quem está há mais partidas seguidas na quadra.
+- **Histórico e artilharia**: resultados públicos; pódio *do dia* e *geral* com medalhas ouro/prata/bronze (empates dividem a colocação);
+  **Compartilhar Resultados** copia uma imagem (flyer no estilo do design aprovado no Canva) para a área de transferência; também baixa o PNG ou copia o texto para o WhatsApp.
+
+API em `lib/routes/peladas.js` (`/api/pelada/*`), regras em `lib/domain/pelada.js` e `public/assets/js/shared/pelada.js`
+(compartilhadas com o navegador), tela em `public/assets/js/pelada/`. Como as contas e peladas ficam no mesmo armazenamento do
+restante do projeto, **na Vercel é preciso conectar o Redis** (passo acima) para os dados não se perderem; sem isso o app mostra um aviso amarelo.
+
 ## Estrutura
 
 ```
@@ -114,6 +155,7 @@ lib/                    backend (sem dependências)
   domain/*                              regras: torneio, times, chaveamento, ao vivo, pagamentos, visões
   payments/*                            provedores (modo teste e Mercado Pago)
   store/*                               armazenamento (arquivo local, Redis REST/Upstash/Vercel KV, memória)
+public/pelada/          app Pelada instalável (index.html, manifest, service worker, ícones)
 public/                 front-end (HTML + ES modules + CSS, sem build)
   assets/js/pages/*                     telas: home, login, convite, admin/*, visitor/*
   assets/js/shared/*                    código compartilhado servidor/navegador (modalidades, validadores)
