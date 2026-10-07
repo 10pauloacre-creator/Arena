@@ -7,7 +7,7 @@ Este arquivo existe para que uma sessão interrompida possa continuar de onde pa
 - Front-end completo: home com grade de torneios, login/cadastro, convite de administradores, painel do admin
   (Painel, Times, Ao vivo, Chaveamento, Marketing, Configurações) e página do visitante
   (início, jogos, chaveamento, times, inscrição com PIX/cartão, meu time + repescagem).
-- E2E (`e2e/run.mjs`): 28 cenários passando.
+- E2E (`e2e/run.mjs`): 29 cenários passando.
 - README com instruções (local, Vercel + Redis, pagamentos, segurança, limitações).
 
 ## Pendências / ideias

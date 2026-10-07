@@ -517,6 +517,39 @@ await test('chaveamento: visitante e admin abrem os detalhes da partida (lance a
   await vc.close(); await octx.close();
 });
 
+await test('navegação: botão Voltar fecha o modal da partida (admin e visitante)', async () => {
+  const org = await apiSignup(app.base, 'Dono Voltar');
+  const call = (m, p, b) => apiCall(app.base, org.cookie, m, p, b);
+  const t = (await call('POST', '/tournaments', { name: 'Copa Voltar', sport: 'futebol', demo: true })).data.tournament;
+  const v = (await call('POST', `/tournaments/${t.id}/draw`)).data.tournament; const key = v.bracket.rounds[0].matches[0].key;
+  await call('POST', `/tournaments/${t.id}/matches/${key}`, { action: 'start' });
+  const dialogs = p => p.evaluate(() => document.querySelectorAll('dialog').length);
+  const octx = await loginContext(browser, app.base, org); const op = await octx.newPage(); watch(op, 'voltar-admin');
+  await guard(op, async () => {
+    await op.goto(`${app.base}/admin/${t.id}`);
+    await op.locator('a[href$="/chaveamento"]').first().click(); await op.waitForURL(/\/chaveamento$/);
+    await op.locator('#bracketCard .match.live').first().click(); await op.locator('dialog[open]').waitFor();
+    await op.goBack(); await op.waitForURL(u => !u.pathname.endsWith('/chaveamento'));
+    assert(await dialogs(op) === 0, 'o modal da partida ficou aberto no admin depois de Voltar');
+    // pelo link "Gerenciar ao vivo": o modal sai do DOM na hora, sem placar duplicado
+    await op.goto(`${app.base}/admin/${t.id}/chaveamento`);
+    await op.locator('#bracketCard .match.live').first().click();
+    await op.getByRole('link', { name: 'Gerenciar ao vivo' }).click(); await op.waitForURL(/\/ao-vivo\?m=/);
+    assert(await dialogs(op) === 0, 'o modal da partida continuou no DOM depois de "Gerenciar ao vivo"');
+    await op.locator('.scoreboard').first().waitFor(); // a página ao vivo carrega depois da troca de URL
+    assert(await op.locator('.scoreboard').count() === 1, 'placar duplicado depois de "Gerenciar ao vivo"');
+  });
+  const vc = await browser.newContext(DESKTOP); const vp = await vc.newPage(); watch(vp, 'voltar-visitante');
+  await guard(vp, async () => {
+    await vp.goto(`${app.base}/t/${t.id}`);
+    await vp.locator('a[href$="/chaveamento"]').first().click(); await vp.waitForURL(/\/chaveamento$/);
+    await vp.locator('.match.live').first().click(); await vp.locator('dialog[open]').waitFor();
+    await vp.goBack(); await vp.waitForURL(u => !u.pathname.endsWith('/chaveamento'));
+    assert(await dialogs(vp) === 0, 'o modal da partida ficou aberto no visitante depois de Voltar');
+  });
+  await vc.close(); await octx.close();
+});
+
 await test('times: admin edita (nome, força) e remove um time pela interface', async () => {
   const org = await apiSignup(app.base, 'Dona Edição');
   const call = (m, p, b) => apiCall(app.base, org.cookie, m, p, b);

@@ -45,7 +45,7 @@ Os dados locais ficam em `.data/arena.json` (ignorado pelo git). Apague a pasta 
 npm test                         # 93 testes unitários e de API (node:test, sem dependências)
 npm run lint                     # verifica imports não utilizados
 cd e2e; node a11y.mjs            # auditoria de acessibilidade (axe-core) nas principais telas
-cd e2e; npm install; node run.mjs   # 28 cenários E2E com Playwright (usa o Chromium instalado)
+cd e2e; npm install; node run.mjs   # 29 cenários E2E com Playwright (usa o Chromium instalado)
 ```
 
 ---
