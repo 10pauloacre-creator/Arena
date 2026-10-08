@@ -65,7 +65,9 @@ export default async function (ctx) {
     },
   };
 
-  document.title = `${sec.title} · ${t.name}`;
+  const league = t.format === 'league';
+  const lbl = s => (league && s.key === 'chaveamento' ? 'Campeonato' : s.label);
+  document.title = `${league && sec.key === 'chaveamento' ? 'Campeonato' : sec.title} · ${t.name}`;
   const seenKey = `am_seen_${id}`;
   const seen = () => { try { return Number(localStorage.getItem(seenKey) || 0); } catch { return 0; } };
   const markSeen = () => { try { localStorage.setItem(seenKey, String(Date.now())); } catch { /* ignora */ } };
@@ -74,20 +76,20 @@ export default async function (ctx) {
     <div class="app">
       <aside class="sidebar">
         ${brand()}
-        <nav class="sidenav" aria-label="Seções do torneio">${SECTIONS.map(s => html`<a href="/admin/${id}${s.path ? '/' + s.path : ''}" data-sec="${s.key}" ${s.key === sec.key ? 'aria-current="page"' : ''}>${ic(s.icon)}<span>${s.key === 'configuracoes' ? 'Configurações' : s.label}</span><span class="count" data-badge="${s.key}" hidden></span></a>`)}</nav>
+        <nav class="sidenav" aria-label="Seções do torneio">${SECTIONS.map(s => html`<a href="/admin/${id}${s.path ? '/' + s.path : ''}" data-sec="${s.key}" ${s.key === sec.key ? 'aria-current="page"' : ''}>${ic(s.icon)}<span>${s.key === 'configuracoes' ? 'Configurações' : lbl(s)}</span><span class="count" data-badge="${s.key}" hidden></span></a>`)}</nav>
         <div class="sidebar-foot"><strong><span class="pulse"></span> Sorteio inteligente ativo</strong>As chaves são equilibradas por algoritmo, sem favorecimento, e o sorteio fica registrado com semente auditável.</div>
       </aside>
       <div class="content">
         <div id="storageWarn"></div>
         <header class="topbar" id="topbar">
           <a class="icon-btn back" href="/" aria-label="Voltar aos meus torneios">${ic('chevron-left', { size: 22 })}</a>
-          <h1 id="topTitle">${sec.title}</h1>
+          <h1 id="topTitle">${league && sec.key === 'chaveamento' ? 'Campeonato' : sec.title}</h1>
           <div class="menu" data-bellwrap><button class="icon-btn" id="bellBtn" aria-label="Notificações" aria-haspopup="true" aria-expanded="false">${ic('bell', { size: 22 })}<span class="bell-dot" id="bellDot" hidden></span></button><div class="menu-pop" id="bellPop" hidden style="width:min(360px,calc(100vw - 24px))"></div></div>
           ${userMenuHTML()}
         </header>
         <main class="page" id="adminMain" tabindex="-1"></main>
       </div>
-      <nav class="bottomnav" aria-label="Seções do torneio">${SECTIONS.map(s => html`<a href="/admin/${id}${s.path ? '/' + s.path : ''}" data-sec="${s.key}" ${s.key === sec.key ? 'aria-current="page"' : ''}>${ic(s.icon)}<span>${s.label}</span><span class="count" data-badge="${s.key}" hidden></span></a>`)}</nav>
+      <nav class="bottomnav" aria-label="Seções do torneio">${SECTIONS.map(s => html`<a href="/admin/${id}${s.path ? '/' + s.path : ''}" data-sec="${s.key}" ${s.key === sec.key ? 'aria-current="page"' : ''}>${ic(s.icon)}<span>${lbl(s)}</span><span class="count" data-badge="${s.key}" hidden></span></a>`)}</nav>
     </div>`);
 
   wireMenus(ctx.root, ctx.signal);

@@ -80,7 +80,7 @@ export default async function (ctx) {
   }
 
   function tabsNav() {
-    const list = TABS.filter(x => x.key !== 'meu-time' || true);
+    const list = TABS.map(x => (x.key === 'chaveamento' && state.t.format === 'league' ? { ...x, label: 'Tabela', short: 'Tabela', icon: 'trophy' } : x));
     const showReg = state.tab === 'inscricao';
     return html`<nav class="v-tabs" aria-label="Seções do torneio"><div class="seg">${list.map(x => html`<a href="${link(x.key)}" ${state.tab === x.key ? 'aria-current="page"' : ''}>${ic(x.icon, { size: 16 })} <span class="lg">${x.label}</span><span class="sm">${x.short || x.label}</span></a>`)}${showReg ? html`<a href="${link('inscricao')}" aria-current="page">${ic('user-plus', { size: 16 })} Inscrição</a>` : ''}</div></nav>`;
   }

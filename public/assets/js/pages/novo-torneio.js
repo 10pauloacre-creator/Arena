@@ -39,6 +39,14 @@ export default function (ctx) {
           <div class="field" data-f="finalDate"><label for="nt-date">Data da grande final</label><input id="nt-date" type="date" name="finalDate" value="${isoDay(new Date(Date.now() + 30 * 86400_000))}"><span class="field-error"></span></div>
         </div></div>
 
+        <div class="card"><h3 class="card-title">${ic('swords')} Formato da competição</h3><div class="stack">
+          <div class="tiles c2">
+            <div class="tile sm"><input type="radio" name="format" id="nt-f-knockout" value="knockout" checked><label for="nt-f-knockout"><span class="t-ico">${ic('network')}</span><span><span class="t-title">Mata-mata (torneio)</span><span class="t-sub">Eliminatória entre todos os times até a final</span></span></label></div>
+            <div class="tile sm"><input type="radio" name="format" id="nt-f-league" value="league"><label for="nt-f-league"><span class="t-ico">${ic('trophy')}</span><span><span class="t-title">Pontos corridos (campeonato)</span><span class="t-sub">Todos contra todos, como um campeonato nacional</span></span></label></div>
+          </div>
+          <div class="field" data-f="leagueMax" id="leagueBox" hidden><label for="nt-lmax">Máximo de partidas por time</label><input id="nt-lmax" type="number" name="leagueMax" min="1" max="80" inputmode="numeric" placeholder="Vazio = todos contra todos uma vez"><span class="hint">Vitória vale 3 pontos e empate 1. Ao fim das rodadas, o time com mais pontos é o campeão. Acima de "todos uma vez", entra o returno.</span><span class="field-error"></span></div>
+        </div></div>
+
         <div class="card"><h3 class="card-title">${ic('wallet')} Inscrição</h3>${feeFieldsHTML(draft.fee)}</div>
 
         <div class="card"><h3 class="card-title">${ic('list-checks')} Regras do torneio</h3>
@@ -72,7 +80,10 @@ export default function (ctx) {
   };
 
   // a modalidade define os limites do "mínimo de jogadores"
-  form.addEventListener('change', e => { if (e.target.name === 'sport') setRulesSport(form, sport()); }, { signal: ctx.signal });
+  form.addEventListener('change', e => {
+    if (e.target.name === 'sport') setRulesSport(form, sport());
+    if (e.target.name === 'format') $('#leagueBox', form).hidden = form.format.value !== 'league';
+  }, { signal: ctx.signal });
 
   // premiação: adicionar/remover colocação re-desenha só o bloco, mantendo o que já foi digitado
   const repaintPrizes = focus => {
@@ -90,7 +101,8 @@ export default function (ctx) {
   form.addEventListener('submit', async e => {
     e.preventDefault(); clearErrors(form);
     const box = $('.form-error', form); box.hidden = true;
-    const body = { name: form.name.value.trim(), sport: sport(), finalDate: form.finalDate.value, demo: form.demo.checked, details: form.details.value };
+    const body = { name: form.name.value.trim(), sport: sport(), finalDate: form.finalDate.value, demo: form.demo.checked, details: form.details.value, format: form.format.value };
+    if (body.format === 'league' && form.leagueMax.value) body.leagueMax = Number(form.leagueMax.value);
     const fail = (name, message) => { setFieldError(field(name), message); (field(name)?.querySelector('input,textarea') || field(name))?.focus(); };
     if (body.name.length < 3) return fail('name', 'Informe o nome do torneio (mínimo 3 letras).');
     if (!body.finalDate) return fail('finalDate', 'Escolha a data da final.');
