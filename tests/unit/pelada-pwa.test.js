@@ -108,3 +108,12 @@ test('celular: viewport correta, manifesto em tela cheia e CSS que evita o zoom 
   const sw = read('pelada/sw.js');
   assert.match(sw, /const VERSION = 'pelada-v(\d+)'/);
 });
+
+test('service worker mostra os avisos push na barra de notificações e abre a tela certa ao tocar', () => {
+  const sw = read('pelada/sw.js');
+  assert.match(sw, /addEventListener\('push'/);
+  assert.match(sw, /showNotification\(/);
+  assert.match(sw, /addEventListener\('notificationclick'/);
+  assert.match(sw, /openWindow\(/);
+  assert.ok(shellList().includes('/assets/js/pelada/push.js'));
+});

@@ -1,6 +1,6 @@
 // Service worker do app Pelada (escopo /pelada/): abre o app sem internet e acelera as telas.
 // Dados (/api) nunca são guardados; as telas e os arquivos do app usam "rede primeiro, cache como reserva".
-const VERSION = 'pelada-v7';
+const VERSION = 'pelada-v8';
 const SHELL = [
   '/pelada/',
   '/assets/css/base.css',
@@ -46,6 +46,7 @@ const SHELL = [
   '/assets/js/pelada/pages/organizar.js',
   '/assets/js/pelada/pages/pelada.js',
   '/assets/js/pelada/pages/settings.js',
+  '/assets/js/pelada/push.js',
   '/assets/js/pelada/pwa.js',
   '/assets/js/pelada/session.js',
   '/assets/js/pelada/ui/auth.js',
@@ -119,4 +120,24 @@ self.addEventListener('fetch', event => {
   }
   if (url.pathname.startsWith('/pelada-img/')) { event.respondWith(staleWhileRevalidate(request)); return; }
   if (url.pathname.startsWith('/assets/') || url.pathname.startsWith('/pelada/')) event.respondWith(networkFirst(request));
+});
+
+// ---------------------------------------------------------------- avisos na barra de notificações (Web Push)
+self.addEventListener('push', event => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { data = { text: event.data ? event.data.text() : '' }; }
+  event.waitUntil(self.registration.showNotification(data.title || 'Pelada', {
+    body: data.text || '', icon: '/pelada/icons/icon-192.png', badge: '/pelada/icons/icon-192.png', tag: data.tag || undefined,
+    lang: 'pt-BR', data: { url: data.url || '/pelada/' },
+  }));
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const url = new URL(event.notification.data?.url || '/pelada/', self.location.origin).href;
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    const open = list.find(c => c.url.startsWith(self.location.origin + '/pelada'));
+    if (open) { if ('navigate' in open) open.navigate(url).catch(() => {}); return open.focus(); }
+    return self.clients.openWindow(url);
+  }));
 });
