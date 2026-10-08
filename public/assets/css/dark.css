@@ -14,7 +14,11 @@
   --navy: #05080f; --navy-3: #1a2438;
   --pl: #17a757; --pl-600: #13904a; --pl-700: #4fd88b; --pl-50: #0e2a1b; --pl-100: #14442a;
   --pink-50: #3a1527;
+  --ink-3: #9aa8c0; --badge-bg: var(--surface-2);
 }
+/* Pelada: body.pl redefine os tokens verdes e, por estar mais perto dos elementos, vence o :root.
+   Sem repetir aqui, links e botões ficavam em verde escuro sobre fundo escuro e os fundos "tingidos" ficavam claros. */
+[data-theme="dark"] body.pl { --pl-700: #4fd88b; --pl-50: #0e2a1b; --pl-100: #14442a; }
 
 /* superfícies com #fff fixo */
 [data-theme="dark"] .btn-outline-danger,
@@ -66,3 +70,15 @@
 [data-theme="dark"] .ntf-ico.t-draw, [data-theme="dark"] .ntf-ico.t-result { color: var(--gold); }
 [data-theme="dark"] .ntf-ico.t-match { background: #241d4d; color: #a993ff; }
 [data-theme="dark"] .bell { color: var(--ink-2); }
+[data-theme="dark"] .bell .bell-count { background: #d4304a; }
+
+/* contraste: selos coloridos, escolhas com #fff fixo e ícones/realces que usavam o verde escuro do tema claro */
+[data-theme="dark"] .badge.ok { color: var(--green); }
+[data-theme="dark"] .badge.warn { color: #f0c46a; }
+[data-theme="dark"] .badge.bad { color: var(--red); }
+[data-theme="dark"] .badge.gold { color: var(--gold); }
+[data-theme="dark"] .pel-head .badge.warn { background: #ffe9a8; color: #6b4a00; }
+[data-theme="dark"] .slot, [data-theme="dark"] .pick { background: var(--surface-2); color: var(--ink); }
+[data-theme="dark"] .pl .card-title .ico, [data-theme="dark"] .day-head .ico, [data-theme="dark"] .chip-main .ico { color: var(--pl-700); }
+[data-theme="dark"] .turn-order .n { background: var(--pl); }
+[data-theme="dark"] .btn-ghost:hover, [data-theme="dark"] .user-chip:hover { background: rgb(255 255 255 / .08); }
