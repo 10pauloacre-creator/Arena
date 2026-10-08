@@ -109,8 +109,9 @@ test('sorteio — capitão evita convidados quando há jogadores com conta e a s
   assert.notDeepEqual(a.teams.map(t => t.players), c.teams.map(t => t.players));
   const guests = new Set(list.filter(p => p.guest).map(p => p.pid));
   for (const t of a.teams) { const hasReal = t.players.some(pid => !guests.has(pid)); if (hasReal) assert.ok(!guests.has(t.captain)); }
-  assert.equal(teamLabel({ number: 2, captain: 'u:9' }, () => 'Valéria Souza'), 'Time 2 - Valéria');
-  assert.match(teamLabel(a.teams[0], pid => list.find(p => p.pid === pid).name), /^Time 1 - Jogadora$/);
+  // o nome do time vem do catálogo (não leva mais o capitão, que pode sair numa derrota)
+  assert.equal(teamLabel({ number: 2, name: 'Leões', emb: { g: 'crown', p: 0, s: 0 } }), 'Time 2 - Leões');
+  assert.match(teamLabel(a.teams[0], 'dia1', 'masculino'), /^Time 1 - \S+/);
 });
 
 test('sorteio — as notas explicam a Cerca', () => {

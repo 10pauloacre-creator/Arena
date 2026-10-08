@@ -1,6 +1,7 @@
-// Times sorteados: "Time 2 - Valéria" (clique para ver as jogadoras), avisos do assistente e a Cerca.
+// Times sorteados: "Time 2 - Leões" com emblema (clique para ver as jogadoras), avisos do assistente e a Cerca.
 import { html, ic } from '../../ui/dom.js';
 import { avatar } from './img.js';
+import { emblem } from './emblem.js';
 import { GENDERS } from '../../shared/pelada.js';
 
 const plural = (n, g) => `${n} ${n === 1 ? GENDERS[g].player : GENDERS[g].players}`;
@@ -19,7 +20,7 @@ export function teamsHTML(pel, day, { expanded = new Set(), isOwner = false, fre
       const open = expanded.has(t.id);
       return html`<article class="team-card${fresh ? ' reveal' : ''}" style="--i:${i}" data-team="${t.id}">
         <button type="button" class="team-head" data-team-toggle="${t.id}" aria-expanded="${String(open)}" aria-controls="tp-${t.id}">
-          <span class="team-num" aria-hidden="true">${t.number}</span>
+          <span class="team-emb" aria-hidden="true">${emblem(t, 40)}</span>
           <span class="team-title">${t.label}</span>
           ${live.has(t.id) ? html`<span class="badge live" title="Em quadra agora">em quadra</span>` : ''}
           <span class="team-count">${plural(t.players.length, g)}</span>

@@ -6,6 +6,7 @@ import { api } from '../../api.js';
 import { S } from '../session.js';
 import { page, wireShell, ensurePlayer, dayLong } from '../ui/shell.js';
 import { avatar } from '../ui/img.js';
+import { emblem } from '../ui/emblem.js';
 import { teamsHTML } from '../ui/teams.js';
 import { matchCard, teamOf, matchTeam, isRunning } from '../ui/match.js';
 import { podiumPanel } from '../ui/podium.js';
@@ -235,7 +236,7 @@ export default async function (ctx) {
       const dlg = openDialog({
         title: `Escolher o time ${side === 'a' ? 'A' : 'B'}`,
         body: html`<p class="muted small" style="margin:0">Escolha entre os times sorteados.${d.queue.length ? ` Próximos da fila: ${d.queue.map(t => teamOf(d, t).label).join(' → ')}.` : ''}</p>
-          <div class="pick-list">${d.draw.teams.map(t => html`<button type="button" class="pick ${m[side] === t.id ? 'cur' : ''}" data-pick="${t.id}" ${busy.has(t.id) || (m[side === 'a' ? 'b' : 'a'] === t.id) ? 'disabled' : ''}><span class="team-num sm">${t.number}</span><span class="grow" style="text-align:left">${t.label}</span><span class="muted small">${t.players.length} ${busy.has(t.id) ? '· em outra partida' : m[side === 'a' ? 'b' : 'a'] === t.id ? '· já escolhido' : ''}</span></button>`)}</div>`,
+          <div class="pick-list">${d.draw.teams.map(t => html`<button type="button" class="pick ${m[side] === t.id ? 'cur' : ''}" data-pick="${t.id}" ${busy.has(t.id) || (m[side === 'a' ? 'b' : 'a'] === t.id) ? 'disabled' : ''}><span class="team-emb">${emblem(t, 28)}</span><span class="grow" style="text-align:left">${t.label}</span><span class="muted small">${t.players.length} ${busy.has(t.id) ? '· em outra partida' : m[side === 'a' ? 'b' : 'a'] === t.id ? '· já escolhido' : ''}</span></button>`)}</div>`,
         foot: html`${m[side] ? html`<button class="btn btn-outline-danger" data-pick="">Limpar vaga</button>` : ''}<button class="btn" data-close>Cancelar</button>`,
       });
       dlg.el.addEventListener('click', e => { const b = e.target.closest('[data-pick]'); if (b && !b.disabled) { chosen = b.dataset.pick; dlg.close('ok'); } });

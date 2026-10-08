@@ -2,6 +2,7 @@
 import { html, ic } from '../../ui/dom.js';
 import { fmtClock, timerRemaining, firstName, joinNames } from '../../shared/pelada.js';
 import { avatar } from './img.js';
+import { emblem } from './emblem.js';
 
 const STATUS = { scheduled: ['Agendada', ''], live: ['Ao vivo', 'live'], paused: ['Pausada', 'warn'], finished: ['Encerrada', 'dark'] };
 
@@ -13,7 +14,7 @@ const statusKey = m => (m.status === 'live' && !m.timer.startedAt ? 'paused' : m
 
 function slot(day, m, side, isOwner) {
   const id = m[side], t = id ? matchTeam(day, m, side) : null;
-  if (t) return html`<button type="button" class="slot filled" data-slot="${side}" data-match="${m.id}" ${isOwner && m.status === 'scheduled' ? '' : 'disabled'} title="${isOwner && m.status === 'scheduled' ? 'Trocar time' : t.label}"><span class="team-num sm">${t.number}</span><span class="slot-name">${t.label}</span></button>`;
+  if (t) return html`<button type="button" class="slot filled" data-slot="${side}" data-match="${m.id}" ${isOwner && m.status === 'scheduled' ? '' : 'disabled'} title="${isOwner && m.status === 'scheduled' ? 'Trocar time' : t.label}"><span class="team-emb">${emblem(t, 28)}</span><span class="slot-name">${t.label}</span></button>`;
   return html`<button type="button" class="slot empty" data-slot="${side}" data-match="${m.id}" ${isOwner ? '' : 'disabled'}>${ic('plus', { size: 16 })}<span>${isOwner ? 'Escolher time' : 'A definir'}</span></button>`;
 }
 

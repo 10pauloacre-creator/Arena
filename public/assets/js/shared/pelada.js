@@ -163,8 +163,8 @@ export function drawTeams(players, min, rnd = Math.random, { must = [] } = {}) {
   return { ok: true, teams, fence: res.fence, notes, plan };
 }
 
-/** "Time 2 - Valéria" */
-export const teamLabel = (team, nameOf) => `Time ${team.number} - ${firstName(nameOf(team.captain))}`;
+/** "Time 2 - Leões": número + nome do catálogo (não leva mais o nome do capitão, que pode sair numa derrota). */
+export { teamLabel } from './team-catalog.js';
 
 // ---------------------------------------------------------------- partidas
 export const DEFAULT_MATCH_MIN = 10;
