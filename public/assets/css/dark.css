@@ -81,4 +81,7 @@
 [data-theme="dark"] .slot, [data-theme="dark"] .pick { background: var(--surface-2); color: var(--ink); }
 [data-theme="dark"] .pl .card-title .ico, [data-theme="dark"] .day-head .ico, [data-theme="dark"] .chip-main .ico { color: var(--pl-700); }
 [data-theme="dark"] .turn-order .n { background: var(--pl); }
+[data-theme="dark"] .btn-outline-danger { color: var(--red); }
+[data-theme="dark"] .pel-danger { background: #2a1117; border-color: #5a2230; }
+[data-theme="dark"] .pl .pel-danger .card-title, [data-theme="dark"] .pl .pel-danger .card-title .ico { color: var(--red); }
 [data-theme="dark"] .btn-ghost:hover, [data-theme="dark"] .user-chip:hover { background: rgb(255 255 255 / .08); }
