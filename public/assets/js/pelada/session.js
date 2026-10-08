@@ -49,6 +49,7 @@ async function resume() {
 }
 
 export async function logout() {
+  try { await (await import('./push.js')).disablePush(); } catch { /* ignora */ } // este aparelho deixa de receber os avisos desta conta
   try { await api.post('/pelada/auth/logout'); } catch { /* ignora */ }
   saveToken(''); setPlayer(null);
 }

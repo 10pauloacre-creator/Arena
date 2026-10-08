@@ -1,5 +1,7 @@
 # ArenaMaster AI
 
+> **Endereço oficial:** ArenaMaster em **https://partidafacil.click** e Pelada em **https://partidafacil.click/pelada**. As regras de endereço ficam em [`CLAUDE.md`](CLAUDE.md).
+
 Plataforma de torneios com **painel do organizador** e **página do visitante**:
 inscrição de times com pagamento (PIX ou cartão), sorteio de chaveamento, jogos ao vivo,
 repescagem beneficente e divulgação (flyer + QR Code).
@@ -90,7 +92,7 @@ Opcional: defina `AUTH_SECRET` (qualquer texto longo e aleatório). Se não defi
 | Modo | Como ativar | O que acontece |
 | --- | --- | --- |
 | **Teste** (padrão) | nada a fazer | Nenhum valor é cobrado. O PIX mostra um QR/copia-e-cola de teste e um botão **"Simular pagamento aprovado"**. Cartões de teste: `4242 4242 4242 4242` aprova · `4000 0000 0000 0002` recusa · `4000 0000 0000 9995` sem saldo. Dados de cartão **nunca** são guardados. |
-| **Mercado Pago** | `PAYMENT_PROVIDER=mercadopago`, `MP_ACCESS_TOKEN`, (opcional, para cartão) `MP_PUBLIC_KEY`, e `PUBLIC_BASE_URL=https://seu-site.vercel.app` | PIX real (QR + copia-e-cola) e cartão tokenizado no navegador pelo SDK do Mercado Pago. Os pagamentos chegam por **webhook** (`/api/webhooks/mercadopago`) e a página do capitão também consulta o status. |
+| **Mercado Pago** | `PAYMENT_PROVIDER=mercadopago`, `MP_ACCESS_TOKEN`, (opcional, para cartão) `MP_PUBLIC_KEY`, e `PUBLIC_BASE_URL=https://partidafacil.click` | PIX real (QR + copia-e-cola) e cartão tokenizado no navegador pelo SDK do Mercado Pago. Os pagamentos chegam por **webhook** (`/api/webhooks/mercadopago`) e a página do capitão também consulta o status. |
 
 Como o time entra na lista: a inscrição **reserva a vaga por 30 minutos** (estendida ao iniciar o pagamento, máx. 60 min).
 Quando o provedor confirma o pagamento, o time é confirmado automaticamente. Se o pagamento chegar sem vaga
@@ -198,7 +200,11 @@ A interface é pré-carregada pelo service worker e abre sem internet; os dados 
   Groq → Gemini → OpenRouter, configurados **só por variáveis de ambiente** (`GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, na Vercel);
   sem chaves (ou se falharem) o app mostra os textos prontos. Nunca coloque chaves no repositório (`*.env` está no `.gitignore`).
 - **Avisos push** (barra de notificações do celular, mesmo com o app fechado): Web Push sem dependências (VAPID + aes128gcm, `lib/push.js`);
-  chaves geradas na primeira vez e guardadas no banco. Ative em *Configurações → Avisos no celular* (no iPhone, instale o app antes).
+  chaves geradas na primeira vez e guardadas no banco. Ative em *Configurações → Avisos no celular* e toque em *Enviar teste*.
+  **Android (Chrome/Edge/Samsung)**: funciona no navegador ou no app instalado, mesmo fechado. **iPhone**: exige iOS 16.4+ e o app **instalado na
+  Tela de Início** (Compartilhar › Adicionar à Tela de Início), aberto por lá ao ativar. Se o teste falhar, a mensagem mostra o código devolvido
+  pelo serviço do aparelho (ex.: 403/404/410): desative e ative de novo. A inscrição acompanha a conta logada (troca de conta e sair desligam
+  o aparelho da conta anterior). O remetente VAPID é o endereço https do site (ou `PUSH_SUBJECT`).
 - **Apito e relógio**: no fim do tempo toca o apito (`public/pelada/sounds/apito.m4a`) e o relógio pisca em vermelho por alguns segundos.
 - **Pelada feminina**: todos os textos (avisos, telas e mensagens) usam o feminino (`shared/gender.js`).
 - **Partidas e súmula**: botão "Adicionar partida", escolha dos dois times, cronômetro configurável, gols por jogador (lista de presentes,

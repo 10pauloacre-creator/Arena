@@ -1,7 +1,11 @@
 // Avisos na barra de notificações do aparelho (Web Push): ativar, desativar e testar. O envio é feito pelo servidor.
 import { api } from '../api.js';
 
-const swReady = () => navigator.serviceWorker.ready;
+/** O service worker pronto; sem ele (ex.: página fora do https) não há como receber avisos. */
+const swReady = () => Promise.race([
+  navigator.serviceWorker.ready,
+  new Promise((_, rej) => setTimeout(() => rej(new Error('O app ainda não terminou de carregar para receber avisos. Feche e abra o app e tente de novo.')), 8000)),
+]);
 
 export const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 
@@ -23,6 +27,18 @@ export async function enablePush() {
   const { key } = await api.get('/pelada/push/key');
   const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toKey(key) });
   await api.post('/pelada/push/subscribe', { subscription: sub.toJSON() });
+}
+
+/**
+ * Mantém o servidor em dia com este aparelho: se as notificações já foram ativadas, registra a inscrição na conta que está logada agora
+ * (cobre troca de conta e inscrição renovada pelo navegador). Silencioso: nunca pede permissão.
+ */
+export async function syncPush() {
+  try {
+    if (!pushSupported() || Notification.permission !== 'granted') return;
+    const sub = await (await swReady()).pushManager.getSubscription();
+    if (sub) await api.post('/pelada/push/subscribe', { subscription: sub.toJSON() });
+  } catch { /* tenta de novo na próxima abertura */ }
 }
 
 export async function disablePush() {
