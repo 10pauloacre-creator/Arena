@@ -66,7 +66,7 @@ export default async function (ctx) {
     b.disabled = true;
     try {
       if (b.dataset.push === 'on') { await enablePush(); await testPush().catch(() => {}); toast('Avisos no celular ativados.', { type: 'success' }); }
-      else if (b.dataset.push === 'off') { await disablePush(); toast('Avisos no celular desativados neste aparelho.'); }
+      else if (b.dataset.push === 'off') { await disablePush({ byUser: true }); toast('Avisos no celular desativados neste aparelho.'); }
       else { await testPush(); toast('Teste enviado: veja a barra de notificações.', { type: 'success' }); }
     } catch (err) { toast(err.message, { type: 'warn' }); }
     push = await pushState();

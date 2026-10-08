@@ -60,6 +60,7 @@ const SHELL = [
   '/assets/js/pelada/ui/poll.js',
   '/assets/js/pelada/ui/preview.js',
   '/assets/js/pelada/ui/profile.js',
+  '/assets/js/pelada/ui/push-prompt.js',
   '/assets/js/pelada/ui/share.js',
   '/assets/js/pelada/ui/shell.js',
   '/assets/js/pelada/ui/sound.js',

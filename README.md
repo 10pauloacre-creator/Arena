@@ -200,7 +200,10 @@ A interface é pré-carregada pelo service worker e abre sem internet; os dados 
   Groq → Gemini → OpenRouter, configurados **só por variáveis de ambiente** (`GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, na Vercel);
   sem chaves (ou se falharem) o app mostra os textos prontos. Nunca coloque chaves no repositório (`*.env` está no `.gitignore`).
 - **Avisos push** (barra de notificações do celular, mesmo com o app fechado): Web Push sem dependências (VAPID + aes128gcm, `lib/push.js`);
-  chaves geradas na primeira vez e guardadas no banco. Ative em *Configurações → Avisos no celular* e toque em *Enviar teste*.
+  chaves geradas na primeira vez e guardadas no banco. **Um convite aparece logo no primeiro acesso** (e no próximo, para quem já usava)
+  pedindo para ativar os avisos; "Agora não" só volta a perguntar depois de 7 dias, e permissão bloqueada no navegador nunca é perguntada de
+  novo. Também dá para ativar/desativar em *Configurações → Avisos no celular* e tocar em *Enviar teste* (desligar ali é respeitado:
+  o app não religa sozinho). Quem já deu permissão é reinscrito automaticamente se o navegador descartar a inscrição.
   **Android (Chrome/Edge/Samsung)**: funciona no navegador ou no app instalado, mesmo fechado. **iPhone**: exige iOS 16.4+ e o app **instalado na
   Tela de Início** (Compartilhar › Adicionar à Tela de Início), aberto por lá ao ativar. Se o teste falhar, a mensagem mostra o código devolvido
   pelo serviço do aparelho (ex.: 403/404/410): desative e ative de novo. A inscrição acompanha a conta logada (troca de conta e sair desligam
