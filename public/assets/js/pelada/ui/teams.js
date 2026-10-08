@@ -26,7 +26,8 @@ export function teamsHTML(pel, day, { expanded = new Set(), isOwner = false, fre
           ${ic('chevron-down', { size: 18, cls: 'chev' })}
         </button>
         <div class="team-body" id="tp-${t.id}" ${open ? '' : 'hidden'}>
-          <ul class="team-players">${t.players.map(pid => html`<li>${avatar(people[pid], pid, { size: 32 })}<span class="grow ellipsis">${people[pid]?.name || '?'}</span>${pid === t.captain ? html`<span class="badge gold" title="Capitão">C</span>` : ''}${people[pid]?.guest ? html`<span class="badge">Convidado</span>` : ''}</li>`)}</ul>
+          <ul class="team-players">${t.players.map(pid => html`<li>${avatar(people[pid], pid, { size: 32 })}<span class="grow ellipsis">${people[pid]?.name || '?'}</span>${pid === t.captain ? html`<span class="badge gold" title="Capitão">C</span>` : isOwner ? html`<button type="button" class="btn ghost sm" data-captain="${pid}" data-captain-team="${t.id}" title="Tornar capitão" aria-label="Tornar ${people[pid]?.name || ''} capitão">C</button>` : ''}${people[pid]?.guest ? html`<span class="badge">Convidado</span>` : ''}
+            ${isOwner ? html`<select data-assign="${pid}" aria-label="Mover ${people[pid]?.name || ''}"><option value="">Mover para…</option>${dr.teams.filter(x => x.id !== t.id).map(x => html`<option value="${x.id}">${x.label} (${x.players.length})</option>`)}<option value="__fence">Cerca</option></select>` : ''}</li>`)}</ul>
         </div>
       </article>`;
     })}</div>
