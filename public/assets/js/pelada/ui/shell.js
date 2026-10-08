@@ -42,7 +42,8 @@ export const topbar = () => html`${storageBanner()}<header class="pl-top">${bran
   <button type="button" class="btn btn-sm install-btn" data-install hidden aria-label="Instalar app">${ic('smartphone', { size: 16 })} <span>Instalar app</span></button>
   ${S.player ? bellButton() : ''}${userMenu()}</header>`;
 
-export const footer = () => html`<footer class="pl-foot"><span>⚽ Pelada · parte da plataforma <a href="/" data-external>ArenaMaster AI</a></span></footer>`;
+export const footer = () => html`<footer class="pl-foot"><span>⚽ Pelada · parte da plataforma <a href="/" data-external>ArenaMaster AI</a></span>
+  <span class="pl-credit">Esta plataforma é uma criação de <b>Paulo Roberto R. Magalhães</b>, na missão de modernizar o esporte.</span></footer>`;
 
 /** Barra de navegação inferior (só no celular, só com conta): o polegar alcança tudo sem subir até o topo. */
 function bottomNav() {
