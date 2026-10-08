@@ -194,6 +194,54 @@ await test('avisos no celular: ativar neste aparelho (permissão + inscrição e
   await ctx.close();
 });
 
+await test('convite para ativar os avisos: aparece no acesso, "Agora não" só volta depois de dias e "Ativar avisos" inscreve o aparelho', async () => {
+  const cp = await apiPlayer(`Convite ${stamp}`);
+  const ctx = await contextFor(cp, MOBILE);
+  await ctx.addInitScript(() => {
+    localStorage.setItem('pelada.pushAskTest', '1'); // navegador automatizado só vê o convite com esta chave
+    // permissão e inscrição "do navegador" sobrevivem a recarregamentos, como no aparelho de verdade
+    Object.defineProperty(Notification, 'permission', { get: () => localStorage.getItem('fake.perm') || 'default' });
+    Notification.requestPermission = async () => { localStorage.setItem('fake.perm', 'granted'); return 'granted'; };
+    const fake = () => ({ endpoint: 'https://fcm.googleapis.com/fcm/send/prompt-fixed', toJSON() { return { endpoint: this.endpoint, keys: { p256dh: window.__p256dh, auth: window.__auth } }; }, unsubscribe: async () => { localStorage.removeItem('fake.sub'); return true; } });
+    PushManager.prototype.getSubscription = async function () { return localStorage.getItem('fake.sub') ? fake() : null; };
+    PushManager.prototype.subscribe = async function () { localStorage.setItem('fake.sub', '1'); return fake(); };
+  });
+  const { createECDH, randomBytes } = await import('node:crypto');
+  const e = createECDH('prime256v1'); e.generateKeys();
+  await ctx.addInitScript(({ k, a }) => { window.__p256dh = k; window.__auth = a; }, { k: e.getPublicKey().toString('base64url'), a: randomBytes(16).toString('base64url') });
+  const p = await ctx.newPage(); watch(p, 'convite-push');
+  const calls = [];
+  p.on('response', r => { if (r.url().includes('/api/pelada/push/')) calls.push(`${r.request().method()} ${r.url().split('/api/pelada/push/')[1]} ${r.status()}`); });
+  await guard(p, async () => {
+    await p.goto(app.base + '/pelada/painel');
+    const dlg = p.locator('dialog[open]').filter({ hasText: 'Receber os avisos da pelada?' });
+    await dlg.waitFor({ timeout: 12000 });
+    assert((await dlg.textContent()).includes('barra do celular'), 'explica onde os avisos aparecem');
+    await shot(p, '07_convite_push');
+    await dlg.getByRole('button', { name: 'Agora não' }).click();
+    await dlg.waitFor({ state: 'detached', ...T });
+    assert(!calls.some(c => c.startsWith('POST subscribe')), '"Agora não" não inscreve');
+    await p.reload();
+    await p.waitForTimeout(3500);
+    assert(await p.locator('dialog[open]').count() === 0, 'não pergunta de novo logo em seguida');
+    // passados os dias: pergunta de novo e, ao aceitar, inscreve o aparelho
+    await p.evaluate(() => localStorage.setItem('pelada.pushAsk', String(Date.now() - 8 * 86400_000)));
+    await p.reload();
+    const again = p.locator('dialog[open]').filter({ hasText: 'Receber os avisos da pelada?' });
+    await again.waitFor({ timeout: 12000 });
+    await again.getByRole('button', { name: /Ativar avisos/ }).click();
+    await again.waitFor({ state: 'detached', ...T });
+    await p.getByText('Avisos ativados!').first().waitFor(T);
+    assert(calls.includes('POST subscribe 200'), 'o servidor recebeu a inscrição: ' + calls.join(', '));
+    // quem já ativou não é perguntado outra vez
+    await p.evaluate(() => localStorage.removeItem('pelada.pushAsk'));
+    await p.reload();
+    await p.waitForTimeout(3500);
+    assert(await p.locator('dialog[open]').count() === 0, 'quem já tem os avisos ativos não vê o convite');
+  });
+  await ctx.close();
+});
+
 await test('silenciar só esta pelada pela página da pelada e reativar', async () => {
   await guard(anaPage, async () => {
     await anaPage.goto(app.base + `/pelada/p/${pid}`);

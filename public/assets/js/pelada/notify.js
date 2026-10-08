@@ -23,7 +23,9 @@ function appBadge(n) {
 
 function setData(d) {
   const first = !N.loaded;
-  if (first) syncPush(); // este aparelho passa a receber os avisos desta conta
+  if (first) { // este aparelho passa a receber os avisos desta conta; quem ainda não decidiu vê o convite
+    syncPush().then(() => import('./ui/push-prompt.js')).then(m => m.maybeAskPush()).catch(() => {});
+  }
   const fresh = d.items.filter(i => i.unread && !known.has(i.id));
   Object.assign(N, { items: d.items, unread: d.unread, prefs: d.prefs, loaded: true });
   if (d.now) { N.now = d.now; N.offset = d.now - Date.now(); }
