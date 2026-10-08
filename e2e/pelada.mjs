@@ -547,6 +547,10 @@ await test('Cerca + sorteios (demo de 17): Cerca no rodapé, modal com duas opç
     await p.waitForTimeout(400);
     await p.getByRole('button', { name: 'Encerrar partida' }).click();
     await p.locator('.match.finished').waitFor(T);
+    await seen(p, 'O que mudou'); // janelinha com quem entrou e quem saiu
+    assert(await p.locator('dialog .change-row').count() >= 2, 'mudanças por time e Cerca');
+    await shot(p, '19b-mudancas');
+    await p.locator('dialog [data-close]').last().click();
     await seen(p, 'Sorteio da Cerca:');
     await seen(p, 'Nova Cerca');
     assert(await p.locator('.match').nth(1).locator('.match-fence li').count() === 2, 'a próxima partida mostra a nova Cerca');
@@ -573,6 +577,8 @@ await test('Cerca + sorteios (demo de 17): Cerca no rodapé, modal com duas opç
     assert((await p.locator('.match.running .slot-name').allTextContents()).join() === playing.join(), 'os times em quadra continuam os mesmos');
     await shot(p, '21-sorteio-combinado');
     await p.getByRole('button', { name: 'Encerrar partida' }).click();
+    await seen(p, 'O que mudou');
+    await p.locator('dialog [data-close]').last().click();
     await seen(p, 'Sorteio geral: todos os times foram refeitos');
     assert(await p.locator('.pending-draw').count() === 0, 'combinado aplicado');
     // quem só acompanha vê o resultado, sem botão de sortear nem edição
@@ -582,6 +588,37 @@ await test('Cerca + sorteios (demo de 17): Cerca no rodapé, modal com duas opç
     assert(await vp.getByRole('button', { name: /Sortear times/i }).count() === 0, 'visitante não vê "Sortear times"');
     assert(await vp.locator('details.fix').count() === 0, 'visitante não edita partida encerrada');
     await viewer.close();
+  });
+  await ctx.close();
+});
+
+await test('Fixar times: banner, sorteio suspenso, próximo dia herda os times fixos e "Liberar times"', async () => {
+  const o = await apiPlayer(`Fixos ${stamp}`);
+  const ctx = await playerContext(o, MOBILE); const p = await ctx.newPage(); watch(p, 'fixos');
+  const call = async (method, path, body) => (await fetch(app.base + '/api' + path, { method, headers: { 'Content-Type': 'application/json', Cookie: o.cookie }, body: body ? JSON.stringify(body) : undefined })).json();
+  await guard(p, async () => {
+    const demo = await call('POST', '/pelada/peladas/demo');
+    const pid = demo.pelada.id, dayId = demo.dayId;
+    const later = await call('POST', `/pelada/peladas/${pid}/days`, { date: '2099-01-02' });
+    await call('POST', `/pelada/peladas/${pid}/days/${dayId}/draw`);
+    await p.goto(`${app.base}/pelada/p/${pid}/d/${dayId}`);
+    await p.getByRole('button', { name: 'Fixar times' }).click();
+    await seen(p, 'continuam nos mesmos times em todas as próximas partidas');
+    await p.locator('dialog [data-close=ok]').click();
+    await p.locator('.fixed-banner').waitFor(T);
+    assert((await p.locator('.fixed-banner').textContent()).includes('Times fixos'), 'banner de times fixos');
+    assert(await p.getByRole('button', { name: 'Sortear times' }).isDisabled(), 'sorteio suspenso');
+    await shot(p, '22-times-fixos');
+    // a data seguinte herdou os times: banner "mantidos do último dia de jogo"
+    await p.goto(`${app.base}/pelada/p/${pid}/d/${later.dayId}`);
+    await p.locator('.fixed-banner').waitFor(T);
+    assert((await p.locator('.fixed-banner').textContent()).includes('mantidos do último dia de jogo'), 'banner de herança');
+    assert(await p.locator('[data-team-toggle]').count() === 3, 'os 3 times foram herdados');
+    await p.goto(`${app.base}/pelada/p/${pid}/d/${dayId}`);
+    await p.getByRole('button', { name: 'Liberar times' }).click();
+    await p.locator('dialog [data-close=ok]').click();
+    await p.locator('.fixed-banner').waitFor({ state: 'detached', timeout: 9000 });
+    assert(await p.getByRole('button', { name: 'Sortear times' }).isEnabled(), 'sorteio volta a valer');
   });
   await ctx.close();
 });

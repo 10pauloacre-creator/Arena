@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   newPelada, addDay, setPresence, addGuest, performDraw, createMatch, timerAction, addGoal, removeGoal, finishMatch, deleteMatch,
-  assignPlayer, normalizeQueue, MAX_ATTENDANCE, MAX_MEMBERS, orgOf, freePids, removeMember, setLoan, manualDraw, settleArrivals,
+  assignPlayer, normalizeQueue, MAX_ATTENDANCE, MAX_MEMBERS, orgOf, freePids, removeMember, setLoan, manualDraw, settleArrivals, fixTeams, unfixTeams,
 } from '../../lib/domain/pelada.js';
 import { dayStats, pairHistory } from '../../lib/domain/pelada-engine.js';
 import { mulberry32 } from '../../public/assets/js/shared/pelada.js';
@@ -358,4 +358,55 @@ test('encerrar com tempo automático só vale depois de acabar o tempo e é limi
   assert.equal(m.timer.elapsedMs, 10 * 60_000);
   assert.equal(r.info.reason, 'empate');
   assert.throws(() => timerAction(m, { action: 'start' }, NOW), /encerrada/);
+});
+
+test('fixar times: os mesmos jogadores seguem nos mesmos times, sem sorteios; as próximas datas herdam os times e quem volta entra no seu time', () => {
+  const p = newPelada({ id: 'PL-FIXOS1', owner, input: { name: 'Fixos FC', gender: 'feminino', minPerTeam: 5, autoDraw: true, generalDraw: true, generalEvery: 1, days: [{ date: '2026-10-07' }, { date: '2026-10-14' }] } }, NOW);
+  const [d1, d2] = p.days;
+  for (let i = 1; i <= 17; i++) setPresence(p, d1, `u${i}`, true, NOW);
+  assert.throws(() => fixTeams(p, d1, { by: 'o', now: NOW }), /sorteio antes/);
+  performDraw(p, d1, d1.attendance.map(a => ({ pid: a.pid, name: a.pid })), { by: 'o', now: NOW, rnd: mulberry32(4) });
+  assert.equal(d2.draw, null);
+  fixTeams(p, d1, { by: 'o', now: NOW });
+  const snapshot = JSON.stringify(d1.draw.teams.map(t => t.players));
+  // com a Cerca e o geral ligados, nada é sorteado: o vencedor fica e o perdedor vai para o fim da fila
+  let m = createMatch(p, d1, { a: d1.draw.teams[0].id, b: d1.draw.teams[1].id }, NOW);
+  for (let i = 0; i < 4; i++) {
+    const r = play(p, d1, m, 1, 0, NOW + i);
+    assert.equal(r.info.rotation, null);
+    m = r.next;
+  }
+  assert.equal(JSON.stringify(d1.draw.teams.map(t => t.players)), snapshot);
+  assert.throws(() => manualDraw(p, d1, 'general', { nameOf, by: 'o', now: NOW }), /fixos/);
+  assert.throws(() => manualDraw(p, d1, 'fence', { nameOf, by: 'o', now: NOW }), /fixos/);
+  const fence = freePids(d1);
+  setPresence(p, d1, 'chegou', true, NOW);
+  for (let i = 0; i < 4; i++) setPresence(p, d1, 'cheg' + i, true, NOW);
+  assert.equal(settleArrivals(p, d1, { nameOf }), null, 'com os times fixos a Cerca não vira time sozinha');
+  assert.equal(freePids(d1).length, fence.length + 5);
+  // a data seguinte (já criada) herdou os times: mesmos ids, nomes e emblemas, ainda sem jogadores
+  assert.ok(d2.fixed.inherited);
+  assert.deepEqual(d2.draw.teams.map(t => [t.id, t.number, t.name]), d1.draw.teams.map(t => [t.id, t.number, t.name]));
+  assert.ok(d2.draw.teams.every(t => t.players.length === 0 && t.emb));
+  assert.match(d2.draw.notes[0], /mantidos do último dia de jogo \(07\/10\)/);
+  // quem estava num time volta a ele ao confirmar presença; quem era da Cerca ou chega agora fica na Cerca
+  const first = d1.draw.teams[0], member = first.players[0], cercaPid = fence[0];
+  setPresence(p, d2, member.slice(2), true, NOW + 10);
+  setPresence(p, d2, cercaPid.slice(2), true, NOW + 10);
+  assert.ok(d2.draw.teams.find(t => t.id === first.id).players.includes(member));
+  assert.ok(freePids(d2).includes(cercaPid));
+  setPresence(p, d2, member.slice(2), false, NOW + 20);
+  assert.ok(!d2.draw.teams.find(t => t.id === first.id).players.includes(member));
+  setPresence(p, d2, member.slice(2), true, NOW + 30);
+  assert.ok(d2.draw.teams.find(t => t.id === first.id).players.includes(member), 'volta ao mesmo time');
+  assert.throws(() => manualDraw(p, d2, 'general', { nameOf, by: 'o', now: NOW }), /fixos/);
+  // uma data criada depois também herda; liberar o dia de origem solta as que herdaram e não começaram
+  const d3 = addDay(p, { date: '2026-10-21' }, NOW);
+  assert.ok(d3.fixed?.inherited && d3.draw.teams.length === 3);
+  unfixTeams(p, d1);
+  assert.equal(d1.fixed, null);
+  assert.equal(d2.fixed?.inherited, undefined);
+  assert.equal(d2.draw, null);
+  assert.equal(d3.fixed, null, 'a cadeia de heranças também é solta');
+  manualDraw(p, d1, 'general', { nameOf, by: 'o', now: NOW, rnd: mulberry32(2) }); // volta a sortear
 });

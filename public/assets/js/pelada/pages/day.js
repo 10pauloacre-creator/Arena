@@ -16,7 +16,7 @@ import { fetchPelada } from '../data.js';
 import { armSound, playWhistle } from '../ui/sound.js';
 import { poll } from '../ui/poll.js';
 import { fmtClock, timerRemaining, planTeams, autoDrawLabel, firstName, GENDERS } from '../../shared/pelada.js';
-import { gx } from '../../shared/gender.js';
+import { gx, cap } from '../../shared/gender.js';
 
 const firstOf = (p, pid) => firstName(p.people[pid]?.name || '?');
 const NO_TEAMS_TEXT = 'Esta opção desativa o sorteio automático de equipes. O sistema gerará apenas a lista de presença e permitirá a anotação individual de gols para o ranking de artilharia';
@@ -74,7 +74,8 @@ export default async function (ctx) {
     return html`<a class="btn btn-ghost btn-sm" href="/pelada/p/${p.id}">${ic('arrow-left', { size: 16 })} ${p.name}</a>
       <header class="day-hero ${p.gender}"><div><span class="eyebrow">${ic('calendar', { size: 15 })} ${label}</span><h1>${dayLong(d.date)}</h1>
         <div class="row wrap" style="gap:8px;margin-top:10px"><span class="badge dark-on">${GENDERS[p.gender].emoji} ${GENDERS[p.gender].label}</span>${d.org.noTeams ? html`<span class="badge warn">Sem formação de times</span>` : html`<span class="badge dark-on">mín. ${d.org.minPerTeam} por time</span><span class="badge dark-on">${ic('timer', { size: 13 })} ${d.org.matchMinutes} min por partida</span>${d.org.autoDraw ? html`<span class="badge dark-on" title="Sorteio automático de jogadores">${ic('shuffle', { size: 13 })} ${autoDrawLabel(d.org).replace('Sorteio automático ', 'Auto ')}</span>` : ''}`}${d.custom ? html`<span class="badge info">Organização personalizada</span>` : ''}${p.demo ? html`<span class="badge warn">Demonstração</span>` : ''}</div></div>
-        <div class="hero-count"><b>${d.attendance.length}</b><span>${d.attendance.length === 1 ? 'confirmado' : 'confirmados'}</span></div></header>`;
+        <div class="hero-count"><b>${d.attendance.length}</b><span>${d.attendance.length === 1 ? 'confirmado' : 'confirmados'}</span></div></header>
+      ${d.fixed ? html`<div class="fixed-banner" role="status">${ic('lock', { size: 18 })}<span><b>${d.fixed.inherited ? `Times fixos, mantidos do último dia de jogo${d.fixed.fromDate ? ` (${d.fixed.fromDate.slice(8, 10)}/${d.fixed.fromDate.slice(5, 7)})` : ''}.` : 'Times fixos.'}</b> ${d.fixed.inherited ? `${cap(gx(p.gender).os)} ${gx(p.gender).players} voltam ao próprio time ao confirmar presença.` : 'Os mesmos jogadores seguem nos mesmos times em todas as partidas e os próximos dias herdam esta formação.'}</span></div>` : ''}`;
   }
 
   function presenceSec() {
@@ -121,7 +122,8 @@ export default async function (ctx) {
       </section>`;
     }
     return html`<section class="card" aria-label="Times sorteados"><div class="row between wrap"><h2 class="card-title" style="margin:0">${ic('shuffle')} Times sorteados</h2>
-        ${owner ? html`<button type="button" class="btn btn-gold" data-act="draw" data-fid="draw">${ic('shuffle', { size: 18 })} Sortear times</button>` : ''}</div>
+        ${owner ? html`<div class="row wrap" style="gap:8px"><button type="button" class="btn ${d.fixed ? 'btn-primary' : ''}" data-act="${d.fixed ? 'unfix' : 'fix'}" data-fid="fix">${ic(d.fixed ? 'unlock' : 'lock', { size: 18 })} ${d.fixed ? 'Liberar times' : 'Fixar times'}</button>
+          <button type="button" class="btn btn-gold" data-act="draw" data-fid="draw" ${d.fixed ? 'disabled title="Libere os times para sortear"' : ''}>${ic('shuffle', { size: 18 })} Sortear times</button></div>` : ''}</div>
       <p class="muted small" style="margin:6px 0 ${owner ? '4px' : '14px'}">Toque no nome do time para ver ${GENDERS[p.gender].players === 'jogadoras' ? 'as jogadoras' : 'os jogadores'}. ${how}.</p>
       ${owner ? html`<p class="muted small" style="margin:0 0 14px">O sorteio fica sempre ativo: escolha entre sortear a Cerca com o time derrotado ou refazer todos os times${started ? '. Com a partida em andamento, o sorteio geral fica combinado e vale quando ela terminar' : ''}.</p>` : ''}
       ${pendingBlock(p, d, owner)}
@@ -262,6 +264,21 @@ export default async function (ctx) {
     });
   }
 
+  /** "O que mudou": quem entrou e quem saiu de cada time depois de um sorteio. */
+  function showChanges({ changes = [], fenceOut = [], fenceIn = [], kind = 'fence' }, head = '') {
+    const p = pel(), d = day(), name = pid => p.people[pid]?.name || '?';
+    const rows = changes.filter(c => c.in.length || c.out.length);
+    if (!rows.length && !fenceOut.length) return;
+    openDialog({
+      title: 'O que mudou',
+      body: html`${head ? html`<p class="muted small" style="margin:0 0 8px">${head}</p>` : ''}
+        ${rows.map(c => html`<div class="change-row"><b>${teamOf(d, c.teamId)?.label || 'Time'}${c.isNew ? html` <span class="badge ok">novo</span>` : ''}</b>
+          ${c.in.length ? html`<div class="in">${ic('arrow-down', { size: 14 })} Entram: ${c.in.map(name).join(', ')}</div>` : ''}${c.out.length ? html`<div class="out">${ic('arrow-up', { size: 14 })} Saem: ${c.out.map(name).join(', ')}</div>` : ''}</div>`)}
+        <div class="change-row"><b>${ic('users', { size: 15 })} Cerca</b>${fenceOut.length ? html`<div class="out">Nova Cerca: ${fenceOut.map(name).join(', ')}</div>` : html`<div>A Cerca ficou vazia.</div>`}</div>`,
+      foot: html`<button class="btn btn-primary" data-close>Entendi</button>`,
+    });
+  }
+
   async function doDraw(mode = null) {
     if (ui.drawing) return;
     ui.drawing = true; // a atualização automática espera: a animação é desta pessoa
@@ -280,6 +297,7 @@ export default async function (ctx) {
       ui.fresh = res.r.drawId; ui.expanded.clear();
       apply(res.r);
       setTimeout(() => { ui.fresh = null; }, 2500);
+      if (mode && !res.r.later) showChanges(res.r, mode === 'fence' ? 'Sorteio da Cerca' : 'Sorteio geral');
       toast(!mode ? 'Times sorteados!' : res.r.later ? 'Sorteio geral combinado: vale quando a partida terminar.' : mode === 'fence' ? 'Sorteio da Cerca feito!' : 'Todos os times foram sorteados de novo!', { type: 'success' });
     } finally { ui.drawing = false; }
   }
@@ -333,6 +351,14 @@ export default async function (ctx) {
       return;
     }
     if (act === 'draw') return doDraw();
+    if (act === 'fix' || act === 'unfix') {
+      const G = gx(pel().gender);
+      const ok = act === 'fix'
+        ? await confirmDialog({ title: 'Fixar times?', text: `${cap(G.os)} ${G.players} continuam nos mesmos times em todas as próximas partidas. Os sorteios (automáticos e manuais) ficam suspensos até você liberar, e as próximas datas herdam estes times. Aqui não há campeonato: para disputar um, use o ArenaMaster.`, ok: 'Fixar times' })
+        : await confirmDialog({ title: 'Liberar os times?', text: 'Os sorteios voltam a valer e as próximas datas deixam de herdar estes times (as que ainda não começaram).', ok: 'Liberar' });
+      if (ok) await enqueue(() => post('/fix', { fixed: act === 'fix' }));
+      return;
+    }
     if (act === 'draw-cancel') { await enqueue(() => post('/draw', { mode: 'cancel' })); return; }
     if (act === 'add-match') { await enqueue(() => post('/matches')); return; }
     const tg = t.closest('[data-team-toggle]');
@@ -393,6 +419,7 @@ export default async function (ctx) {
     if (fin) {
       const m = day().matches.find(x => x.id === fin.dataset.finish);
       const r = await enqueue(() => post(`/matches/${m.id}/finish`));
+      if (r?.info?.rotation) showChanges(r.info.rotation, r.info.rotation.kind === 'general' ? 'Sorteio geral' : 'Sorteio da Cerca');
       if (r) toast(r.next ? (r.info?.rotation ? `Partida encerrada! ${r.info.rotation.kind === 'general' ? 'Sorteio geral feito' : 'Sorteio da Cerca feito'} e a próxima partida já foi criada.` : 'Partida encerrada! A próxima partida já foi criada.') : 'Partida encerrada.', { type: 'success' });
       return;
     }

@@ -334,6 +334,12 @@ h1 { line-height: 1.12; }
 .draw-opt .t-ico { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--surface-2); color: var(--pl-700); }
 .pending-draw { margin: 0 0 14px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px dashed var(--pl-700); }
 .pending-list { margin: 8px 0 0; padding-left: 0; list-style: none; display: grid; gap: 4px; font-size: 13px; }
+.fixed-banner { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1.5px solid var(--pl-700); color: var(--ink); font-size: 14px; }
+.fixed-banner svg { flex: none; margin-top: 2px; color: var(--pl-700); }
+.change-row { padding: 10px 0; border-top: 1px solid var(--line); display: grid; gap: 4px; font-size: 14px; }
+.change-row:first-of-type { border-top: 0; }
+.change-row .in { color: var(--ok, #15803d); }
+.change-row .out { color: var(--ink-2); }
 .queue { margin: 10px 0 0; padding: 8px 12px; background: var(--surface-2); border-radius: 10px; color: var(--ink-2); }
 .match-list { display: grid; gap: 16px; margin-top: 14px; }
 .match { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); padding: 16px; display: grid; gap: 14px; box-shadow: var(--shadow-sm); }
