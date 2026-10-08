@@ -358,7 +358,11 @@ export default async function (ctx) {
 
   ctx.root.addEventListener('change', async e => {
     const a = e.target.closest('[data-assign]');
-    if (a && a.value) await enqueue(() => post('/assign', { pid: a.dataset.assign, teamId: a.value }));
+    if (a && a.value) await enqueue(() => post('/assign', { pid: a.dataset.assign, teamId: a.value === '__fence' ? null : a.value }));
+  });
+  ctx.root.addEventListener('click', async e => {
+    const c = e.target.closest('[data-captain]');
+    if (c) await enqueue(() => post('/captain', { pid: c.dataset.captain, teamId: c.dataset.captainTeam }));
   });
 
   ctx.root.addEventListener('submit', async e => {
