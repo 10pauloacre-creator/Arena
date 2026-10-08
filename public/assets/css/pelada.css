@@ -207,7 +207,10 @@ h1 { line-height: 1.12; }
 .pel-head.has-cover .pel-id { grid-area: 1 / 1; align-self: end; margin-top: 0; }
 .pel-head.has-cover .pel-id h1 { text-shadow: 0 2px 12px rgb(0 0 0 / .6); }
 .pel-head.has-cover .muted-on-dark { color: #fff; text-shadow: 0 1px 6px rgb(0 0 0 / .6); }
-@media (max-width: 520px) { .pel-head.has-cover .pel-id { gap: 12px; padding: 0 14px 14px; } }
+/* no celular, com capa, avatar e texto ficam lado a lado: em coluna o cabeçalho cresceria e cortaria as laterais da foto */
+@media (max-width: 719px) { .pel-head.has-cover .pel-id { flex-direction: row; align-items: flex-end; gap: 12px; padding: 0 14px 14px; } .pel-head.has-cover .pel-id .grow { width: auto; } }
+/* telas bem estreitas: avatar e selos menores (o tamanho do avatar e o espaço dos selos vêm inline, por isso !important) */
+@media (max-width: 400px) { .pel-head.has-cover .pel-id .pl-pav { width: 56px !important; height: 56px !important; } .pel-head.has-cover .pel-id .row { gap: 5px !important; margin-top: 6px !important; } .pel-head.has-cover .badge { font-size: 11px; padding: 2px 8px; } .pel-head.has-cover .pel-id p { margin-top: 6px !important; } }
 .pel-id h1 { font-size: clamp(24px, 5vw, 36px); font-weight: 800; letter-spacing: -.025em; overflow-wrap: anywhere; }
 .pel-id .pl-pav { border: 3px solid rgb(255 255 255 / .9); width: 84px; height: 84px; }
 .pel-head .badge { background: rgb(255 255 255 / .16); color: #fff; backdrop-filter: blur(4px); }
@@ -496,8 +499,10 @@ body.pl:has([data-theme-btn]) #theme-toggle { display: none; }
   .pl-bnav .ico { flex: none; }
   .pl-bnav a[aria-current="page"], .pl .pl-bnav a[aria-current="page"] { color: var(--pl-700); background: var(--pl-50); }
   .pl-bnav a:active, .pl-bnav button:active { background: var(--surface-2); }
-  .pl-main.has-bnav { padding-bottom: calc(var(--bnav-h) + 28px + env(safe-area-inset-bottom)); }
-  .pl-main.has-bnav ~ .pl-foot { display: none; }
+  .pl-main.has-bnav { padding-bottom: 20px; }
+  /* com a barra inferior o rodapé fica só com o crédito, e reserva o espaço da barra para ela não cobrir o texto */
+  .pl-main.has-bnav ~ .pl-foot { padding-top: 4px; padding-bottom: calc(var(--bnav-h) + 20px + env(safe-area-inset-bottom)); }
+  .pl-main.has-bnav ~ .pl-foot > span:first-child { display: none; }
   .pl-foot { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 
   /* formulário: botões de ação sempre à mão */
