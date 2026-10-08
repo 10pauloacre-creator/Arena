@@ -77,22 +77,30 @@ export default async function (ctx) {
 
   function actions() {
     const p = pel();
-    if (isOwner()) return html`<div class="pel-actions"><a class="btn btn-primary" href="/pelada/p/${p.id}/editar">${ic('pencil', { size: 16 })} Editar pelada</a><button type="button" class="btn" data-add-day>${ic('plus', { size: 16 })} Adicionar data</button><span class="badge gold">Você é ${G().o} ${G().owner}</span>${muteBtn()}</div>`;
+    if (isOwner()) return html`<div class="pel-actions"><a class="btn btn-primary" href="/pelada/p/${p.id}/editar">${ic('pencil', { size: 16 })} Editar pelada</a><button type="button" class="btn" data-add-day>${ic('plus', { size: 16 })} Adicionar data</button><button type="button" class="btn btn-gold" data-invite aria-haspopup="dialog">${ic('qr-code', { size: 16 })} Convite</button><span class="badge gold">Você é ${G().o} ${G().owner}</span>${muteBtn()}</div>`;
     if (isMember()) return html`<div class="pel-actions"><span class="badge ok">${ic('circle-check', { size: 14 })} Você participa desta pelada</span>${muteBtn()}</div>`;
     return html`<div class="pel-actions"><button type="button" class="btn btn-lg btn-primary" data-join>${ic('user-plus', { size: 20 })} Participar da pelada</button><span class="muted small">${S.player ? 'Entre com um toque.' : 'Sem conta? Crie em 10 segundos.'}</span></div>`;
   }
 
-  function invite() {
+  /** Convite (QR, link, ID e WhatsApp): fica num modal para não ocupar a tela da pelada. */
+  function openInvite() {
     const inv = pel().invite;
-    if (!inv) return '';
+    if (!inv) return;
     const msg = `⚽ Bora jogar? Entra na pelada "${pel().name}":\n${inv.url}\n\nID: ${inv.id}`;
-    return html`<section class="card invite ${ui.novo ? 'highlight' : ''}" aria-label="Convite">
-      <div class="row wrap" style="align-items:flex-start;gap:18px"><div class="qr-box" aria-label="QR Code do link de convite">${qrSvg(inv.url, { margin: 1 })}</div>
-        <div class="grow stack-sm" style="min-width:220px"><h3 class="card-title" style="margin:0">${ic('link')} Convide a galera <span class="badge gold">só você vê</span></h3>
-          <span class="label">Link de convite</span><div class="copy-field"><input readonly value="${inv.url}" aria-label="Link de convite"><button class="btn btn-sm" data-copy="${inv.url}">${ic('copy', { size: 15 })} Copiar link</button></div>
-          <span class="label">ID da pelada</span><div class="copy-field"><input readonly value="${inv.id}" aria-label="ID da pelada"><button class="btn btn-sm" data-copy="${inv.id}">${ic('copy', { size: 15 })} Copiar ID</button></div>
-          <div class="row wrap"><a class="btn btn-sm btn-primary" target="_blank" rel="noopener" data-external href="https://wa.me/?text=${encodeURIComponent(msg)}">${ic('message-circle', { size: 15 })} Enviar no WhatsApp</a></div>
-          <p class="hint">Quem abrir o link entra na pelada; ou cole o ID no campo "ID da pelada" do app.</p></div></div></section>`;
+    const d = openDialog({
+      title: 'Convide a galera',
+      body: html`<div class="stack-sm invite-modal"><div class="qr-box" aria-label="QR Code do link de convite" style="margin:0 auto">${qrSvg(inv.url, { margin: 1 })}</div>
+        <span class="badge gold" style="align-self:center">só ${G().o} ${G().owner} vê</span>
+        <span class="label">Link de convite</span><div class="copy-field"><input readonly value="${inv.url}" aria-label="Link de convite"><button class="btn btn-sm" data-copy="${inv.url}">${ic('copy', { size: 15 })} Copiar link</button></div>
+        <span class="label">ID da pelada</span><div class="copy-field"><input readonly value="${inv.id}" aria-label="ID da pelada"><button class="btn btn-sm" data-copy="${inv.id}">${ic('copy', { size: 15 })} Copiar ID</button></div>
+        <a class="btn btn-primary" target="_blank" rel="noopener" data-external href="https://wa.me/?text=${encodeURIComponent(msg)}">${ic('message-circle', { size: 16 })} Enviar no WhatsApp</a>
+        <p class="hint" style="margin:0">Quem abrir o link entra na pelada; ou cole o ID no campo "ID da pelada" do app.</p></div>`,
+      foot: html`<button class="btn" data-close>Fechar</button>`,
+    });
+    d.el.addEventListener('click', async e => {
+      const copy = e.target.closest('[data-copy]');
+      if (copy) toast((await copyText(copy.dataset.copy)) ? 'Copiado!' : 'Não foi possível copiar.', { type: 'success', ms: 1800 });
+    });
   }
 
   const tabsBar = () => html`<div class="seg tabs" role="group" aria-label="Seções da pelada">${TABS.map(([k, label, icon]) => html`<button type="button" data-tab="${k}" aria-pressed="${String(tab === k)}">${ic(icon, { size: 16 })} ${label}</button>`)}</div>`;
@@ -143,7 +151,7 @@ export default async function (ctx) {
 
   function paint() {
     const y = window.scrollY;
-    render(ctx.root, page(html`${header()}${actions()}${invite()}${tabsBar()}<section class="tab-body" data-body>${body()}</section>${dangerZone()}`));
+    render(ctx.root, page(html`${header()}${actions()}${tabsBar()}<section class="tab-body" data-body>${body()}</section>${dangerZone()}`));
     wireShell(ctx.root, ctx.signal);
     window.scrollTo({ top: y });
     ui.novo = false;
@@ -186,6 +194,7 @@ export default async function (ctx) {
       return;
     }
     if (t.closest('[data-add-day]')) { addDayDialog(); return; }
+    if (t.closest('[data-invite]')) { openInvite(); return; }
     if (t.closest('[data-leave]')) {
       if (!(await confirmDialog({ title: 'Sair da pelada?', text: `Você deixa de participar de "${pel().name}": ela some das suas peladas e você sai das listas de hoje e das próximas datas. Os gols que você já marcou continuam na artilharia. Para voltar, é só abrir o link de convite de novo.`, ok: 'Sair da pelada', danger: true }))) return;
       try { await api.post(`/pelada/peladas/${id}/leave`); toast('Você saiu da pelada.'); navigate('/pelada/painel'); } catch (err) { toast(err.message, { type: 'error' }); }
@@ -258,7 +267,7 @@ export default async function (ctx) {
     const k = JSON.stringify(N.prefs?.muted || null) + N.prefs?.enabled;
     if (k !== prefsKey && !document.querySelector('dialog[open]')) { prefsKey = k; paint(); }
   }));
-  if (ui.novo === false && ctx.query.novo === '1') $('.invite', ctx.root)?.scrollIntoView({ block: 'center' });
+  if (ctx.query.novo === '1' && isOwner()) openInvite(); // pelada recém-criada: já mostra o convite
 
   poll(ctx, async () => {
     if (document.querySelector('dialog[open]')) return;

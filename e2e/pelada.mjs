@@ -159,19 +159,25 @@ await test('painel de criação: nome, categoria, regras, calendário, organiza�
     await owner.click('#pf-go');
     await owner.waitForURL(/\/pelada\/p\/PL-[A-Z2-9]{6}/);
     peladaId = owner.url().match(/PL-[A-Z2-9]{6}/)[0];
-    await seen(owner, 'Convide a galera');
+    await seen(owner, 'Convide a galera'); // pelada recém-criada: o convite já abre no modal
   });
 });
 
-await test('página da pelada: ID, link de convite só para o criador, QR e copiar', async () => {
+await test('página da pelada: botão "Convite" abre modal com link, ID, QR e copiar; fechar volta à tela limpa; só o criador vê', async () => {
   await guard(owner, async () => {
-    await seen(owner, peladaId);
-    inviteUrl = await owner.locator('.invite input').first().inputValue();
+    const dlg = owner.locator('dialog[open]').filter({ hasText: 'Convide a galera' });
+    await dlg.waitFor(T);
+    inviteUrl = await dlg.locator('input').first().inputValue();
     assert(inviteUrl === `${app.base}/pelada/p/${peladaId}`, 'link de convite: ' + inviteUrl);
-    assert(await owner.locator('.invite .qr-box svg').count() === 1, 'QR Code');
+    assert(await dlg.locator('.qr-box svg').count() === 1, 'QR Code');
     await owner.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: app.base });
-    await owner.locator('[data-copy]', { hasText: 'Copiar link' }).click();
+    await dlg.locator('[data-copy]', { hasText: 'Copiar link' }).click();
     assert(await owner.evaluate(() => navigator.clipboard.readText()) === inviteUrl, 'link copiado');
+    await dlg.locator('[data-close]').last().click();
+    await dlg.waitFor({ state: 'detached', timeout: 5000 });
+    assert(await owner.locator('.qr-box').count() === 0, 'sem QR na tela depois de fechar');
+    assert(await owner.locator('[data-invite]').count() === 1, 'só o botão "Convite" fica na tela');
+    await seen(owner, peladaId);
     await shot(owner, '05-pelada-owner');
     await noOverflow(owner, 'pelada');
     // o dia de hoje existe e abre a página do dia
@@ -209,7 +215,7 @@ await test('convite: quem não tem conta clica em "Participar", cria a conta no 
   await guard(guestPage, async () => {
     await guestPage.goto(inviteUrl);
     await seen(guestPage, 'Pelada das Quintas');
-    assert(await guestPage.locator('.invite').count() === 0, 'visitante não vê o convite');
+    assert(await guestPage.locator('[data-invite]').count() === 0 && await guestPage.locator('.qr-box').count() === 0, 'visitante não vê o convite');
     await guestPage.locator('[data-join]').click();
     await guestPage.locator('dialog #au-name').waitFor(T);
     await guestPage.fill('dialog #au-name', `Joana Lima ${stamp}`);
