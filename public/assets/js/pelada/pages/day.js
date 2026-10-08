@@ -156,6 +156,7 @@ export default async function (ctx) {
     const order = d.draw ? turnOrder(d) : [];
     const now = serverNow();
     return html`<section class="card matches" aria-label="Partidas"><div class="row between wrap"><h2 class="card-title" style="margin:0">${ic('swords')} Partidas</h2>
+         ${d.matches.some(m => m.status === 'finished') ? html`<button type="button" class="btn btn-ghost" data-act="summary">${ic('sparkles', { size: 16 })} Resumo do Jarvis</button>` : ''}
         ${owner ? html`<button type="button" class="btn btn-primary" data-act="add-match" data-fid="add-match" ${d.draw ? '' : 'disabled'} title="${d.draw ? '' : 'Faça o sorteio primeiro'}">${ic('plus', { size: 18 })} Adicionar partida</button>` : ''}</div>
       ${order.length ? html`<div class="turn-order" aria-label="Ordem de quem joga"><b class="small">Quem joga em seguida:</b><ol>${order.map((o, i) => html`<li><span class="n">${i + 1}º</span> ${o.text} <span class="muted small">${o.tag}</span></li>`)}</ol></div>` : ''}
       ${d.matches.length ? html`<div class="match-list">${d.matches.map((m, i) => matchCard(p, d, m, { isOwner: owner, now, index: i, fixOpen: ui.fixOpen, flash: ui.flash }))}</div>`
@@ -230,6 +231,13 @@ export default async function (ctx) {
     if (want) toast('Presença confirmada! Seu nome já está na lista.', { type: 'success', ms: 2500 });
   }
 
+  /** Jarvis (IA, com texto pronto de reserva): preenche o elemento quando a resposta chega. */
+  function askJarvis(topic, el) {
+    api.post(`${base}/jarvis`, { topic }).then(r => { if (el.isConnected) el.innerHTML = html`${ic('sparkles', { size: 15 })} <b>Jarvis:</b> ${r.text}`.s; })
+      .catch(() => { el.hidden = true; });
+  }
+  const jarvisBox = () => html`<p class="jarvis-tip" data-jarvis>${ic('sparkles', { size: 15 })} Jarvis está pensando…</p>`;
+
   /** Janela do sorteio manual: Cerca + time derrotado, ou geral. Sem times ainda, sorteia direto. */
   function chooseDraw() {
     const p = pel(), d = day(), G = gx(p.gender), min = d.org.minPerTeam;
@@ -249,6 +257,7 @@ export default async function (ctx) {
       const dlg = openDialog({
         title: 'Sortear times',
         body: html`<p class="muted small" style="margin:0 0 10px">${live ? 'Há uma partida em andamento.' : 'Nenhuma partida em andamento.'} Escolha o tipo de sorteio.</p>
+          ${jarvisBox()}
           <div class="draw-opts">
             ${opt('fence', 'Sorteio de cerca + time derrotado',
               live ? `Forma já o próximo time com a Cerca (grupos de ${min}); quem sobrar entra no time que perder quando a partida acabar.` : `A Cerca é embaralhada com ${G.os} ${G.players} do último time derrotado: quem está na Cerca sempre entra e saem quem mais jogou e fez gols no dia. Grupos completos viram time novo.`,
@@ -259,6 +268,7 @@ export default async function (ctx) {
           </div>`,
         foot: html`<button class="btn" data-close>Cancelar</button>`,
       });
+      askJarvis('suggest', dlg.el.querySelector('[data-jarvis]'));
       dlg.el.addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (b && !b.disabled) { chosen = b.dataset.mode; dlg.close('ok'); } });
       dlg.closed.then(() => resolve(chosen));
     });
@@ -269,14 +279,21 @@ export default async function (ctx) {
     const p = pel(), d = day(), name = pid => p.people[pid]?.name || '?';
     const rows = changes.filter(c => c.in.length || c.out.length);
     if (!rows.length && !fenceOut.length) return;
-    openDialog({
+    const dlg = openDialog({
       title: 'O que mudou',
-      body: html`${head ? html`<p class="muted small" style="margin:0 0 8px">${head}</p>` : ''}
+      body: html`${head ? html`<p class="muted small" style="margin:0 0 8px">${head}</p>` : ''}${jarvisBox()}
         ${rows.map(c => html`<div class="change-row"><b>${teamOf(d, c.teamId)?.label || 'Time'}${c.isNew ? html` <span class="badge ok">novo</span>` : ''}</b>
           ${c.in.length ? html`<div class="in">${ic('arrow-down', { size: 14 })} Entram: ${c.in.map(name).join(', ')}</div>` : ''}${c.out.length ? html`<div class="out">${ic('arrow-up', { size: 14 })} Saem: ${c.out.map(name).join(', ')}</div>` : ''}</div>`)}
         <div class="change-row"><b>${ic('users', { size: 15 })} Cerca</b>${fenceOut.length ? html`<div class="out">Nova Cerca: ${fenceOut.map(name).join(', ')}</div>` : html`<div>A Cerca ficou vazia.</div>`}</div>`,
       foot: html`<button class="btn btn-primary" data-close>Entendi</button>`,
     });
+    askJarvis('changes', dlg.el.querySelector('[data-jarvis]'));
+  }
+
+  /** Resumo do jogo escrito pelo Jarvis (para quem organiza e para quem só acompanha). */
+  function showSummary() {
+    const dlg = openDialog({ title: 'Resumo do Jarvis', body: jarvisBox(), foot: html`<button class="btn btn-primary" data-close>Fechar</button>` });
+    askJarvis('summary', dlg.el.querySelector('[data-jarvis]'));
   }
 
   async function doDraw(mode = null) {
@@ -359,6 +376,7 @@ export default async function (ctx) {
       if (ok) await enqueue(() => post('/fix', { fixed: act === 'fix' }));
       return;
     }
+    if (act === 'summary') return showSummary();
     if (act === 'draw-cancel') { await enqueue(() => post('/draw', { mode: 'cancel' })); return; }
     if (act === 'add-match') { await enqueue(() => post('/matches')); return; }
     const tg = t.closest('[data-team-toggle]');
