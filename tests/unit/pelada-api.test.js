@@ -20,10 +20,10 @@ async function newPlayer(name, birth = '15/05/1992', extra = {}) {
 const today = () => new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
 
 let setups = 0;
-async function setup({ count = 10, min = 5, noTeams = false, matches = 0, autoDraw = false, autoEvery = 1 } = {}) {
+async function setup({ count = 10, min = 5, noTeams = false, matches = 0, autoDraw = false, generalDraw = false, generalEvery = 3 } = {}) {
   const tag = `S${++setups}`;
   const owner = await newPlayer(`Dono ${tag} da Pelada`);
-  const r = await owner.post('/pelada/peladas', { name: 'Pelada de Teste', gender: 'masculino', minPerTeam: min, noTeams, autoDraw, autoEvery, matchMinutes: 10, days: [{ date: today(), matches }, { date: '2030-01-05' }] });
+  const r = await owner.post('/pelada/peladas', { name: 'Pelada de Teste', gender: 'masculino', minPerTeam: min, noTeams, autoDraw, generalDraw, generalEvery, matchMinutes: 10, days: [{ date: today(), matches }, { date: '2030-01-05' }] });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   const id = r.data.pelada.id;
   const dayId = r.data.pelada.days.find(d => d.date === today()).id;
@@ -130,7 +130,7 @@ test('criar pelada: validações, ID, imagens e link de convite só para o criad
   assert.deepEqual(p.days.map(d => d.date), ['2030-03-07', '2030-03-14']);
   assert.equal(p.days[0].matches.length, 2);
   assert.equal(p.days[0].custom, false); assert.equal(p.days[0].org.minPerTeam, 6);
-  assert.equal(p.days[1].custom, true); assert.deepEqual(p.days[1].org, { minPerTeam: 4, noTeams: false, matchMinutes: 8, autoDraw: false, autoEvery: 1 });
+  assert.equal(p.days[1].custom, true); assert.deepEqual(p.days[1].org, { minPerTeam: 4, noTeams: false, matchMinutes: 8, autoDraw: false, generalDraw: false, generalEvery: 3 });
   assert.equal(p.img.avatar, 1); assert.equal(p.img.cover, 1);
   assert.equal(p.invite.url, `${srv.base}/pelada/p/${p.id}`);
 
@@ -235,10 +235,14 @@ test('sorteio: só o organizador sorteia; times completos, Cerca, convidados e r
   assert.match(day.draw.teams[0].label, /^Time 1 - \S+/);
   assert.equal(day.draw.teams[0].incomplete, undefined);
   assert.deepEqual(day.queue, ['t1', 't2']);
-  // o criador refaz quando quiser
-  const d2 = await s.owner.post(`${s.base}/draw`);
-  assert.equal(d2.status, 200);
-  assert.notEqual(d2.data.drawId, d1.data.drawId);
+  // depois do primeiro sorteio é preciso escolher: Cerca + derrotado, ou geral (o criador pode a qualquer hora)
+  assert.equal((await s.owner.post(`${s.base}/draw`)).status, 400);
+  assert.equal((await s.players[1].post(`${s.base}/draw`, { mode: 'general' })).status, 403);
+  const d2 = await s.owner.post(`${s.base}/draw`, { mode: 'general' });
+  assert.equal(d2.status, 200, JSON.stringify(d2.data));
+  assert.equal(d2.data.kind, 'general');
+  assert.equal(d2.data.drawId, d1.data.drawId);
+  assert.deepEqual(d2.data.pelada.days.find(d => d.id === s.dayId).draw.teams.map(t => t.id), ['t1', 't2']);
 
   // convidado depois do sorteio: Cerca ou direto em um time
   const g1 = await s.owner.post(`${s.base}/guests`, { name: 'Zé Convidado', teamId: 'free' });
@@ -483,17 +487,18 @@ test('tempo esgotado: o cronômetro acaba e o encerramento automático é aceito
 // ---------------------------------------------------------------- Cerca, sorteio automático e correções
 const dayOf = (v, dayId) => v.days.find(d => d.id === dayId);
 
-test('sorteio automático pela API: configuração, rotação da Cerca ao encerrar e sorteio manual com partida em andamento', async () => {
-  const s = await setup({ count: 17, min: 5, autoDraw: true, autoEvery: 1 });
+test('sorteios automáticos pela API: configuração, sorteio da Cerca ao encerrar e sorteios manuais com partida em andamento', async () => {
+  const s = await setup({ count: 17, min: 5, autoDraw: true, generalDraw: true, generalEvery: 4 });
   let v = await s.view();
-  assert.equal(v.autoDraw, true); assert.equal(v.autoEvery, 1);
-  assert.deepEqual([dayOf(v, s.dayId).org.autoDraw, dayOf(v, s.dayId).org.autoEvery], [true, 1]);
+  assert.deepEqual([v.autoDraw, v.generalDraw, v.generalEvery], [true, true, 4]);
+  assert.deepEqual([dayOf(v, s.dayId).org.autoDraw, dayOf(v, s.dayId).org.generalDraw, dayOf(v, s.dayId).org.generalEvery], [true, true, 4]);
   // a data pode ter a própria regra
-  const other = await s.owner.post(`/pelada/peladas/${s.id}/days`, { date: '2030-02-02', org: { autoDraw: true, autoEvery: 3 } });
-  assert.deepEqual([dayOf(other.data.pelada, other.data.dayId).org.autoDraw, dayOf(other.data.pelada, other.data.dayId).org.autoEvery], [true, 3]);
-  assert.equal((await s.owner.post(`/pelada/peladas/${s.id}/days`, { date: '2030-02-09', org: { autoEvery: 9 } })).status, 400);
-  assert.equal((await s.owner.patch(`/pelada/peladas/${s.id}`, { autoEvery: 0 })).data.pelada.autoEvery, 0); // nunca
-  assert.equal((await s.owner.patch(`/pelada/peladas/${s.id}`, { autoEvery: 1 })).data.pelada.autoEvery, 1);
+  const other = await s.owner.post(`/pelada/peladas/${s.id}/days`, { date: '2030-02-02', org: { autoDraw: true, generalEvery: 5 } });
+  assert.deepEqual([dayOf(other.data.pelada, other.data.dayId).org.autoDraw, dayOf(other.data.pelada, other.data.dayId).org.generalEvery], [true, 5]);
+  assert.equal((await s.owner.post(`/pelada/peladas/${s.id}/days`, { date: '2030-02-09', org: { generalEvery: 11 } })).status, 400);
+  assert.equal((await s.owner.patch(`/pelada/peladas/${s.id}`, { generalDraw: false })).data.pelada.generalDraw, false);
+  assert.equal((await s.owner.patch(`/pelada/peladas/${s.id}`, { generalEvery: 2 })).data.pelada.generalEvery, 2);
+  await s.owner.patch(`/pelada/peladas/${s.id}`, { generalDraw: false, generalEvery: 4 });
 
   await s.owner.post(`${s.base}/draw`);
   v = await s.view();
@@ -505,32 +510,41 @@ test('sorteio automático pela API: configuração, rotação da Cerca ao encerr
   const mp = `${s.base}/matches/${mid}`;
   await s.owner.post(`${mp}/timer`, { action: 'start' });
 
-  // com a partida em andamento o sorteio continua ativo: t1 e t2 não mudam, t3 + Cerca são sorteados (Cerca obrigatória)
-  const live = await s.owner.post(`${s.base}/draw`);
-  assert.equal(live.status, 200, JSON.stringify(live.data));
-  day = dayOf(live.data.pelada, s.dayId);
+  // com a partida em andamento: a Cerca pequena não forma o próximo time; o geral fica combinado e nada muda agora
+  const small = await s.owner.post(`${s.base}/draw`, { mode: 'fence' });
+  assert.equal(small.status, 400);
+  const later = await s.owner.post(`${s.base}/draw`, { mode: 'general' });
+  assert.equal(later.status, 200, JSON.stringify(later.data));
+  assert.equal(later.data.later, true);
+  day = dayOf(later.data.pelada, s.dayId);
+  assert.ok(day.pending && day.pending.teams.length === 3);
   assert.deepEqual(day.draw.teams.find(t => t.id === t1).players, dayOf(v, s.dayId).draw.teams.find(t => t.id === t1).players);
-  assert.deepEqual(day.draw.teams.find(t => t.id === t2).players, dayOf(v, s.dayId).draw.teams.find(t => t.id === t2).players);
-  assert.ok(fence.every(pid => day.draw.teams.find(t => t.id === t3).players.includes(pid)));
   assert.equal(day.matches[0].status, 'live');
-  assert.equal(day.fence.length, 2);
-  assert.ok(day.draw.notes.some(n => /se mantêm/.test(n)));
+  const pendingFirst = day.pending.teams.slice(0, 2).map(t => t.players);
 
-  // o vencedor continua; a Cerca (de agora) entra no time que perdeu; os substituídos viram a nova Cerca
+  // ao encerrar, vale o geral combinado: o próximo confronto é o dos dois primeiros times do sorteio
   const winner = day.draw.teams.find(t => t.id === t1).players[0];
   await s.owner.post(`${mp}/goals`, { teamId: t1, pid: winner });
   const fin = await s.owner.post(`${mp}/finish`, {});
   assert.equal(fin.status, 200, JSON.stringify(fin.data));
-  assert.ok(fin.data.info.rotation);
+  assert.equal(fin.data.info.rotation.kind, 'general');
   day = dayOf(fin.data.pelada, s.dayId);
+  assert.equal(day.pending, null);
   const next = day.matches[1];
-  assert.equal(next.a, t1);
-  assert.equal(next.b, fin.data.info.rotation.teamId);
-  assert.ok(day.fence.length === 2 && fin.data.info.rotation.fenceOut.every(pid => day.fence.includes(pid)));
+  assert.deepEqual([next.a, next.b].map(id => day.draw.teams.find(t => t.id === id).players), pendingFirst);
   // a partida encerrada mostra os times como eram quando ela terminou
   assert.deepEqual(day.matches[0].teams.b.players, dayOf(v, s.dayId).draw.teams.find(t => t.id === t2).players);
   assert.match(day.matches[0].teams.a.label, /^Time 1 - /);
-  assert.ok(day.draw.log.length === 1);
+  assert.equal(day.games[winner], 1);
+  assert.ok(day.draw.log.length >= 1);
+
+  // com o sorteio da Cerca ligado, o fim da partida troca a Cerca pelo time derrotado
+  await s.owner.patch(s.base, { org: { autoDraw: true } });
+  const nextMp = `${s.base}/matches/${next.id}`;
+  await s.owner.post(`${nextMp}/timer`, { action: 'start' });
+  const fin2 = await s.owner.post(`${nextMp}/finish`, {});
+  assert.equal(fin2.status, 200, JSON.stringify(fin2.data));
+  assert.equal(fin2.data.info.rotation?.kind ?? 'fence', 'fence');
 });
 
 test('só o organizador corrige partida encerrada: placar, gols e artilharia se ajustam', async () => {

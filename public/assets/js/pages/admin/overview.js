@@ -12,7 +12,7 @@ export default function (app) {
   let draft = null;
   let savedFlash = false;
   let forceReset = false;
-  const lockReason = t => t.bracket ? 'O chaveamento já foi sorteado.' : (t.teams.some(x => x.status === 'confirmed' || x.status === 'pending_payment') ? 'Já existem times inscritos.' : '');
+  const lockReason = t => t.bracket || t.league ? 'O chaveamento já foi sorteado.' : (t.teams.some(x => x.status === 'confirmed' || x.status === 'pending_payment') ? 'Já existem times inscritos.' : '');
   const resetDraft = () => { const t = app.t; draft = { name: t.name, finalDate: t.finalDate, sport: t.sport }; };
   resetDraft();
   const dirty = () => { const t = app.t; return draft.name.trim() !== t.name || draft.finalDate !== t.finalDate || draft.sport !== t.sport; };
@@ -22,9 +22,9 @@ export default function (app) {
   function nextSteps(t) {
     const steps = [
       { done: !!t.regDeadline, label: 'Definir prazo, valor e vagas das inscrições', go: 'configuracoes', cta: 'Configurar' },
-      { done: t.teamsConfirmed >= 2, label: `Receber inscrições (${t.teamsConfirmed} de ${t.maxTeams} times)`, go: null, cta: 'Copiar link', copy: true },
-      { done: !!t.bracket, label: 'Sortear o chaveamento', go: 'chaveamento', cta: 'Sortear' },
-      { done: !!t.bracket && t.stats.matchesDone > 0, label: 'Conduzir os jogos ao vivo', go: 'ao-vivo', cta: 'Abrir' },
+      { done: t.teamsConfirmed >= (t.format === 'league' ? 3 : 2), label: `Receber inscrições (${t.teamsConfirmed} de ${t.maxTeams} times)`, go: null, cta: 'Copiar link', copy: true },
+      { done: !!(t.bracket || t.league), label: t.format === 'league' ? 'Gerar a tabela do campeonato' : 'Sortear o chaveamento', go: 'chaveamento', cta: t.format === 'league' ? 'Gerar' : 'Sortear' },
+      t.format === 'league' ? { done: t.stats.matchesDone > 0, label: 'Lançar os resultados das rodadas', go: 'chaveamento', cta: 'Abrir' } : { done: !!t.bracket && t.stats.matchesDone > 0, label: 'Conduzir os jogos ao vivo', go: 'ao-vivo', cta: 'Abrir' },
       { done: !!t.champion, label: 'Coroar o campeão', go: null },
     ];
     return steps;
@@ -81,6 +81,10 @@ export default function (app) {
       <div class="card chart-card"><h3>${ic('line-chart')} Média projetada por fase</h3>${barChart(t.perf, { label: 'Média projetada de ' + (t.sport === 'volei' ? 'pontos' : t.sport === 'basquete' ? 'pontos' : 'gols') + ' por fase' })}<p class="hint" style="margin-top:4px">${t.sport === 'volei' ? 'Pontos por set' : t.sport === 'basquete' ? 'Pontos por equipe' : 'Gols por jogo'} · barras claras são projeções; as escuras, resultados reais.</p></div>
     </div>
 
+    <div class="card"><div class="row between wrap" style="gap:10px"><h3 class="card-title" style="margin:0">${ic('sparkles')} Jarvis, seu assistente</h3>
+      <button class="btn btn-sm" data-act="jarvis" ${jarvisBusy ? 'disabled' : ''}>${ic('wand-sparkles', { size: 15 })} ${jarvisText ? 'Pedir de novo' : 'O que fazer agora?'}</button></div>
+      <p class="${jarvisText ? '' : 'muted small'}" style="margin:10px 0 0" data-jarvis-out>${jarvisBusy ? 'Jarvis está pensando…' : jarvisText || 'Peça um conselho sobre o próximo passo do seu torneio, com base nos números atuais.'}</p></div>
+
     <div class="two">
       <div class="card"><h3 class="card-title">${ic('list-checks')} Próximos passos</h3>
         <ul class="feed" style="max-height:none">${nextSteps(t).map(st => html`<li><span class="f-ico ${st.done ? 'green' : ''}">${ic(st.done ? 'check' : 'clock', { size: 16 })}</span><div class="grow"><div style="${st.done ? 'text-decoration:line-through;color:var(--muted)' : 'font-weight:600'}">${st.label}</div></div>${!st.done && st.cta ? (st.copy ? html`<button class="btn btn-sm" data-act="copy-link">${st.cta}</button>` : html`<a class="btn btn-sm" href="/admin/${t.id}/${st.go}">${st.cta}</a>`) : ''}</li>`)}</ul></div>
@@ -89,6 +93,7 @@ export default function (app) {
     </div>`;
   }
 
+  let jarvisText = '', jarvisBusy = false;
   function paint(root) { render(root, view()); }
 
   return {
@@ -108,6 +113,11 @@ export default function (app) {
       root.addEventListener('change', e => { if (e.target.name === 'sport') { draft.sport = e.target.value; refreshSave(); } });
       on(root, 'click', '[data-act]', async (e, el) => {
         const act = el.dataset.act;
+        if (act === 'jarvis') {
+          jarvisBusy = true; paint(root);
+          try { jarvisText = (await api.post(`/tournaments/${app.t.id}/jarvis`)).text; } catch (err) { jarvisText = err.message; }
+          jarvisBusy = false; paint(root); return;
+        }
         if (act === 'copy-id') toast((await copyText('#' + app.t.id)) ? 'ID do torneio copiado.' : 'Copie manualmente: #' + app.t.id, { type: 'success', ms: 2200 });
         if (act === 'copy-link') toast((await copyText(app.visitorUrl())) ? 'Link do visitante copiado!' : 'Copie manualmente: ' + app.visitorUrl(), { type: 'success', ms: 2500 });
         if (act === 'discard') { resetDraft(); paint(root); }

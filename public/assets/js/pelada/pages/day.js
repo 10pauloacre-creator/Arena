@@ -6,24 +6,21 @@ import { api } from '../../api.js';
 import { S } from '../session.js';
 import { page, wireShell, ensurePlayer, dayLong } from '../ui/shell.js';
 import { avatar } from '../ui/img.js';
+import { emblem } from '../ui/emblem.js';
 import { teamsHTML } from '../ui/teams.js';
 import { matchCard, teamOf, matchTeam, isRunning } from '../ui/match.js';
 import { podiumPanel } from '../ui/podium.js';
 import { resultsData, runShare } from '../ui/share.js';
 import { playShuffle } from '../ui/shuffle.js';
 import { fetchPelada } from '../data.js';
+import { armSound, playWhistle } from '../ui/sound.js';
 import { poll } from '../ui/poll.js';
-import { fmtClock, timerRemaining, planTeams, autoDrawLabel, GENDERS } from '../../shared/pelada.js';
+import { fmtClock, timerRemaining, planTeams, autoDrawLabel, firstName, GENDERS } from '../../shared/pelada.js';
+import { gx, cap } from '../../shared/gender.js';
 
+const gn = p => gx(p.gender);
+const firstOf = (p, pid) => firstName(p.people[pid]?.name || '?');
 const NO_TEAMS_TEXT = 'Esta opção desativa o sorteio automático de equipes. O sistema gerará apenas a lista de presença e permitirá a anotação individual de gols para o ranking de artilharia';
-
-function beep() {
-  try {
-    const ac = new (window.AudioContext || window.webkitAudioContext)();
-    [0, 0.35, 0.7].forEach(t => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = 880; o.connect(g); g.connect(ac.destination); g.gain.setValueAtTime(0.18, ac.currentTime + t); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + t + 0.28); o.start(ac.currentTime + t); o.stop(ac.currentTime + t + 0.3); });
-    setTimeout(() => ac.close(), 1500);
-  } catch { /* sem áudio */ }
-}
 
 /** Atualiza o conteúdo de `el` só se mudou, preservando o foco e o que o usuário está digitando (data-keep / data-fid). */
 function patch(el, markup) {
@@ -42,7 +39,7 @@ function patch(el, markup) {
 export default async function (ctx) {
   const { id, day: dayId } = ctx.params;
   const st = { pel: null, etag: null, offset: 0 };
-  const ui = { expanded: new Set(), fixOpen: new Set(), podScope: 'day', seenDraw: undefined, fresh: null, ended: new Set(), pending: 0, drawing: false, chain: Promise.resolve() };
+  const ui = { expanded: new Set(), fixOpen: new Set(), flash: new Map(), prevStatus: new Map(), podScope: 'day', seenDraw: undefined, fresh: null, ended: new Set(), pending: 0, drawing: false, chain: Promise.resolve() };
   document.title = 'Dia de jogo · Pelada';
   render(ctx.root, page(html`<div class="page-loading"><div class="spinner" role="status" aria-label="Carregando"></div></div>`));
   wireShell(ctx.root, ctx.signal);
@@ -68,6 +65,7 @@ export default async function (ctx) {
   // ------------------------------------------------------------ esqueleto
   render(ctx.root, page(html`<div data-sec="head"></div><div class="day-grid"><div class="stack-lg"><div data-sec="presence"></div><div data-sec="draw"></div><div data-sec="matches"></div></div><div class="stack-lg"><div data-sec="podium"></div></div></div>`, { cls: 'day' }));
   wireShell(ctx.root, ctx.signal);
+  armSound(ctx.signal); // libera o áudio no primeiro toque (o apito só toca depois de uma interação)
   const sec = n => $(`[data-sec=${n}]`, ctx.root);
 
   // ------------------------------------------------------------ seções
@@ -77,7 +75,8 @@ export default async function (ctx) {
     return html`<a class="btn btn-ghost btn-sm" href="/pelada/p/${p.id}">${ic('arrow-left', { size: 16 })} ${p.name}</a>
       <header class="day-hero ${p.gender}"><div><span class="eyebrow">${ic('calendar', { size: 15 })} ${label}</span><h1>${dayLong(d.date)}</h1>
         <div class="row wrap" style="gap:8px;margin-top:10px"><span class="badge dark-on">${GENDERS[p.gender].emoji} ${GENDERS[p.gender].label}</span>${d.org.noTeams ? html`<span class="badge warn">Sem formação de times</span>` : html`<span class="badge dark-on">mín. ${d.org.minPerTeam} por time</span><span class="badge dark-on">${ic('timer', { size: 13 })} ${d.org.matchMinutes} min por partida</span>${d.org.autoDraw ? html`<span class="badge dark-on" title="Sorteio automático de jogadores">${ic('shuffle', { size: 13 })} ${autoDrawLabel(d.org).replace('Sorteio automático ', 'Auto ')}</span>` : ''}`}${d.custom ? html`<span class="badge info">Organização personalizada</span>` : ''}${p.demo ? html`<span class="badge warn">Demonstração</span>` : ''}</div></div>
-        <div class="hero-count"><b>${d.attendance.length}</b><span>${d.attendance.length === 1 ? 'confirmado' : 'confirmados'}</span></div></header>`;
+        <div class="hero-count"><b>${d.attendance.length}</b><span>${d.attendance.length === 1 ? gn(p).confirmed : gn(p).confirmeds}</span></div></header>
+      ${d.fixed ? html`<div class="fixed-banner" role="status">${ic('lock', { size: 18 })}<span><b>${d.fixed.inherited ? `Times fixos, mantidos do último dia de jogo${d.fixed.fromDate ? ` (${d.fixed.fromDate.slice(8, 10)}/${d.fixed.fromDate.slice(5, 7)})` : ''}.` : 'Times fixos.'}</b> ${d.fixed.inherited ? `${cap(gx(p.gender).os)} ${gx(p.gender).players} voltam ao próprio time ao confirmar presença.` : `${cap(gn(p).os)} ${gn(p).players} seguem nos mesmos times em todas as partidas e os próximos dias herdam esta formação.`}</span></div>` : ''}`;
   }
 
   function presenceSec() {
@@ -85,17 +84,17 @@ export default async function (ctx) {
     const nameOf = pid => p.people[pid]?.name || '?';
     const g = GENDERS[p.gender];
     return html`<section class="card presence" aria-label="Lista de presença">
-      <div class="row between wrap" style="gap:14px"><div><h2 class="card-title" style="margin:0">${ic('list-checks')} Lista de presença</h2><p class="muted small" style="margin:4px 0 0">${d.present ? 'Você está confirmado neste dia.' : v ? 'Confirme sua presença para entrar na lista e no sorteio.' : 'Crie sua conta rapidinho para participar e marcar presença.'}</p></div>
+      <div class="row between wrap" style="gap:14px"><div><h2 class="card-title" style="margin:0">${ic('list-checks')} Lista de presença</h2><p class="muted small" style="margin:4px 0 0">${d.present ? `Você está ${gn(p).confirmed} neste dia.` : v ? 'Confirme sua presença para entrar na lista e no sorteio.' : 'Crie sua conta rapidinho para participar e marcar presença.'}</p></div>
         ${v ? html`<button type="button" class="btn btn-lg ${d.present ? 'btn-outline-danger' : 'btn-primary'}" data-act="presence" data-fid="presence">${ic(d.present ? 'x' : 'circle-check', { size: 20 })} ${d.present ? 'Retirar Presença' : 'Marcar Presença'}</button>`
           : html`<button type="button" class="btn btn-lg btn-primary" data-act="presence" data-fid="presence">${ic('user-plus', { size: 20 })} Participar da pelada</button>`}</div>
       <h3 class="list-title">Lista de Confirmados <span class="badge">${d.attendance.length}</span></h3>
-      ${d.attendance.length ? html`<ul class="confirmed">${d.attendance.map((a, i) => html`<li class="${a.pid === v?.pid ? 'me' : ''}"><span class="n">${i + 1}</span>${avatar(p.people[a.pid], a.pid, { size: 38 })}<span class="grow ellipsis"><b>${nameOf(a.pid)}</b>${a.pid === v?.pid ? html` <span class="badge ok">Você</span>` : ''}${a.guest ? html` <span class="badge">Convidado</span>` : ''}${a.pid === p.owner ? html` <span class="badge gold">Organizador</span>` : ''}</span>
+      ${d.attendance.length ? html`<ul class="confirmed">${d.attendance.map((a, i) => html`<li class="${a.pid === v?.pid ? 'me' : ''}"><span class="n">${i + 1}</span>${avatar(p.people[a.pid], a.pid, { size: 38 })}<span class="grow ellipsis"><b>${nameOf(a.pid)}</b>${a.pid === v?.pid ? html` <span class="badge ok">Você</span>` : ''}${a.guest ? html` <span class="badge">${cap(gn(p).guest)}</span>` : ''}${a.pid === p.owner ? html` <span class="badge gold">${cap(gn(p).owner)}</span>` : ''}</span>
           ${owner ? html`<button type="button" class="icon-btn" data-rm-att="${a.pid}" aria-label="Remover ${nameOf(a.pid)} da lista">${ic('x', { size: 18 })}</button>` : ''}</li>`)}</ul>`
         : html`<div class="empty">${ic('users')}<strong>Ninguém confirmou ainda</strong><span>Seja ${g.article === 'as' ? 'a primeira' : 'o primeiro'}: toque em ${v ? '"Marcar Presença"' : '"Participar da pelada"'}.</span></div>`}
-      ${owner ? html`<form class="guest-form" data-guest-form novalidate><div class="field"><label for="g-name">Adicionar convidado</label><input id="g-name" name="name" data-keep="g-name" maxlength="40" autocomplete="off" placeholder="Nome de quem chegou"></div>
+      ${owner ? html`<form class="guest-form" data-guest-form novalidate><div class="field"><label for="g-name">Adicionar ${gn(p).guest}</label><input id="g-name" name="name" data-keep="g-name" maxlength="40" autocomplete="off" placeholder="Nome de quem chegou"></div>
         ${d.draw ? html`<div class="field"><label for="g-team">Entra em</label><select id="g-team" name="teamId" data-keep="g-team"><option value="free" selected>Cerca (aguarda a próxima partida)</option>${d.draw.teams.map(t => html`<option value="${t.id}">${t.label} (${t.players.length})</option>`)}</select></div>` : ''}
         <button class="btn" type="submit">${ic('user-plus', { size: 16 })} Adicionar</button>
-        <p class="hint" style="grid-column:1/-1;margin:0">${d.draw ? 'O convidado chegou depois do sorteio: ele entra na Cerca e aguarda a próxima partida, ou você o encaixa em um time agora.' : 'O convidado entra na lista e no sorteio de times.'} Os gols dele contam na artilharia.</p></form>` : ''}
+        <p class="hint" style="grid-column:1/-1;margin:0">${d.draw ? `${cap(gn(p).o)} ${gn(p).guest} chegou depois do sorteio: ${gn(p).ele} entra na Cerca e aguarda a próxima partida, ou você ${gn(p).ele === 'ela' ? 'a' : 'o'} encaixa em um time agora.` : `${cap(gn(p).o)} ${gn(p).guest} entra na lista e no sorteio de times.`} Os gols ${gn(p).dele} contam na artilharia.</p></form>` : ''}
     </section>`;
   }
 
@@ -105,47 +104,82 @@ export default async function (ctx) {
       return html`<section class="card" aria-label="Gols do dia"><h2 class="card-title">${ic('target')} Sem formação de times</h2>
         <div class="form-note">${ic('info', { size: 16 })}<span>${NO_TEAMS_TEXT}.</span></div>
         <h3 class="list-title">Gols do dia</h3>
-        ${d.attendance.length ? html`<ul class="loose-list">${d.attendance.map(a => html`<li>${avatar(p.people[a.pid], a.pid, { size: 36 })}<span class="grow ellipsis"><b>${p.people[a.pid]?.name || '?'}</b>${a.guest ? html` <span class="badge">Convidado</span>` : ''}</span>
+        ${d.attendance.length ? html`<ul class="loose-list">${d.attendance.map(a => html`<li>${avatar(p.people[a.pid], a.pid, { size: 36 })}<span class="grow ellipsis"><b>${p.people[a.pid]?.name || '?'}</b>${a.guest ? html` <span class="badge">${cap(gn(p).guest)}</span>` : ''}</span>
           ${owner ? html`<button type="button" class="icon-btn" data-loose="${a.pid}" data-delta="-1" aria-label="Menos um gol de ${p.people[a.pid]?.name || ''}" ${(d.looseGoals[a.pid] || 0) ? '' : 'disabled'}>${ic('minus')}</button>` : ''}<output class="loose-n" aria-label="gols">${d.looseGoals[a.pid] || 0}</output>
-          ${owner ? html`<button type="button" class="icon-btn plus" data-loose="${a.pid}" data-delta="1" aria-label="Mais um gol de ${p.people[a.pid]?.name || ''}">${ic('plus')}</button>` : ''}</li>`)}</ul>` : html`<div class="empty">${ic('users')}<span>Quando houver confirmados, anote os gols deles aqui.</span></div>`}</section>`;
+          ${owner ? html`<button type="button" class="icon-btn plus" data-loose="${a.pid}" data-delta="1" aria-label="Mais um gol de ${p.people[a.pid]?.name || ''}">${ic('plus')}</button>` : ''}</li>`)}</ul>` : html`<div class="empty">${ic('users')}<span>Quando houver ${gn(p).confirmeds}, anote os gols ${gn(p).deles} aqui.</span></div>`}</section>`;
     }
     const started = d.matches.some(m => m.status !== 'scheduled');
     const how = autoDrawLabel(d.org);
     if (!d.draw) {
       const n = d.attendance.length, plan = planTeams(n, d.org.minPerTeam);
       const preview = plan.ok
-        ? `Com ${n} confirmados: ${plan.k} ${plan.k === 1 ? 'time' : 'times'} de ${d.org.minPerTeam}${plan.r ? `; ${plan.r === 1 ? 'a sobra de 1 jogador vai' : `as ${plan.r} sobras vão`} para a Cerca` : ''}.`
+        ? `Com ${n} ${gn(p).confirmeds}: ${plan.k} ${plan.k === 1 ? 'time' : 'times'} de ${d.org.minPerTeam}${plan.r ? `; ${plan.r === 1 ? `a sobra de 1 ${gn(p).player} vai` : `as ${plan.r} sobras vão`} para a Cerca` : ''}.`
         : plan.error;
       return html`<section class="card draw-card" aria-label="Sorteio"><h2 class="card-title">${ic('shuffle')} Sorteio de times</h2>
-        <p class="muted" style="margin:0">Times de <b>${d.org.minPerTeam}</b> jogadores. Quem sobra fica na <b>Cerca</b>: aguarda a próxima partida e entra no time que perder. ${how}.</p>
+        <p class="muted" style="margin:0">Times de <b>${d.org.minPerTeam}</b> ${gn(p).players}. Quem sobra fica na <b>Cerca</b>: aguarda a próxima partida e entra no time que perder. ${how}.</p>
         ${owner ? html`<p class="small" style="margin:10px 0 0">${ic('sparkles', { size: 14 })} ${preview}</p>
           <div style="margin-top:16px"><button type="button" class="btn btn-xl btn-gold" data-act="draw" data-fid="draw" ${plan.ok ? '' : 'disabled'}>${ic('shuffle', { size: 22 })} Sortear Times</button></div>`
-          : html`<p class="hint" style="margin-top:10px">${ic('hourglass', { size: 14 })} O organizador faz o sorteio. Assim que ele sortear, os times aparecem aqui.</p>`}
+          : html`<p class="hint" style="margin-top:10px">${ic('hourglass', { size: 14 })} ${cap(gn(p).o)} ${gn(p).owner} faz o sorteio. Assim que ${gn(p).ele} sortear, os times aparecem aqui.</p>`}
       </section>`;
     }
     return html`<section class="card" aria-label="Times sorteados"><div class="row between wrap"><h2 class="card-title" style="margin:0">${ic('shuffle')} Times sorteados</h2>
-        ${owner ? html`<button type="button" class="btn btn-gold" data-act="draw" data-fid="draw">${ic('shuffle', { size: 18 })} Sortear Times</button>` : ''}</div>
+        ${owner ? html`<div class="row wrap" style="gap:8px"><button type="button" class="btn ${d.fixed ? 'btn-primary' : ''}" data-act="${d.fixed ? 'unfix' : 'fix'}" data-fid="fix">${ic(d.fixed ? 'unlock' : 'lock', { size: 18 })} ${d.fixed ? 'Liberar times' : 'Fixar times'}</button>
+          <button type="button" class="btn btn-gold" data-act="draw" data-fid="draw" ${d.fixed ? 'disabled title="Libere os times para sortear"' : ''}>${ic('shuffle', { size: 18 })} Sortear times</button></div>` : ''}</div>
       <p class="muted small" style="margin:6px 0 ${owner ? '4px' : '14px'}">Toque no nome do time para ver ${GENDERS[p.gender].players === 'jogadoras' ? 'as jogadoras' : 'os jogadores'}. ${how}.</p>
-      ${owner ? html`<p class="muted small" style="margin:0 0 14px">${started ? 'O sorteio fica sempre ativo: com a partida em andamento, os times em quadra se mantêm e os demais jogadores e a Cerca são sorteados para a próxima partida.' : 'Dá para refazer o sorteio enquanto nenhuma partida começou.'}</p>` : ''}
+      ${owner ? html`<p class="muted small" style="margin:0 0 14px">O sorteio fica sempre ativo: escolha entre sortear a Cerca com o time derrotado ou refazer todos os times${started ? '. Com a partida em andamento, o sorteio geral fica combinado e vale quando ela terminar' : ''}.</p>` : ''}
+      ${pendingBlock(p, d, owner)}
       ${teamsHTML(p, d, { expanded: ui.expanded, isOwner: owner, fresh: ui.fresh === d.draw.id })}</section>`;
+  }
+
+  /** Sorteio geral combinado durante a partida: os times que valem quando ela terminar. */
+  function pendingBlock(p, d, owner) {
+    const pd = d.pending;
+    if (!pd) return '';
+    return html`<div class="pending-draw" role="note"><div class="row between wrap" style="gap:8px"><strong>${ic('hourglass', { size: 16 })} Sorteio geral combinado: vale quando a partida terminar</strong>
+      ${owner ? html`<button type="button" class="btn btn-sm btn-ghost" data-act="draw-cancel">Cancelar</button>` : ''}</div>
+      <ol class="pending-list">${pd.teams.map((t, i) => html`<li><b>${i < 2 ? `${i + 1}º a entrar` : `${i + 1}º`} · ${t.label}:</b> ${t.players.map(pid => firstOf(p, pid)).join(', ')}</li>`)}</ol>
+      ${pd.fence.length ? html`<p class="small muted" style="margin:6px 0 0">Cerca: ${pd.fence.map(pid => firstOf(p, pid)).join(', ')}.</p>` : ''}</div>`;
+  }
+
+  /** Quem joga em seguida: a próxima partida, os times de fora na ordem e a Cerca. */
+  function turnOrder(d) {
+    const out = [];
+    for (const m of d.matches) if (m.status !== 'finished' && m.a && m.b) out.push({ text: `${teamOf(d, m.a)?.label} × ${teamOf(d, m.b)?.label}`, tag: m.status === 'live' ? 'em quadra' : 'próxima partida' });
+    for (const tid of d.queue || []) { const t = teamOf(d, tid); if (t) out.push({ text: t.label, tag: tid === d.lastLeaver ? 'time derrotado' : 'aguardando' }); }
+    if (d.fence.length) out.push({ text: `Cerca (${d.fence.length})`, tag: d.org.autoDraw ? 'entra no time que perder' : 'aguardando' });
+    return out;
   }
 
   function matchesSec() {
     const p = pel(), d = day(), owner = isOwner();
     if (d.org.noTeams) return '';
     if (!d.draw && !d.matches.length) return '';
-    const queue = (d.queue || []).map(tid => teamOf(d, tid)?.label).filter(Boolean);
+    const order = d.draw ? turnOrder(d) : [];
     const now = serverNow();
     return html`<section class="card matches" aria-label="Partidas"><div class="row between wrap"><h2 class="card-title" style="margin:0">${ic('swords')} Partidas</h2>
+         ${d.matches.some(m => m.status === 'finished') ? html`<button type="button" class="btn btn-ghost" data-act="summary">${ic('sparkles', { size: 16 })} Resumo do Jarvis</button>` : ''}
         ${owner ? html`<button type="button" class="btn btn-primary" data-act="add-match" data-fid="add-match" ${d.draw ? '' : 'disabled'} title="${d.draw ? '' : 'Faça o sorteio primeiro'}">${ic('plus', { size: 18 })} Adicionar partida</button>` : ''}</div>
-      ${d.draw && queue.length ? html`<p class="queue small"><b>Fila (de fora):</b> ${queue.join(' → ')}</p>` : ''}
-      ${d.matches.length ? html`<div class="match-list">${d.matches.map((m, i) => matchCard(p, d, m, { isOwner: owner, now, index: i, fixOpen: ui.fixOpen }))}</div>`
-        : html`<div class="empty">${ic('swords')}<strong>Nenhuma partida ainda</strong><span>${owner ? 'Toque em "Adicionar partida", escolha os dois times e inicie o cronômetro. Ao encerrar, a próxima partida é criada sozinha.' : 'O organizador ainda não criou as partidas.'}</span></div>`}</section>`;
+      ${order.length ? html`<div class="turn-order" aria-label="Ordem de quem joga"><b class="small">Quem joga em seguida:</b><ol>${order.map((o, i) => html`<li><span class="n">${i + 1}º</span> ${o.text} <span class="muted small">${o.tag}</span></li>`)}</ol></div>` : ''}
+      ${d.matches.length ? html`<div class="match-list">${d.matches.map((m, i) => matchCard(p, d, m, { isOwner: owner, now, index: i, fixOpen: ui.fixOpen, flash: ui.flash }))}</div>`
+        : html`<div class="empty">${ic('swords')}<strong>Nenhuma partida ainda</strong><span>${owner ? 'Toque em "Adicionar partida", escolha os dois times e inicie o cronômetro. Ao encerrar, a próxima partida é criada sozinha.' : `${cap(gn(p).o)} ${gn(p).owner} ainda não criou as partidas.`}</span></div>`}</section>`;
   }
 
   const podiumSec = () => podiumPanel(pel(), { scope: ui.podScope, dayId });
 
+  /** Fim do tempo: apito de árbitro bem alto, vibração e o relógio pisca em vermelho por alguns segundos (em todos os aparelhos). */
+  function timeUp(mid) {
+    playWhistle();
+    ui.flash.set(mid, serverNow() + 6000);
+    paint();
+    setTimeout(() => { ui.flash.delete(mid); if (ctx.isCurrent()) paint(); }, 6100);
+  }
+
   function paint() {
+    for (const m of day().matches) { // partida que acabou por tempo esgotado (visto por quem só acompanha)
+      const was = ui.prevStatus.get(m.id);
+      ui.prevStatus.set(m.id, m.status);
+      if (was === 'live' && m.status === 'finished' && timerRemaining(m.timer, serverNow()) <= 0 && !ui.ended.has(m.id)) { ui.ended.add(m.id); queueMicrotask(() => timeUp(m.id)); }
+    }
     patch(sec('head'), headSec().s);
     patch(sec('presence'), presenceSec().s);
     patch(sec('draw'), drawSec().s);
@@ -198,14 +232,79 @@ export default async function (ctx) {
     if (want) toast('Presença confirmada! Seu nome já está na lista.', { type: 'success', ms: 2500 });
   }
 
-  async function doDraw() {
+  /** Jarvis (IA, com texto pronto de reserva): preenche o elemento quando a resposta chega. */
+  function askJarvis(topic, el) {
+    api.post(`${base}/jarvis`, { topic }).then(r => { if (el.isConnected) el.innerHTML = html`${ic('sparkles', { size: 15 })} <b>Jarvis:</b> ${r.text}`.s; })
+      .catch(() => { el.hidden = true; });
+  }
+  const jarvisBox = () => html`<p class="jarvis-tip" data-jarvis>${ic('sparkles', { size: 15 })} Jarvis está pensando…</p>`;
+
+  /** Janela do sorteio manual: Cerca + time derrotado, ou geral. Sem times ainda, sorteia direto. */
+  function chooseDraw() {
+    const p = pel(), d = day(), G = gx(p.gender), min = d.org.minPerTeam;
+    const live = d.matches.some(m => m.status === 'live');
+    const fenceN = d.fence.length;
+    const hasLeaver = d.matches.some(m => m.status === 'finished') && d.lastLeaver && d.draw.teams.some(t => t.id === d.lastLeaver);
+    let fenceWhy = '';
+    if (live && fenceN < min) fenceWhy = `Durante a partida precisa de ao menos ${min} ${G.players} na Cerca para formar o próximo time (há ${fenceN}).`;
+    else if (!live && !fenceN) fenceWhy = 'A Cerca está vazia.';
+    else if (!live && fenceN < min && !hasLeaver) fenceWhy = 'Ainda não há time derrotado para receber a Cerca.';
+    const genWhy = d.attendance.length < 2 * min ? `São necessários ao menos ${2 * min} ${G.players} (há ${d.attendance.length}).` : '';
+    const fixedWhy = d.fixed ? 'Os times estão fixos: libere os times para sortear.' : '';
+    const opt = (mode, title, text, why, ico) => html`<button type="button" class="draw-opt" data-mode="${mode}" ${why ? 'disabled' : ''}>
+      <span class="t-ico" aria-hidden="true">${ic(ico, { size: 22 })}</span><span><b>${title}</b><span class="muted small" style="display:block">${text}</span>${why ? html`<span class="hint warn" style="display:block">${why}</span>` : ''}</span></button>`;
+    return new Promise(resolve => {
+      let chosen = null;
+      const dlg = openDialog({
+        title: 'Sortear times',
+        body: html`<p class="muted small" style="margin:0 0 10px">${live ? 'Há uma partida em andamento.' : 'Nenhuma partida em andamento.'} Escolha o tipo de sorteio.</p>
+          ${jarvisBox()}
+          <div class="draw-opts">
+            ${opt('fence', 'Sorteio de cerca + time derrotado',
+              live ? `Forma já o próximo time com a Cerca (grupos de ${min}); quem sobrar entra no time que perder quando a partida acabar.` : `A Cerca é embaralhada com ${G.os} ${G.players} do último time derrotado: quem está na Cerca sempre entra e saem quem mais jogou e fez gols no dia. Grupos completos viram time novo.`,
+              fixedWhy || fenceWhy, 'users')}
+            ${opt('general', 'Sorteio geral de todos os jogadores',
+              live ? 'Refaz todos os times, repetindo o mínimo possível as mesmas duplas. Vale quando a partida terminar, dando a vez a quem não está em quadra.' : 'Refaz todos os times agora, repetindo o mínimo possível as mesmas duplas. A Cerca tem prioridade e a vez é de quem acabou de descansar.',
+              fixedWhy || genWhy, 'shuffle')}
+          </div>`,
+        foot: html`<button class="btn" data-close>Cancelar</button>`,
+      });
+      askJarvis('suggest', dlg.el.querySelector('[data-jarvis]'));
+      dlg.el.addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (b && !b.disabled) { chosen = b.dataset.mode; dlg.close('ok'); } });
+      dlg.closed.then(() => resolve(chosen));
+    });
+  }
+
+  /** "O que mudou": quem entrou e quem saiu de cada time depois de um sorteio. */
+  function showChanges({ changes = [], fenceOut = [], fenceIn = [], kind = 'fence' }, head = '') {
+    const p = pel(), d = day(), name = pid => p.people[pid]?.name || '?';
+    const rows = changes.filter(c => c.in.length || c.out.length);
+    if (!rows.length && !fenceOut.length) return;
+    const dlg = openDialog({
+      title: 'O que mudou',
+      body: html`${head ? html`<p class="muted small" style="margin:0 0 8px">${head}</p>` : ''}${jarvisBox()}
+        ${rows.map(c => html`<div class="change-row"><b>${teamOf(d, c.teamId)?.label || 'Time'}${c.isNew ? html` <span class="badge ok">novo</span>` : ''}</b>
+          ${c.in.length ? html`<div class="in">${ic('arrow-down', { size: 14 })} Entram: ${c.in.map(name).join(', ')}</div>` : ''}${c.out.length ? html`<div class="out">${ic('arrow-up', { size: 14 })} Saem: ${c.out.map(name).join(', ')}</div>` : ''}</div>`)}
+        <div class="change-row"><b>${ic('users', { size: 15 })} Cerca</b>${fenceOut.length ? html`<div class="out">Nova Cerca: ${fenceOut.map(name).join(', ')}</div>` : html`<div>A Cerca ficou vazia.</div>`}</div>`,
+      foot: html`<button class="btn btn-primary" data-close>Entendi</button>`,
+    });
+    askJarvis('changes', dlg.el.querySelector('[data-jarvis]'));
+  }
+
+  /** Resumo do jogo escrito pelo Jarvis (para quem organiza e para quem só acompanha). */
+  function showSummary() {
+    const dlg = openDialog({ title: 'Resumo do Jarvis', body: jarvisBox(), foot: html`<button class="btn btn-primary" data-close>Fechar</button>` });
+    askJarvis('summary', dlg.el.querySelector('[data-jarvis]'));
+  }
+
+  async function doDraw(mode = null) {
     if (ui.drawing) return;
     ui.drawing = true; // a atualização automática espera: a animação é desta pessoa
     try {
       const d = day();
-      const locked = new Set(d.matches.filter(m => m.status === 'live').flatMap(m => [m.a, m.b]).flatMap(id => teamOf(d, id)?.players || []));
-      const names = d.attendance.filter(a => !locked.has(a.pid)).map(a => pel().people[a.pid]?.name || '?');
-      const req = post('/draw').then(r => ({ r }), e => ({ e }));
+      const pool = mode === 'fence' ? d.fence : d.attendance.map(a => a.pid);
+      const names = pool.map(pid => pel().people[pid]?.name || '?');
+      const req = post('/draw', mode ? { mode } : undefined).then(r => ({ r }), e => ({ e }));
       const anim = playShuffle(names, { ms: 5000 });
       const out = await Promise.race([req, anim.then(() => null)]);
       if (out?.e) { anim.cancel(); await onError(out.e); return; } // falhou na hora: não faz o usuário esperar
@@ -216,7 +315,8 @@ export default async function (ctx) {
       ui.fresh = res.r.drawId; ui.expanded.clear();
       apply(res.r);
       setTimeout(() => { ui.fresh = null; }, 2500);
-      toast('Times sorteados!', { type: 'success' });
+      if (mode && !res.r.later) showChanges(res.r, mode === 'fence' ? 'Sorteio da Cerca' : 'Sorteio geral');
+      toast(!mode ? 'Times sorteados!' : res.r.later ? 'Sorteio geral combinado: vale quando a partida terminar.' : mode === 'fence' ? 'Sorteio da Cerca feito!' : 'Todos os times foram sorteados de novo!', { type: 'success' });
     } finally { ui.drawing = false; }
   }
 
@@ -228,7 +328,7 @@ export default async function (ctx) {
       const dlg = openDialog({
         title: `Escolher o time ${side === 'a' ? 'A' : 'B'}`,
         body: html`<p class="muted small" style="margin:0">Escolha entre os times sorteados.${d.queue.length ? ` Próximos da fila: ${d.queue.map(t => teamOf(d, t).label).join(' → ')}.` : ''}</p>
-          <div class="pick-list">${d.draw.teams.map(t => html`<button type="button" class="pick ${m[side] === t.id ? 'cur' : ''}" data-pick="${t.id}" ${busy.has(t.id) || (m[side === 'a' ? 'b' : 'a'] === t.id) ? 'disabled' : ''}><span class="team-num sm">${t.number}</span><span class="grow" style="text-align:left">${t.label}</span><span class="muted small">${t.players.length} ${busy.has(t.id) ? '· em outra partida' : m[side === 'a' ? 'b' : 'a'] === t.id ? '· já escolhido' : ''}</span></button>`)}</div>`,
+          <div class="pick-list">${d.draw.teams.map(t => html`<button type="button" class="pick ${m[side] === t.id ? 'cur' : ''}" data-pick="${t.id}" ${busy.has(t.id) || (m[side === 'a' ? 'b' : 'a'] === t.id) ? 'disabled' : ''}><span class="team-emb">${emblem(t, 28)}</span><span class="grow" style="text-align:left">${t.label}</span><span class="muted small">${t.players.length} ${busy.has(t.id) ? '· em outra partida' : m[side === 'a' ? 'b' : 'a'] === t.id ? '· já escolhido' : ''}</span></button>`)}</div>`,
         foot: html`${m[side] ? html`<button class="btn btn-outline-danger" data-pick="">Limpar vaga</button>` : ''}<button class="btn" data-close>Cancelar</button>`,
       });
       dlg.el.addEventListener('click', e => { const b = e.target.closest('[data-pick]'); if (b && !b.disabled) { chosen = b.dataset.pick; dlg.close('ok'); } });
@@ -247,9 +347,9 @@ export default async function (ctx) {
     return new Promise(resolve => {
       let chosen;
       const dlg = openDialog({
-        title: `Jogador de fora para o ${team.label}`,
-        body: list.length ? html`<p class="muted small" style="margin:0">O jogador escolhido atua só nesta partida e pode marcar gols para o ${team.label}.</p>${list.map(g => html`<div><h4 class="list-title" style="margin:8px 0 6px">${g.title}</h4><div class="pick-list">${g.pids.map(pid => html`<button type="button" class="pick" data-pick="${pid}">${avatar(p.people[pid], pid, { size: 30 })}<span class="grow" style="text-align:left">${p.people[pid]?.name || '?'}</span></button>`)}</div></div>`)}`
-          : html`<div class="empty">${ic('users')}<span>Não há jogadores de fora disponíveis agora.</span></div>`,
+        title: `${cap(gn(p).player)} de fora para o ${team.label}`,
+        body: list.length ? html`<p class="muted small" style="margin:0">${cap(gn(p).o)} ${gn(p).player} ${gn(p).selected} atua só nesta partida e pode marcar gols para o ${team.label}.</p>${list.map(g => html`<div><h4 class="list-title" style="margin:8px 0 6px">${g.title}</h4><div class="pick-list">${g.pids.map(pid => html`<button type="button" class="pick" data-pick="${pid}">${avatar(p.people[pid], pid, { size: 30 })}<span class="grow" style="text-align:left">${p.people[pid]?.name || '?'}</span></button>`)}</div></div>`)}`
+          : html`<div class="empty">${ic('users')}<span>Não há ${gn(p).players} de fora disponíveis agora.</span></div>`,
         foot: html`<button class="btn" data-close>Fechar</button>`,
       });
       dlg.el.addEventListener('click', e => { const b = e.target.closest('[data-pick]'); if (b) { chosen = b.dataset.pick; dlg.close('ok'); } });
@@ -264,17 +364,21 @@ export default async function (ctx) {
     const act = t.closest('[data-act]')?.dataset.act;
     if (act === 'presence') return togglePresence();
     if (act === 'draw' && day().draw) {
-      const started = day().matches.some(m => m.status !== 'scheduled');
-      const auto = day().org.autoDraw;
-      if (!(await confirmDialog({
-        title: started ? 'Sortear a próxima composição?' : 'Refazer o sorteio?',
-        text: started
-          ? `Os times que estão em quadra e o vencedor que continua se mantêm. Os outros jogadores e a Cerca serão sorteados para a próxima partida${auto ? ' (quem está na Cerca entra obrigatoriamente)' : ''}.`
-          : 'Os times atuais serão descartados e um novo sorteio será feito com a lista de presença de agora.',
-        ok: 'Sortear Times' }))) return;
-      return doDraw();
+      const mode = await chooseDraw();
+      if (mode) await doDraw(mode);
+      return;
     }
     if (act === 'draw') return doDraw();
+    if (act === 'fix' || act === 'unfix') {
+      const G = gx(pel().gender);
+      const ok = act === 'fix'
+        ? await confirmDialog({ title: 'Fixar times?', text: `${cap(G.os)} ${G.players} continuam nos mesmos times em todas as próximas partidas. Os sorteios (automáticos e manuais) ficam suspensos até você liberar, e as próximas datas herdam estes times. Aqui não há campeonato: para disputar um, use o ArenaMaster.`, ok: 'Fixar times' })
+        : await confirmDialog({ title: 'Liberar os times?', text: 'Os sorteios voltam a valer e as próximas datas deixam de herdar estes times (as que ainda não começaram).', ok: 'Liberar' });
+      if (ok) await enqueue(() => post('/fix', { fixed: act === 'fix' }));
+      return;
+    }
+    if (act === 'summary') return showSummary();
+    if (act === 'draw-cancel') { await enqueue(() => post('/draw', { mode: 'cancel' })); return; }
     if (act === 'add-match') { await enqueue(() => post('/matches')); return; }
     const tg = t.closest('[data-team-toggle]');
     if (tg) { const k = tg.dataset.teamToggle; ui.expanded.has(k) ? ui.expanded.delete(k) : ui.expanded.add(k); patch(sec('draw'), drawSec().s); return; }
@@ -334,7 +438,8 @@ export default async function (ctx) {
     if (fin) {
       const m = day().matches.find(x => x.id === fin.dataset.finish);
       const r = await enqueue(() => post(`/matches/${m.id}/finish`));
-      if (r) toast(r.next ? (r.info?.rotation ? 'Partida encerrada! Sorteio automático feito e a próxima partida já foi criada.' : 'Partida encerrada! A próxima partida já foi criada.') : 'Partida encerrada.', { type: 'success' });
+      if (r?.info?.rotation) showChanges(r.info.rotation, r.info.rotation.kind === 'general' ? 'Sorteio geral' : 'Sorteio da Cerca');
+      if (r) toast(r.next ? (r.info?.rotation ? `Partida encerrada! ${r.info.rotation.kind === 'general' ? 'Sorteio geral feito' : 'Sorteio da Cerca feito'} e a próxima partida já foi criada.` : 'Partida encerrada! A próxima partida já foi criada.') : 'Partida encerrada.', { type: 'success' });
       return;
     }
     const dm = t.closest('[data-del-match]');
@@ -369,7 +474,7 @@ export default async function (ctx) {
     if (!e.target.matches('[data-guest-form]')) return;
     e.preventDefault();
     const f = e.target, name = f.name.value.trim();
-    if (name.length < 2) { toast('Digite o nome do convidado.', { type: 'warn' }); f.name.focus(); return; }
+    if (name.length < 2) { toast(`Digite o nome ${gn(pel()).do} ${gn(pel()).guest}.`, { type: 'warn' }); f.name.focus(); return; }
     const r = await enqueue(() => post('/guests', { name, teamId: f.teamId?.value }));
     if (r) { toast(`${name} foi adicionado${day().draw ? '' : ' à lista e entra no sorteio'}.`, { type: 'success' }); const n = $('#g-name', ctx.root); if (n) { n.value = ''; n.focus(); } }
   });
@@ -385,10 +490,10 @@ export default async function (ctx) {
       if (el && isRunning(m)) { const txt = fmtClock(rem); if (el.textContent !== txt) el.textContent = txt; } // só o que está rodando muda na tela
       if (rem > 0) { ui.ended.delete(m.id); continue; }
       if (isRunning(m) && !ui.ended.has(m.id)) {
-        ui.ended.add(m.id); beep();
+        ui.ended.add(m.id); timeUp(m.id);
         if (isOwner()) {
           enqueue(() => post(`/matches/${m.id}/finish`, { auto: true }), { quiet: ['TIMER_RUNNING', 'MATCH_FINISHED'] }).then(r => {
-            if (r) toast(r.next ? (r.info?.rotation ? 'Tempo esgotado! Partida encerrada, sorteio automático feito e a próxima já foi criada.' : 'Tempo esgotado! Partida encerrada e a próxima já foi criada.') : 'Tempo esgotado! Partida encerrada.', { type: 'success', ms: 5000 });
+            if (r) toast(r.next ? (r.info?.rotation ? `Tempo esgotado! Partida encerrada, ${r.info.rotation.kind === 'general' ? 'sorteio geral' : 'sorteio da Cerca'} feito e a próxima já foi criada.` : 'Tempo esgotado! Partida encerrada e a próxima já foi criada.') : 'Tempo esgotado! Partida encerrada.', { type: 'success', ms: 5000 });
             else setTimeout(() => ui.ended.delete(m.id), 1200);
           });
         } else paint();

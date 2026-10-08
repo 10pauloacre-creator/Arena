@@ -2,6 +2,8 @@
 import { html, ic } from '../../ui/dom.js';
 import { fmtClock, timerRemaining, firstName, joinNames } from '../../shared/pelada.js';
 import { avatar } from './img.js';
+import { gx, cap } from '../../shared/gender.js';
+import { emblem } from './emblem.js';
 
 const STATUS = { scheduled: ['Agendada', ''], live: ['Ao vivo', 'live'], paused: ['Pausada', 'warn'], finished: ['Encerrada', 'dark'] };
 
@@ -13,7 +15,7 @@ const statusKey = m => (m.status === 'live' && !m.timer.startedAt ? 'paused' : m
 
 function slot(day, m, side, isOwner) {
   const id = m[side], t = id ? matchTeam(day, m, side) : null;
-  if (t) return html`<button type="button" class="slot filled" data-slot="${side}" data-match="${m.id}" ${isOwner && m.status === 'scheduled' ? '' : 'disabled'} title="${isOwner && m.status === 'scheduled' ? 'Trocar time' : t.label}"><span class="team-num sm">${t.number}</span><span class="slot-name">${t.label}</span></button>`;
+  if (t) return html`<button type="button" class="slot filled" data-slot="${side}" data-match="${m.id}" ${isOwner && m.status === 'scheduled' ? '' : 'disabled'} title="${isOwner && m.status === 'scheduled' ? 'Trocar time' : t.label}"><span class="team-emb">${emblem(t, 28)}</span><span class="slot-name">${t.label}</span></button>`;
   return html`<button type="button" class="slot empty" data-slot="${side}" data-match="${m.id}" ${isOwner ? '' : 'disabled'}>${ic('plus', { size: 16 })}<span>${isOwner ? 'Escolher time' : 'A definir'}</span></button>`;
 }
 
@@ -46,7 +48,7 @@ function sumulaCol(pel, day, m, side) {
     })}
       <span class="chip noauthor"><button type="button" class="chip-main" data-goal="${teamId}|" data-match="${m.id}" aria-label="Gol sem autor">${ic('goal', { size: 14 })}<span>Sem autor</span>${noAuthor ? html`<b>${noAuthor}</b>` : ''}</button>${noAuthor ? html`<button type="button" class="chip-minus" data-ungoal="${teamId}|" data-match="${m.id}" aria-label="Remover gol sem autor">${ic('minus', { size: 12 })}</button>` : ''}</span>
     </div>
-    <button type="button" class="btn btn-sm btn-ghost" data-loan="${teamId}" data-match="${m.id}">${ic('user-plus', { size: 15 })} Jogador de fora</button></div>`;
+    <button type="button" class="btn btn-sm btn-ghost" data-loan="${teamId}" data-match="${m.id}">${ic('user-plus', { size: 15 })} ${cap(gx(pel.gender).player)} de fora</button></div>`;
 }
 
 export function nextInfoText(pel, day, m) {
@@ -58,8 +60,11 @@ export function nextInfoText(pel, day, m) {
   const nameOf = pid => firstName(pel.people[pid]?.name || '?');
   const r = nx.rotation;
   if (r) {
-    const lead = teamOf(day, r.teamId);
-    return `${st.label} ${nx.reason === 'venceu' ? 'venceu e continua' : 'continua (empate)'}. Sorteio automático: ${r.fenceIn.length ? `${joinNames(r.fenceIn, nameOf)} da Cerca ${r.fenceIn.length === 1 ? 'entrou' : 'entraram'} no ${lead?.label || 'novo time'}` : `${lead?.label || 'um novo time'} foi sorteado`}. ${r.fenceOut.length ? `Nova Cerca: ${joinNames(r.fenceOut, nameOf)}.` : 'A Cerca ficou vazia.'}`;
+    const lab = id => teamOf(day, id)?.label || 'time';
+    const fence = r.fenceOut.length ? `Nova Cerca: ${joinNames(r.fenceOut, nameOf)}.` : 'A Cerca ficou vazia.';
+    if (r.kind === 'general') return `Sorteio geral: todos os times foram refeitos (${r.fenceIn.length ? `${joinNames(r.fenceIn, nameOf)} da Cerca ${r.fenceIn.length === 1 ? 'entrou' : 'entraram'}; ` : ''}os mais ativos do dia dão a vez). ${fence}`;
+    const parts = (r.changes || []).filter(c => c.in.length || c.out.length).map(c => `${lab(c.teamId)}${c.isNew ? ' (novo)' : ''}: ${[c.in.length && `entram ${joinNames(c.in, nameOf)}`, c.out.length && `saem ${joinNames(c.out, nameOf)}`].filter(Boolean).join('; ')}`);
+    return `${st.label} ${nx.reason === 'venceu' ? 'venceu e continua' : 'continua (empate)'}. Sorteio da Cerca: ${parts.join(' · ')}. ${fence}`;
   }
   return nx.reason === 'venceu'
     ? `${st.label} venceu e continua; ${lv.label} vai para o fim da fila.`
@@ -75,7 +80,7 @@ export function fenceFooter(pel, day) {
 }
 
 /** `now` = relógio do servidor estimado (ms). `fixOpen` = ids das partidas com a edição de placar aberta. */
-export function matchCard(pel, day, m, { isOwner, now, index, fixOpen = null }) {
+export function matchCard(pel, day, m, { isOwner, now, index, fixOpen = null, flash = null }) {
   const [label, cls] = STATUS[statusKey(m)];
   const a = matchTeam(day, m, 'a'), b = matchTeam(day, m, 'b');
   const ready = !!(m.a && m.b);
@@ -94,19 +99,19 @@ export function matchCard(pel, day, m, { isOwner, now, index, fixOpen = null }) 
       <span class="vs" aria-hidden="true">×</span>
       <div class="side">${slot(day, m, 'b', isOwner)}<output class="big-score" aria-label="Gols do time B">${ready ? m.score.b : '–'}</output></div>
     </div>
-    ${ready || !finished ? html`<div class="match-clock ${timeUp ? 'up' : ''}"><span class="clock" data-clock="${m.id}" role="timer" aria-label="${finished ? 'Tempo jogado' : 'Tempo restante'}">${fmtClock(finished ? m.timer.elapsedMs : remaining)}</span>
+    ${ready || !finished ? html`<div class="match-clock ${timeUp ? 'up' : ''} ${(flash?.get(m.id) || 0) > now ? 'flash' : ''}"><span class="clock" data-clock="${m.id}" role="timer" aria-label="${finished ? 'Tempo jogado' : 'Tempo restante'}">${fmtClock(finished ? m.timer.elapsedMs : remaining)}</span>
       ${finished ? html`<span class="muted small">Tempo jogado · tempo regulamentar de ${mins} min</span>` : timeUp ? html`<span class="muted small">Tempo esgotado!</span>` : html`<span class="muted small">${m.status === 'scheduled' ? `Cronômetro de ${mins} min` : running ? 'Rodando…' : 'Cronômetro pausado'}</span>`}
       ${isOwner && !finished ? html`<div class="clock-ctl">
         ${running ? html`<button class="btn btn-sm" data-timer="pause" data-match="${m.id}">${ic('pause', { size: 15 })} Pausar</button>` : html`<button class="btn btn-sm btn-primary" data-timer="start" data-match="${m.id}" ${ready && !timeUp ? '' : 'disabled'}>${ic('play', { size: 15 })} ${m.status === 'scheduled' ? 'Iniciar' : 'Continuar'}</button>`}
         <button class="btn btn-sm" data-timer="reset" data-match="${m.id}" ${m.timer.elapsedMs || running ? '' : 'disabled'}>${ic('rotate-ccw', { size: 15 })} Zerar</button>
         <label class="mins"><span class="sr-only">Duração em minutos</span><input type="number" min="1" max="90" value="${mins}" data-mins="${m.id}" ${running ? 'disabled' : ''} aria-label="Duração da partida em minutos"> <span>min</span></label>
         <button class="btn btn-sm" data-timer="set" data-match="${m.id}" ${running ? 'disabled' : ''}>Definir</button></div>` : ''}</div>` : ''}
-    ${isOwner && ready && !finished ? html`<div class="sumula"><h4>${ic('clipboard-check', { size: 18 })} Súmula: toque no jogador que fez o gol</h4><div class="sum-cols">${sumulaCol(pel, day, m, 'a')}${sumulaCol(pel, day, m, 'b')}</div>
+    ${isOwner && ready && !finished ? html`<div class="sumula"><h4>${ic('clipboard-check', { size: 18 })} Súmula: toque n${gx(pel.gender).o} ${gx(pel.gender).player} que fez o gol</h4><div class="sum-cols">${sumulaCol(pel, day, m, 'a')}${sumulaCol(pel, day, m, 'b')}</div>
       <div class="row wrap" style="justify-content:flex-end;margin-top:10px"><button class="btn btn-gold" data-finish="${m.id}">${ic('flag', { size: 18 })} Encerrar partida</button></div></div>` : ''}
     ${!isOwner && ready && m.goals.length ? html`<div class="scorers"><p><b>${a?.label || 'Time A'}:</b> ${scorersText(pel, m, m.a) || '—'}</p><p><b>${b?.label || 'Time B'}:</b> ${scorersText(pel, m, m.b) || '—'}</p></div>` : ''}
     ${finished && isOwner && ready ? html`<div class="scorers">${m.goals.length ? html`<p><b>${a?.label}:</b> ${scorersText(pel, m, m.a) || '—'}</p><p><b>${b?.label}:</b> ${scorersText(pel, m, m.b) || '—'}</p>` : html`<p class="muted">Nenhum gol anotado nesta partida.</p>`}
       <details class="fix" data-fix="${m.id}" ${fixOpen?.has(m.id) ? 'open' : ''}><summary>${ic('pencil', { size: 15 })} Editar placar e gols</summary>
-        <p class="muted small" style="margin:8px 0">Só o organizador corrige o resultado de uma partida encerrada: toque em quem fez o gol (ou em "Sem autor") para somar e no − para tirar. A artilharia se ajusta sozinha; a próxima partida já montada não muda.</p>
+        <p class="muted small" style="margin:8px 0">Só ${gx(pel.gender).o} ${gx(pel.gender).owner} corrige o resultado de uma partida encerrada: toque em quem fez o gol (ou em "Sem autor") para somar e no − para tirar. A artilharia se ajusta sozinha; a próxima partida já montada não muda.</p>
         <div class="sum-cols">${sumulaCol(pel, day, m, 'a')}${sumulaCol(pel, day, m, 'b')}</div></details></div>` : ''}
     ${finished && nextText ? html`<div class="next-info">${ic('wand-sparkles', { size: 16 })} <span><b>Próxima partida criada${nextMatch && nextMatch.a && nextMatch.b ? `: ${matchTeam(day, nextMatch, 'a')?.label} × ${matchTeam(day, nextMatch, 'b')?.label}` : ''}.</b> ${nextText}</span></div>` : ''}
     ${!finished && day.draw ? fenceFooter(pel, day) : ''}

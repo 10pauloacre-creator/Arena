@@ -15,6 +15,7 @@ import { composePreview } from '../ui/preview.js';
 import { fetchPelada } from '../data.js';
 import { poll } from '../ui/poll.js';
 import { GENDERS, autoDrawLabel } from '../../shared/pelada.js';
+import { gx, cap } from '../../shared/gender.js';
 import { N, onNotif, savePrefs } from '../notify.js';
 
 const TABS = [['jogos', 'Jogos', 'calendar'], ['historico', 'Histórico', 'clipboard-check'], ['artilharia', 'Artilharia', 'trophy'], ['jogadores', 'Jogadores', 'users']];
@@ -50,6 +51,7 @@ export default async function (ctx) {
   const pel = () => st.pel;
   const isOwner = () => !!pel().viewer?.isOwner;
   const isMember = () => !!pel().viewer?.isMember;
+  const G = () => gx(pel().gender); // textos no gênero da pelada (jogadora, organizadora, convidada…)
 
   // ------------------------------------------------------------ partes
   function header() {
@@ -60,7 +62,7 @@ export default async function (ctx) {
       <div class="pel-cover">${cover ? html`<img src="${cover}" alt="" decoding="async">` : ''}</div>
       <div class="pel-id">${peladaAvatar(p, 84)}<div class="grow" style="min-width:0"><h1>${p.name}</h1>
         <div class="row wrap" style="gap:8px;margin-top:8px"><span class="badge ${p.gender === 'feminino' ? 'pink' : 'info'}">${g.emoji} ${g.label}</span><span class="badge">${ic('users', { size: 13 })} ${p.members.length} ${p.members.length === 1 ? 'participante' : 'participantes'}</span>
-          <span class="badge">mín. ${p.minPerTeam} por time</span>${p.noTeams ? html`<span class="badge warn">Sem formação de times</span>` : p.autoDraw ? html`<span class="badge" title="Sorteio automático de jogadores">${ic('shuffle', { size: 13 })} ${autoDrawLabel(p).replace('Sorteio automático ', 'Auto ')}</span>` : ''}${p.demo ? html`<span class="badge warn">Demonstração</span>` : ''}
+          <span class="badge">mín. ${p.minPerTeam} por time</span>${p.noTeams ? html`<span class="badge warn">Sem formação de times</span>` : p.autoDraw || p.generalDraw ? html`<span class="badge" title="Sorteios automáticos">${ic('shuffle', { size: 13 })} ${autoDrawLabel(p)}</span>` : ''}${p.demo ? html`<span class="badge warn">Demonstração</span>` : ''}
           <button type="button" class="badge idchip" data-copy="${p.id}" title="Copiar ID" aria-label="Copiar ID ${p.id}">ID ${p.id} ${ic('copy', { size: 13 })}</button></div>
         <p class="muted-on-dark small" style="margin:8px 0 0">Organizada por <b>${ownerP?.name || '—'}</b></p></div></div>
     </header>`;
@@ -75,36 +77,44 @@ export default async function (ctx) {
 
   function actions() {
     const p = pel();
-    if (isOwner()) return html`<div class="pel-actions"><a class="btn btn-primary" href="/pelada/p/${p.id}/editar">${ic('pencil', { size: 16 })} Editar pelada</a><button type="button" class="btn" data-add-day>${ic('plus', { size: 16 })} Adicionar data</button><span class="badge gold">Você é o organizador</span>${muteBtn()}</div>`;
+    if (isOwner()) return html`<div class="pel-actions"><a class="btn btn-primary" href="/pelada/p/${p.id}/editar">${ic('pencil', { size: 16 })} Editar pelada</a><button type="button" class="btn" data-add-day>${ic('plus', { size: 16 })} Adicionar data</button><button type="button" class="btn btn-gold" data-invite aria-haspopup="dialog">${ic('qr-code', { size: 16 })} Convite</button><span class="badge gold">Você é ${G().o} ${G().owner}</span>${muteBtn()}</div>`;
     if (isMember()) return html`<div class="pel-actions"><span class="badge ok">${ic('circle-check', { size: 14 })} Você participa desta pelada</span>${muteBtn()}</div>`;
     return html`<div class="pel-actions"><button type="button" class="btn btn-lg btn-primary" data-join>${ic('user-plus', { size: 20 })} Participar da pelada</button><span class="muted small">${S.player ? 'Entre com um toque.' : 'Sem conta? Crie em 10 segundos.'}</span></div>`;
   }
 
-  function invite() {
+  /** Convite (QR, link, ID e WhatsApp): fica num modal para não ocupar a tela da pelada. */
+  function openInvite() {
     const inv = pel().invite;
-    if (!inv) return '';
+    if (!inv) return;
     const msg = `⚽ Bora jogar? Entra na pelada "${pel().name}":\n${inv.url}\n\nID: ${inv.id}`;
-    return html`<section class="card invite ${ui.novo ? 'highlight' : ''}" aria-label="Convite">
-      <div class="row wrap" style="align-items:flex-start;gap:18px"><div class="qr-box" aria-label="QR Code do link de convite">${qrSvg(inv.url, { margin: 1 })}</div>
-        <div class="grow stack-sm" style="min-width:220px"><h3 class="card-title" style="margin:0">${ic('link')} Convide a galera <span class="badge gold">só você vê</span></h3>
-          <span class="label">Link de convite</span><div class="copy-field"><input readonly value="${inv.url}" aria-label="Link de convite"><button class="btn btn-sm" data-copy="${inv.url}">${ic('copy', { size: 15 })} Copiar link</button></div>
-          <span class="label">ID da pelada</span><div class="copy-field"><input readonly value="${inv.id}" aria-label="ID da pelada"><button class="btn btn-sm" data-copy="${inv.id}">${ic('copy', { size: 15 })} Copiar ID</button></div>
-          <div class="row wrap"><a class="btn btn-sm btn-primary" target="_blank" rel="noopener" data-external href="https://wa.me/?text=${encodeURIComponent(msg)}">${ic('message-circle', { size: 15 })} Enviar no WhatsApp</a></div>
-          <p class="hint">Quem abrir o link entra na pelada; ou cole o ID no campo "ID da pelada" do app.</p></div></div></section>`;
+    const d = openDialog({
+      title: 'Convide a galera',
+      body: html`<div class="stack-sm invite-modal"><div class="qr-box" aria-label="QR Code do link de convite" style="margin:0 auto">${qrSvg(inv.url, { margin: 1 })}</div>
+        <span class="badge gold" style="align-self:center">só ${G().o} ${G().owner} vê</span>
+        <span class="label">Link de convite</span><div class="copy-field"><input readonly value="${inv.url}" aria-label="Link de convite"><button class="btn btn-sm" data-copy="${inv.url}">${ic('copy', { size: 15 })} Copiar link</button></div>
+        <span class="label">ID da pelada</span><div class="copy-field"><input readonly value="${inv.id}" aria-label="ID da pelada"><button class="btn btn-sm" data-copy="${inv.id}">${ic('copy', { size: 15 })} Copiar ID</button></div>
+        <a class="btn btn-primary" target="_blank" rel="noopener" data-external href="https://wa.me/?text=${encodeURIComponent(msg)}">${ic('message-circle', { size: 16 })} Enviar no WhatsApp</a>
+        <p class="hint" style="margin:0">Quem abrir o link entra na pelada; ou cole o ID no campo "ID da pelada" do app.</p></div>`,
+      foot: html`<button class="btn" data-close>Fechar</button>`,
+    });
+    d.el.addEventListener('click', async e => {
+      const copy = e.target.closest('[data-copy]');
+      if (copy) toast((await copyText(copy.dataset.copy)) ? 'Copiado!' : 'Não foi possível copiar.', { type: 'success', ms: 1800 });
+    });
   }
 
   const tabsBar = () => html`<div class="seg tabs" role="group" aria-label="Seções da pelada">${TABS.map(([k, label, icon]) => html`<button type="button" data-tab="${k}" aria-pressed="${String(tab === k)}">${ic(icon, { size: 16 })} ${label}</button>`)}</div>`;
 
   function daysTab() {
     const p = pel();
-    if (!p.days.length) return html`<div class="empty">${ic('calendar')}<strong>Nenhuma data de jogo ainda</strong><span>${isOwner() ? 'Use "Adicionar data" para marcar o primeiro jogo.' : 'O organizador ainda não marcou os jogos.'}</span></div>`;
+    if (!p.days.length) return html`<div class="empty">${ic('calendar')}<strong>Nenhuma data de jogo ainda</strong><span>${isOwner() ? 'Use "Adicionar data" para marcar o primeiro jogo.' : `${cap(G().o)} ${G().owner} ainda não marcou os jogos.`}</span></div>`;
     const upcoming = p.days.filter(d => !d.isPast), past = p.days.filter(d => d.isPast).reverse();
     const item = d => {
       const { d: dd, mon } = dayParts(d.date), jogos = d.matches.filter(m => m.status === 'finished').length;
       const first = d.attendance.slice(0, 6);
       return html`<article class="day-item ${d.isToday ? 'today' : ''}"><div class="di-date" aria-hidden="true"><b>${dd}</b><span>${mon}</span></div>
         <div class="grow" style="min-width:0"><strong>${dayLong(d.date)} ${d.isToday ? html`<span class="badge ok">Hoje</span>` : ''}${d.custom ? html` <span class="badge info" title="Organização personalizada">personalizada</span>` : ''}</strong>
-          <span class="muted small" style="display:block">${d.attendance.length} ${d.attendance.length === 1 ? 'confirmado' : 'confirmados'}${d.org.noTeams ? ' · sem formação de times' : ` · mín. ${d.org.minPerTeam} por time`}${jogos ? ` · ${jogos} ${jogos === 1 ? 'partida' : 'partidas'}` : ''}</span>
+          <span class="muted small" style="display:block">${d.attendance.length} ${d.attendance.length === 1 ? G().confirmed : G().confirmeds}${d.org.noTeams ? ' · sem formação de times' : ` · mín. ${d.org.minPerTeam} por time`}${jogos ? ` · ${jogos} ${jogos === 1 ? 'partida' : 'partidas'}` : ''}</span>
           ${first.length ? html`<span class="av-stack">${first.map(a => avatar(p.people[a.pid], a.pid, { size: 26 }))}${d.attendance.length > 6 ? html`<span class="av-more">+${d.attendance.length - 6}</span>` : ''}</span>` : ''}</div>
         <div class="di-act">${!d.isPast ? html`<button type="button" class="btn btn-sm ${d.present ? '' : 'btn-primary'}" data-presence="${d.id}">${d.present ? 'Retirar presença' : 'Marcar presença'}</button>` : ''}<a class="btn btn-sm" href="/pelada/p/${p.id}/d/${d.id}">Abrir dia ${ic('arrow-right', { size: 14 })}</a></div></article>`;
     };
@@ -115,8 +125,8 @@ export default async function (ctx) {
   function historyTab() {
     const p = pel();
     const days = [...p.days].reverse().filter(d => d.matches.some(m => m.status === 'finished') || d.ranking.length);
-    if (!days.length) return html`<div class="empty">${ic('clipboard-check')}<strong>O histórico ainda está vazio</strong><span>Os resultados e quem fez os gols aparecem aqui assim que o organizador encerrar as partidas.</span></div>`;
-    return html`<p class="muted small" style="margin:0 0 12px">Histórico público: qualquer jogador pode consultar os resultados a qualquer momento.</p>
+    if (!days.length) return html`<div class="empty">${ic('clipboard-check')}<strong>O histórico ainda está vazio</strong><span>Os resultados e quem fez os gols aparecem aqui assim que ${G().o} ${G().owner} encerrar as partidas.</span></div>`;
+    return html`<p class="muted small" style="margin:0 0 12px">Histórico público: qualquer ${G().player} pode consultar os resultados a qualquer momento.</p>
       <div class="hist">${days.map((d, i) => {
         const fin = d.matches.filter(m => m.status === 'finished' && m.a && m.b);
         const goals = d.ranking.reduce((s, r) => s + r.goals, 0);
@@ -132,7 +142,7 @@ export default async function (ctx) {
   function playersTab() {
     const p = pel(), goals = Object.fromEntries(p.ranking.map(r => [r.pid, r.goals]));
     const presences = pid => p.days.filter(d => d.attendance.some(a => a.pid === pid)).length;
-    return html`<ul class="player-list card flush">${p.members.map(pid => html`<li>${avatar(p.people[pid], pid, { size: 40 })}<div class="grow" style="min-width:0"><strong class="ellipsis" style="display:block">${p.people[pid]?.name || '?'}</strong><span class="muted small">${presences(pid)} ${presences(pid) === 1 ? 'presença' : 'presenças'}</span></div>${pid === p.owner ? html`<span class="badge gold">Organizador</span>` : ''}<span class="badge">${goals[pid] || 0} ${(goals[pid] || 0) === 1 ? 'gol' : 'gols'}</span>${isOwner() && pid !== p.owner ? html`<button type="button" class="icon-btn danger" data-rm-member="${pid}" aria-label="Excluir ${p.people[pid]?.name || 'jogador'} da pelada" title="Excluir da pelada">${ic('trash', { size: 18 })}</button>` : ''}</li>`)}</ul>`;
+    return html`<ul class="player-list card flush">${p.members.map(pid => html`<li>${avatar(p.people[pid], pid, { size: 40 })}<div class="grow" style="min-width:0"><strong class="ellipsis" style="display:block">${p.people[pid]?.name || '?'}</strong><span class="muted small">${presences(pid)} ${presences(pid) === 1 ? 'presença' : 'presenças'}</span></div>${pid === p.owner ? html`<span class="badge gold">${cap(G().owner)}</span>` : ''}<span class="badge">${goals[pid] || 0} ${(goals[pid] || 0) === 1 ? 'gol' : 'gols'}</span>${isOwner() && pid !== p.owner ? html`<button type="button" class="icon-btn danger" data-rm-member="${pid}" aria-label="Excluir ${p.people[pid]?.name || G().player} da pelada" title="Excluir da pelada">${ic('trash', { size: 18 })}</button>` : ''}</li>`)}</ul>`;
   }
 
   const dangerZone = () => isOwner() ? html`<div class="danger-zone"><button type="button" class="btn btn-sm btn-outline-danger" data-delete>${ic('trash', { size: 15 })} Excluir esta pelada</button></div>` : '';
@@ -141,7 +151,7 @@ export default async function (ctx) {
 
   function paint() {
     const y = window.scrollY;
-    render(ctx.root, page(html`${header()}${actions()}${invite()}${tabsBar()}<section class="tab-body" data-body>${body()}</section>${dangerZone()}`));
+    render(ctx.root, page(html`${header()}${actions()}${tabsBar()}<section class="tab-body" data-body>${body()}</section>${dangerZone()}`));
     wireShell(ctx.root, ctx.signal);
     window.scrollTo({ top: y });
     ui.novo = false;
@@ -184,6 +194,7 @@ export default async function (ctx) {
       return;
     }
     if (t.closest('[data-add-day]')) { addDayDialog(); return; }
+    if (t.closest('[data-invite]')) { openInvite(); return; }
     if (t.closest('[data-leave]')) {
       if (!(await confirmDialog({ title: 'Sair da pelada?', text: `Você deixa de participar de "${pel().name}": ela some das suas peladas e você sai das listas de hoje e das próximas datas. Os gols que você já marcou continuam na artilharia. Para voltar, é só abrir o link de convite de novo.`, ok: 'Sair da pelada', danger: true }))) return;
       try { await api.post(`/pelada/peladas/${id}/leave`); toast('Você saiu da pelada.'); navigate('/pelada/painel'); } catch (err) { toast(err.message, { type: 'error' }); }
@@ -192,8 +203,8 @@ export default async function (ctx) {
     const rmm = t.closest('[data-rm-member]');
     if (rmm) {
       const pid = rmm.dataset.rmMember, name = pel().people[pid]?.name || 'esta pessoa';
-      if (!(await confirmDialog({ title: `Excluir ${name} da pelada?`, text: `${name} deixa de participar e sai das listas de hoje e das próximas datas. Os gols que já marcou continuam somando na artilharia.`, ok: 'Excluir jogador', danger: true }))) return;
-      if (await mutate(() => api.del(`/pelada/peladas/${id}/members/${encodeURIComponent(pid)}`))) toast(`${name} foi excluído da pelada.`, { type: 'success' });
+      if (!(await confirmDialog({ title: `Excluir ${name} da pelada?`, text: `${name} deixa de participar e sai das listas de hoje e das próximas datas. Os gols que já marcou continuam somando na artilharia.`, ok: `Excluir ${G().player}`, danger: true }))) return;
+      if (await mutate(() => api.del(`/pelada/peladas/${id}/members/${encodeURIComponent(pid)}`))) toast(`${name} foi ${G().excluded} da pelada.`, { type: 'success' });
       return;
     }
     const mb = t.closest('[data-mute]');
@@ -256,7 +267,7 @@ export default async function (ctx) {
     const k = JSON.stringify(N.prefs?.muted || null) + N.prefs?.enabled;
     if (k !== prefsKey && !document.querySelector('dialog[open]')) { prefsKey = k; paint(); }
   }));
-  if (ui.novo === false && ctx.query.novo === '1') $('.invite', ctx.root)?.scrollIntoView({ block: 'center' });
+  if (ctx.query.novo === '1' && isOwner()) openInvite(); // pelada recém-criada: já mostra o convite
 
   poll(ctx, async () => {
     if (document.querySelector('dialog[open]')) return;

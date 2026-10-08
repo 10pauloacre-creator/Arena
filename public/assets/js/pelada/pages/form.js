@@ -12,19 +12,20 @@ import { pickAndCrop } from '../ui/cropper.js';
 import { peladaImg } from '../ui/img.js';
 import { composePreview } from '../ui/preview.js';
 import { fetchPelada } from '../data.js';
-import { GENDERS, DEFAULT_MATCH_MIN, DEFAULT_AUTO_EVERY, AUTO_EVERY_OPTIONS } from '../../shared/pelada.js';
+import { GENDERS, DEFAULT_MATCH_MIN, DEFAULT_GENERAL_EVERY, autoDrawLabel, GENERAL_EVERY_OPTIONS, FENCE_DRAW_TITLE, FENCE_DRAW_TEXT, GENERAL_DRAW_TITLE, GENERAL_DRAW_TEXT } from '../../shared/pelada.js';
 
 const NO_TEAMS_TEXT = 'Esta opção desativa o sorteio automático de equipes. O sistema gerará apenas a lista de presença e permitirá a anotação individual de gols para o ranking de artilharia';
 const MAX_NEW_MATCHES = 20;
 
 const stepper = (name, value, { min, max, label, id }) => html`<div class="stepper" role="group" aria-label="${label}"><button type="button" class="icon-btn" data-step="${name}" data-d="-1" aria-label="Diminuir">${ic('minus')}</button><input id="${id}" type="number" name="${name}" inputmode="numeric" min="${min}" max="${max}" value="${value}" aria-label="${label}"><button type="button" class="icon-btn" data-step="${name}" data-d="1" aria-label="Aumentar">${ic('plus')}</button></div>`;
 
-/** Sorteio automático de jogadores: liga/desliga + de quantas em quantas partidas (1, 2, 3 ou nunca). `scope` = '' (padrão) ou a data. */
-const autoDrawBlock = (on, every, scope = '') => html`<div class="auto-draw" data-auto="${scope}">
-  <label class="switch">${scope ? html`<input type="checkbox" data-d-auto="${scope}" ${on ? 'checked' : ''}>` : html`<input type="checkbox" name="autoDraw" ${on ? 'checked' : ''}>`}<span class="track"></span><span><b>Sorteio automático de jogadores</b></span></label>
-  ${on ? html`<div class="field" style="margin-top:10px"><span class="label" id="ae-${scope || 'def'}">Sortear automaticamente</span>
-    <div class="seg" role="group" aria-labelledby="ae-${scope || 'def'}">${AUTO_EVERY_OPTIONS.map(([n, label]) => html`<button type="button" data-auto-every="${n}" data-date="${scope}" aria-pressed="${String(every === n)}">${label}</button>`)}</div>
-    <span class="hint">${every > 0 ? `Ao encerrar ${every === 1 ? 'cada partida' : `a ${every}ª partida`}, o time que está vencendo continua com seus jogadores. Os demais jogadores e quem está na Cerca são sorteados para a próxima partida (quem está na Cerca entra obrigatoriamente).` : 'O sorteio automático fica desligado na prática: só o sorteio manual (botão "Sortear Times"), que também coloca a Cerca na próxima partida.'}</span></div>` : html`<span class="hint" style="display:block;margin-top:6px">Desligado: o time que ganha continua e o que perde vai para o fim da fila. O organizador sorteia na hora que quiser.</span>`}
+/** Sorteios automáticos: da Cerca (a cada partida) e geral (a cada N partidas). `scope` = '' (padrão) ou a data. */
+const autoDrawBlock = (org, scope = '') => html`<div class="auto-draw stack" data-auto="${scope}">
+  <label class="switch"><input type="checkbox" data-auto-opt="autoDraw" data-date="${scope}" ${org.autoDraw ? 'checked' : ''}><span class="track"></span><span><b>${FENCE_DRAW_TITLE}</b><span class="hint" style="display:block;font-weight:400">${FENCE_DRAW_TEXT}</span></span></label>
+  <label class="switch"><input type="checkbox" data-auto-opt="generalDraw" data-date="${scope}" ${org.generalDraw ? 'checked' : ''}><span class="track"></span><span><b>${GENERAL_DRAW_TITLE}</b><span class="hint" style="display:block;font-weight:400">${GENERAL_DRAW_TEXT}</span></span></label>
+  ${org.generalDraw ? html`<div class="field"><label for="ge-${scope || 'def'}">Refazer todos os times</label>
+    <select id="ge-${scope || 'def'}" data-general-every data-date="${scope}">${GENERAL_EVERY_OPTIONS.map(([n, label]) => html`<option value="${n}" ${(org.generalEvery ?? DEFAULT_GENERAL_EVERY) === n ? 'selected' : ''}>${label}</option>`)}</select>
+    <span class="hint">Depois de ${org.generalEvery === 1 ? 'cada partida' : `${org.generalEvery ?? DEFAULT_GENERAL_EVERY} partidas`}, todos os times são refeitos. Quem está na Cerca entra e saem os que mais jogaram e fizeram gols no dia. Você também pode sortear na hora pelo botão "Sortear times".</span></div>` : ''}
 </div>`;
 
 const demoCard = () => html`<section class="card demo-card form-wide" aria-label="Pelada demo">
@@ -37,7 +38,7 @@ export default async function (ctx) {
   const editId = ctx.params.id || null;
   if (!S.player) return navigate('/pelada/entrar?next=' + encodeURIComponent(ctx.path), { replace: true });
 
-  const st = { name: '', gender: '', minPerTeam: 5, matchMinutes: DEFAULT_MATCH_MIN, noTeams: false, autoDraw: false, autoEvery: DEFAULT_AUTO_EVERY, avatar: undefined, cover: undefined, avatarUrl: '', coverUrl: '', days: [] };
+  const st = { name: '', gender: '', minPerTeam: 5, matchMinutes: DEFAULT_MATCH_MIN, noTeams: false, autoDraw: false, generalDraw: false, generalEvery: DEFAULT_GENERAL_EVERY, avatar: undefined, cover: undefined, avatarUrl: '', coverUrl: '', days: [] };
   const selected = new Set();
   let original = null;
 
@@ -49,7 +50,7 @@ export default async function (ctx) {
       original = r.pelada;
     } catch (err) { return render(ctx.root, page(html`<div class="form-error" style="margin-top:24px">${err.message}</div>`)); }
     if (!original.viewer?.isOwner) { toast('Só quem criou a pelada pode editar.', { type: 'warn' }); return navigate('/pelada/p/' + editId, { replace: true }); }
-    Object.assign(st, { name: original.name, gender: original.gender, minPerTeam: original.minPerTeam, matchMinutes: original.matchMinutes, noTeams: original.noTeams, autoDraw: !!original.autoDraw, autoEvery: original.autoEvery ?? DEFAULT_AUTO_EVERY });
+    Object.assign(st, { name: original.name, gender: original.gender, minPerTeam: original.minPerTeam, matchMinutes: original.matchMinutes, noTeams: original.noTeams, autoDraw: !!original.autoDraw, generalDraw: !!original.generalDraw, generalEvery: original.generalEvery ?? DEFAULT_GENERAL_EVERY });
     st.avatarUrl = peladaImg(original.id, 'avatar', original.img.avatar);
     st.coverUrl = peladaImg(original.id, 'cover', original.img.cover);
     st.days = original.days.map(d => ({ key: d.id, id: d.id, date: d.date, custom: d.custom, org: { ...d.org }, matches: d.matches.length, locked: !!(d.attendance.length || d.matches.length || d.draw) }));
@@ -58,7 +59,7 @@ export default async function (ctx) {
   const locked = () => new Set(st.days.filter(d => d.locked).map(d => d.date));
 
   document.title = (editId ? 'Editar pelada' : 'Criar pelada') + ' · Pelada';
-  const defOrg = () => ({ minPerTeam: st.minPerTeam, matchMinutes: st.matchMinutes, noTeams: st.noTeams, autoDraw: st.autoDraw, autoEvery: st.autoEvery });
+  const defOrg = () => ({ minPerTeam: st.minPerTeam, matchMinutes: st.matchMinutes, noTeams: st.noTeams, autoDraw: st.autoDraw, generalDraw: st.generalDraw, generalEvery: st.generalEvery });
   const effective = d => d.custom ? d.org : defOrg();
 
   function syncDays() {
@@ -69,7 +70,7 @@ export default async function (ctx) {
   const imgPicker = (kind, url, label, hint) => html`<div class="img-pick ${kind}"><div class="img-prev" data-prev="${kind}">${url ? html`<img src="${url}" alt="">` : html`<span>${ic('image', { size: 28 })}</span>`}</div>
     <div><strong>${label}</strong><span class="muted small" style="display:block">${hint}</span><div class="row wrap" style="gap:8px;margin-top:8px"><button type="button" class="btn btn-sm" data-pick="${kind}">${ic('camera', { size: 15 })} ${url ? 'Trocar' : 'Escolher'} imagem</button>${url ? html`<button type="button" class="btn btn-sm btn-ghost" data-clear="${kind}">Remover</button>` : ''}</div></div></div>`;
 
-  const defaultSummary = () => `Segue o padrão: ${st.minPerTeam} por time · ${st.matchMinutes} min por partida${st.noTeams ? ' · sem formação de times' : st.autoDraw ? ` · sorteio automático ${st.autoEvery > 0 ? `a cada ${st.autoEvery} ${st.autoEvery === 1 ? 'partida' : 'partidas'}` : 'nunca (só manual)'}` : ''}.`;
+  const defaultSummary = () => `Segue o padrão: ${st.minPerTeam} por time · ${st.matchMinutes} min por partida${st.noTeams ? ' · sem formação de times' : st.autoDraw || st.generalDraw ? ` · ${autoDrawLabel(st).toLowerCase()}` : ''}.`;
 
   function dayCard(d) {
     const eff = effective(d);
@@ -87,7 +88,7 @@ export default async function (ctx) {
         ? html`<div class="day-org cols-3"><div class="field"><label>Mínimo por time</label>${stepper('d-min:' + d.date, d.org.minPerTeam, { min: 2, max: 15, label: 'Mínimo de jogadores por time nesta data', id: 'dm-' + d.date })}</div>
             <div class="field"><label>Minutos por partida</label>${stepper('d-mins:' + d.date, d.org.matchMinutes, { min: 1, max: 90, label: 'Duração da partida nesta data', id: 'dt-' + d.date })}</div>
             <label class="switch field" style="align-self:end;min-height:44px"><input type="checkbox" data-d-noteams="${d.date}" ${d.org.noTeams ? 'checked' : ''}><span class="track"></span><span>Sem formação de times</span></label></div>
-            ${d.org.noTeams ? html`<div class="form-note">${ic('info', { size: 16 })}<span>${NO_TEAMS_TEXT}.</span></div>` : autoDrawBlock(!!d.org.autoDraw, d.org.autoEvery ?? DEFAULT_AUTO_EVERY, d.date)}`
+            ${d.org.noTeams ? html`<div class="form-note">${ic('info', { size: 16 })}<span>${NO_TEAMS_TEXT}.</span></div>` : autoDrawBlock(d.org, d.date)}`
         : html`<p class="muted small" style="margin:0" data-default-sum>${defaultSummary()}</p>`}
       ${matchesBlock}
     </div>`;
@@ -108,7 +109,7 @@ export default async function (ctx) {
           <div class="cols-2"><div class="field" data-f="min"><label for="pf-min">Quantidade mínima de jogadores por time</label>${stepper('minPerTeam', st.minPerTeam, { min: 2, max: 15, label: 'Mínimo de jogadores por time', id: 'pf-min' })}<span class="hint">Ex.: 5 para futsal, 7 para society, 11 para campo.</span><span class="field-error"></span></div>
             <div class="field"><label for="pf-mins">Minutos por partida</label>${stepper('matchMinutes', st.matchMinutes, { min: 1, max: 90, label: 'Duração padrão da partida em minutos', id: 'pf-mins' })}<span class="hint">Valor inicial do cronômetro (você pode mudar em cada partida).</span></div></div>
           <label class="switch"><input type="checkbox" name="noTeams" ${st.noTeams ? 'checked' : ''}><span class="track"></span><span><b>Sem formação de times</b></span></label>
-          ${st.noTeams ? html`<div class="form-note" id="nt-note">${ic('info', { size: 16 })}<span>${NO_TEAMS_TEXT}.</span></div>` : autoDrawBlock(st.autoDraw, st.autoEvery)}</section>
+          ${st.noTeams ? html`<div class="form-note" id="nt-note">${ic('info', { size: 16 })}<span>${NO_TEAMS_TEXT}.</span></div>` : autoDrawBlock(st)}</section>
         <section class="card stack"><h2 class="card-title">${ic('calendar')} Dias de jogos</h2>
           <p class="muted small" style="margin:-6px 0 0">Toque nos dias do calendário para marcar os jogos. Cada data pode seguir a organização padrão ou ter uma própria.</p>
           <div class="field" data-f="days"><div data-cal></div><span class="field-error"></span></div>
@@ -173,12 +174,6 @@ export default async function (ctx) {
       if (d.custom && !d.org) d.org = defOrg();
       paintDays(); return;
     }
-    const ae = e.target.closest('[data-auto-every]');
-    if (ae) {
-      const n = Number(ae.dataset.autoEvery);
-      if (ae.dataset.date) { day(ae.dataset.date).org.autoEvery = n; paintDays(); } else { st.autoEvery = n; st.days.forEach(d => { if (!d.custom) d.org.autoEvery = n; }); paint(); }
-      return;
-    }
     const add = e.target.closest('[data-add-match]');
     if (add) { const d = day(add.dataset.addMatch); d.matches = Math.min(MAX_NEW_MATCHES, d.matches + 1); paintDays(); return; }
     const del = e.target.closest('[data-del-match]');
@@ -194,8 +189,16 @@ export default async function (ctx) {
   ctx.root.addEventListener('change', e => {
     const t = e.target;
     if (t.name === 'noTeams') { st.noTeams = t.checked; st.days.forEach(d => { if (!d.custom) d.org.noTeams = st.noTeams; }); paint(); return; }
-    if (t.name === 'autoDraw') { st.autoDraw = t.checked; st.days.forEach(d => { if (!d.custom) d.org.autoDraw = st.autoDraw; }); paint(); return; }
-    if (t.dataset.dAuto) { const d = day(t.dataset.dAuto); d.org.autoDraw = t.checked; paintDays(); return; }
+    if (t.dataset.autoOpt) {
+      const k = t.dataset.autoOpt;
+      if (t.dataset.date) { day(t.dataset.date).org[k] = t.checked; paintDays(); } else { st[k] = t.checked; st.days.forEach(d => { if (!d.custom) d.org[k] = t.checked; }); paint(); }
+      return;
+    }
+    if ('generalEvery' in t.dataset) {
+      const n = Number(t.value);
+      if (t.dataset.date) { day(t.dataset.date).org.generalEvery = n; paintDays(); } else { st.generalEvery = n; st.days.forEach(d => { if (!d.custom) d.org.generalEvery = n; }); paint(); }
+      return;
+    }
     if (t.dataset.dNoteams) { const d = day(t.dataset.dNoteams); d.org.noTeams = t.checked; paintDays(); }
     if (t.name === 'gender') st.gender = t.value;
   });
@@ -215,11 +218,11 @@ export default async function (ctx) {
     if (!editId && !st.days.length) { bad('[data-f=days]', 'Escolha ao menos uma data de jogo.'); invalid = true; }
     if (invalid) { form.querySelector('.has-error input, .has-error select')?.focus(); $('.has-error', form)?.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
 
-    const orgOf = d => d.custom ? { minPerTeam: d.org.minPerTeam, matchMinutes: d.org.matchMinutes, noTeams: !!d.org.noTeams, autoDraw: !!d.org.autoDraw, autoEvery: d.org.autoEvery ?? DEFAULT_AUTO_EVERY } : null;
+    const orgOf = d => d.custom ? { minPerTeam: d.org.minPerTeam, matchMinutes: d.org.matchMinutes, noTeams: !!d.org.noTeams, autoDraw: !!d.org.autoDraw, generalDraw: !!d.org.generalDraw, generalEvery: d.org.generalEvery ?? DEFAULT_GENERAL_EVERY } : null;
     const btn = $('#pf-go', form); setBusy(btn, true);
     try {
       if (!editId) {
-        const body = { name: st.name, gender: st.gender, minPerTeam: st.minPerTeam, matchMinutes: st.matchMinutes, noTeams: st.noTeams, autoDraw: st.autoDraw, autoEvery: st.autoEvery, days: st.days.map(d => ({ date: d.date, org: orgOf(d), matches: d.matches })) };
+        const body = { name: st.name, gender: st.gender, minPerTeam: st.minPerTeam, matchMinutes: st.matchMinutes, noTeams: st.noTeams, autoDraw: st.autoDraw, generalDraw: st.generalDraw, generalEvery: st.generalEvery, days: st.days.map(d => ({ date: d.date, org: orgOf(d), matches: d.matches })) };
         if (st.avatar) body.avatar = st.avatar;
         if (st.cover) body.cover = st.cover;
         const preview = await composePreview({ name: st.name, gender: st.gender, coverUrl: st.cover || '', avatarUrl: st.avatar || '' }); // imagem do link de convite
@@ -229,7 +232,7 @@ export default async function (ctx) {
         navigate(`/pelada/p/${r.pelada.id}?novo=1`);
         return;
       }
-      const patch = { name: st.name, gender: st.gender, minPerTeam: st.minPerTeam, matchMinutes: st.matchMinutes, noTeams: st.noTeams, autoDraw: st.autoDraw, autoEvery: st.autoEvery };
+      const patch = { name: st.name, gender: st.gender, minPerTeam: st.minPerTeam, matchMinutes: st.matchMinutes, noTeams: st.noTeams, autoDraw: st.autoDraw, generalDraw: st.generalDraw, generalEvery: st.generalEvery };
       if (st.avatar !== undefined) patch.avatar = st.avatar;
       if (st.cover !== undefined) patch.cover = st.cover;
       // a imagem do link de convite leva capa + foto + nome: refaz quando algum deles mudou (ou ainda não existe)
@@ -246,7 +249,7 @@ export default async function (ctx) {
         if (!d.id) await api.post(`/pelada/peladas/${editId}/days`, { date: d.date, org: orgOf(d), matches: d.matches });
         else {
           const prev = original.days.find(x => x.id === d.id);
-          const same = prev.custom === d.custom && (!d.custom || (prev.org.minPerTeam === d.org.minPerTeam && prev.org.matchMinutes === d.org.matchMinutes && prev.org.noTeams === d.org.noTeams && !!prev.org.autoDraw === !!d.org.autoDraw && prev.org.autoEvery === d.org.autoEvery));
+          const same = prev.custom === d.custom && (!d.custom || (prev.org.minPerTeam === d.org.minPerTeam && prev.org.matchMinutes === d.org.matchMinutes && prev.org.noTeams === d.org.noTeams && !!prev.org.autoDraw === !!d.org.autoDraw && !!prev.org.generalDraw === !!d.org.generalDraw && prev.org.generalEvery === d.org.generalEvery));
           if (!same) await api.patch(`/pelada/peladas/${editId}/days/${d.id}`, { org: orgOf(d) });
         }
       }

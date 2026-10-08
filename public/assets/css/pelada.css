@@ -67,6 +67,7 @@ body.no-scroll { overflow: hidden; }
 .pl-main { max-width: 1120px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 20px; align-content: start; min-height: 70dvh; }
 .pl-foot { text-align: center; padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); color: var(--muted); font-size: 13px; }
 .pl-foot span { display: block; }
+.pl-foot a { text-decoration: underline; text-underline-offset: 2px; font-weight: 700; }
 .pl-credit { margin: 6px auto 0; max-width: 520px; font-size: 12px; line-height: 1.45; }
 .pl-credit b { color: var(--ink-2); font-weight: 700; }
 
@@ -290,12 +291,14 @@ h1 { line-height: 1.12; }
 .team-head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border: 0; background: transparent; text-align: left; cursor: pointer; }
 .team-head:hover { background: var(--surface-2); }
 .team-num { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; background: var(--pl); color: #fff; font-weight: 800; flex: none; }
+.team-emb { display: inline-grid; place-items: center; flex: none; line-height: 0; filter: drop-shadow(0 1px 2px rgb(0 0 0 / .25)); }
 .team-num.sm { width: 26px; height: 26px; border-radius: 8px; font-size: 13px; }
 .team-title { font-weight: 800; flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 15.5px; }
 .team-count { font-size: 12.5px; color: var(--muted); font-weight: 600; white-space: nowrap; }
 .team-body { padding: 4px 14px 12px; border-top: 1px solid var(--line); }
 .team-players { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.team-players li { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.team-players li { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 6px 0; }
+.team-players li > .grow { flex: 1 1 90px; min-width: 0; }
 .team-players select { min-height: 34px; padding: 2px 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: #fff; font-size: 13px; max-width: 170px; }
 .fence-box { margin-top: 14px; padding: 14px; border-radius: var(--r-md); background: var(--surface-2); border: 1px dashed var(--line-strong); }
 .fence-box h4 { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
@@ -321,6 +324,26 @@ h1 { line-height: 1.12; }
 .icon-btn.plus { background: var(--pl); color: #fff; }
 .icon-btn.plus:hover { background: var(--pl-600); }
 .icon-btn[disabled] { opacity: .35; cursor: not-allowed; }
+.turn-order { margin: 10px 0 0; padding: 10px 12px; background: var(--surface-2); border-radius: 12px; color: var(--ink-2); }
+.turn-order ol { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.turn-order li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-weight: 700; color: var(--ink); }
+.turn-order .n { display: inline-grid; place-items: center; min-width: 28px; height: 22px; padding: 0 6px; border-radius: 99px; background: var(--pl-700); color: #fff; font-size: 12px; }
+.games-tag { font-size: 11px; font-weight: 700; color: var(--ink-3, #6b7280); background: var(--surface-2); border-radius: 99px; padding: 2px 8px; white-space: nowrap; }
+.draw-opts { display: grid; gap: 10px; }
+.draw-opt { display: flex; align-items: flex-start; gap: 12px; width: 100%; text-align: left; padding: 14px; border-radius: 14px; border: 1.5px solid var(--line-strong); background: var(--surface); color: var(--ink); cursor: pointer; }
+.draw-opt:hover:not(:disabled), .draw-opt:focus-visible { border-color: var(--pl-700); background: var(--surface-2); }
+.draw-opt:disabled { opacity: .6; cursor: not-allowed; }
+.draw-opt .t-ico { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--surface-2); color: var(--pl-700); }
+.pending-draw { margin: 0 0 14px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px dashed var(--pl-700); }
+.pending-list { margin: 8px 0 0; padding-left: 0; list-style: none; display: grid; gap: 4px; font-size: 13px; }
+.fixed-banner { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1.5px solid var(--pl-700); color: var(--ink); font-size: 14px; }
+.fixed-banner svg { flex: none; margin-top: 2px; color: var(--pl-700); }
+.change-row { padding: 10px 0; border-top: 1px solid var(--line); display: grid; gap: 4px; font-size: 14px; }
+.change-row:first-of-type { border-top: 0; }
+.change-row .in { color: var(--ok, #15803d); }
+.change-row .out { color: var(--ink-2); }
+.jarvis-tip { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); font-size: 14px; color: var(--ink-2); }
+.jarvis-tip svg { flex: none; margin-top: 2px; color: var(--pl-700); }
 .queue { margin: 10px 0 0; padding: 8px 12px; background: var(--surface-2); border-radius: 10px; color: var(--ink-2); }
 .match-list { display: grid; gap: 16px; margin-top: 14px; }
 .match { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); padding: 16px; display: grid; gap: 14px; box-shadow: var(--shadow-sm); }
@@ -344,6 +367,12 @@ h1 { line-height: 1.12; }
 .match.running .clock { color: #fff; }
 .match-clock.up .clock { color: #ff8da1; animation: blink 1s steps(2, start) infinite; }
 .match-clock .muted { color: #a9cdb8; }
+/* fim do tempo: o relógio pisca em vermelho por alguns segundos */
+.match-clock.flash { animation: clockFlash .5s steps(1, end) 12; }
+.match-clock.flash .clock { color: #fff; animation: clockNum .5s steps(1, end) 12; }
+@keyframes clockFlash { 0%, 100% { background: #c81e3a; } 50% { background: var(--pl-950); } }
+@keyframes clockNum { 0%, 100% { color: #fff; } 50% { color: #ff8da1; } }
+@media (prefers-reduced-motion: reduce) { .match-clock.flash, .match-clock.flash .clock { animation: none; } .match-clock.flash { background: #c81e3a; } }
 .clock-ctl { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center; margin-top: 4px; }
 .clock-ctl .btn { background: rgb(255 255 255 / .1); color: #fff; border-color: rgb(255 255 255 / .22); }
 .clock-ctl .btn:hover { background: rgb(255 255 255 / .2); }

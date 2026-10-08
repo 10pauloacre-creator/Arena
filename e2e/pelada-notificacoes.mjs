@@ -92,7 +92,7 @@ await test('presença confirmada com o app aberto: aviso na tela + contador', as
     await poke(orgPage); await orgPage.waitForTimeout(400); // primeira leitura desta página (não gera aviso)
     await ana.call('POST', `${dayPath}/presence`, { present: true });
     await poke(orgPage);
-    const t = orgPage.locator('.toast', { hasText: `Presença confirmada: ${ana.name} confirmou presença no jogo de hoje (1 confirmado).` });
+    const t = orgPage.locator('.toast', { hasText: `Presença confirmada: ${ana.name} confirmou presença no jogo de hoje (1 confirmada).` });
     await t.waitFor(T);
     assert((await orgPage.locator('[data-bell-count]').textContent()) === '1', 'contador = 1');
     await shot(orgPage, '02_aviso_presenca');

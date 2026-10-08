@@ -66,6 +66,7 @@ export default function (app, ctx) {
 
   function view() {
     const t = app.t, m = pick(t);
+    if (t.format === 'league') return html`<div class="page-head"><div><h2>Jogos ao vivo</h2></div></div><div class="empty" style="padding:56px 16px">${ic('trophy', { size: 36 })}<strong style="font-size:18px">Campeonato de pontos corridos</strong><span>Os resultados das rodadas são lançados na seção Campeonato.</span><a class="btn btn-primary" href="/admin/${t.id}/chaveamento">Ir para o campeonato</a></div>`;
     if (!t.bracket) return html`<div class="page-head"><div><h2>Jogos ao vivo</h2></div></div><div class="empty" style="padding:56px 16px">${ic('network', { size: 36 })}<strong style="font-size:18px">O chaveamento ainda não foi sorteado</strong><span>Confirme os times e sorteie as partidas para começar a registrar os jogos.</span><a class="btn btn-primary" href="/admin/${t.id}/chaveamento">Ir para o chaveamento</a></div>${streamCard(t)}`;
     const list = playable(t);
     return html`

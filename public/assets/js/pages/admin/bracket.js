@@ -7,8 +7,10 @@ import { toast } from '../../ui/toast.js';
 import { parseMoney, centsToInput } from '../../ui/forms.js';
 import { api } from '../../api.js';
 import { fmtBRL, fmtNum } from '../../shared/format.js';
+import leagueSection from './league.js';
 
 export default function (app) {
+  if (app.t.format === 'league') return leagueSection(app); // pontos corridos: outra tela
   let bracketCtl = null, ticker = null, matchDlg = null, drawing = false;
   const rerender = () => { const root = app.main; if (!root) return; render(root, view()); mountBracketView(root); };
 

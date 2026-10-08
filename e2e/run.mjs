@@ -34,6 +34,7 @@ const noOverflow = async (page, label) => {
   assert(over <= 1, `${label}: rolagem horizontal de ${over}px`);
 };
 const T = { timeout: 8000 };
+const shotSafe = async (page, name) => { try { await page.screenshot({ path: `${SHOTS}${name}.png`, fullPage: true }); } catch { /* ignora */ } };
 const seen = (page, text, o = T) => page.getByText(text, { exact: false }).filter({ visible: true }).first().waitFor(o);
 
 console.log(`\nArenaMaster AI — E2E em ${app.base}\n`);
@@ -767,6 +768,50 @@ await test('mobile: criação, configurações e página do visitante com regras
     await vp.screenshot({ path: `${SHOTS}mobile_visitante_premiacao.png`, fullPage: true });
   });
   await mctx.close(); await vc.close();
+});
+
+await test('pontos corridos: criar campeonato, gerar a tabela, lançar resultados, classificação e campeão (organizador e visitante)', async () => {
+  const org = await apiSignup(app.base, 'Dona Liga');
+  const octx = await loginContext(browser, app.base, org); const p = await octx.newPage(); watch(p, 'liga');
+  const vc = await browser.newContext(DESKTOP); const vp = await vc.newPage(); watch(vp, 'liga-visitante');
+  await guard(p, async () => {
+    await p.goto(`${app.base}/novo-torneio`);
+    await p.fill('#nt-name', 'Campeonato dos Amigos');
+    await p.locator('label[for=nt-f-league]').click();
+    await p.locator('#leagueBox').waitFor({ state: 'visible', timeout: 8000 });
+    await p.fill('#nt-lmax', '3');
+    await p.fill('#f-fee', '5,00');
+    await p.locator('input[name=demo]').evaluate(el => el.click());
+    await p.click('#ntGo');
+    await p.waitForURL(/\/admin\/AM-/);
+    const id = p.url().match(/AM-\d{4}-\d+/)[0];
+    await p.goto(`${app.base}/admin/${id}/chaveamento`);
+    await seen(p, 'Campeonato de pontos corridos');
+    await seen(p, 'Máximo de partidas por time');
+    await p.getByRole('button', { name: 'Gerar tabela de jogos' }).click();
+    await seen(p, 'Rodada 1');
+    assert(await p.locator('.league-table tbody tr').count() === 8, 'classificação com os 8 times');
+    assert(await p.locator('[data-lg]').count() === 12, '3 rodadas de 4 jogos');
+    const f = p.locator('[data-lg]').first();
+    await f.locator('input[name=sa]').fill('3'); await f.locator('input[name=sb]').fill('1');
+    await f.getByRole('button', { name: 'Salvar' }).click();
+    await p.waitForFunction(() => document.querySelector('.league-table tbody tr td.pts')?.textContent === '3', null, T);
+    await shotSafe(p, 'liga-admin');
+    // visitante vê a tabela e a classificação
+    await vp.goto(`${app.base}/t/${id}`);
+    await seen(vp, 'Classificação');
+    await vp.getByRole('link', { name: /Tabela/ }).first().click();
+    await vp.locator('.league-table').waitFor(T);
+    // simular o restante (demo): campeão aparece
+    for (let i = 0; i < 3; i++) await apiCall(app.base, org.cookie, 'POST', `/tournaments/${id}/demo/simulate`);
+    await p.reload();
+    await p.locator('.champion-banner').waitFor(T);
+    await seen(p, 'CAMPEÃO');
+    await p.getByRole('button', { name: 'Reiniciar campeonato' }).click();
+    await p.locator('dialog [data-close=ok]').click();
+    await seen(p, 'A tabela aparece aqui');
+  });
+  await octx.close(); await vc.close();
 });
 
 await test('sem erros de JavaScript no console durante todo o fluxo', async () => {
