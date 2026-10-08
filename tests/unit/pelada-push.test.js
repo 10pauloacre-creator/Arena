@@ -125,3 +125,23 @@ test('eventos da pelada viram aviso no aparelho de quem participa (menos de quem
   assert.equal(sent.filter(s => s.url.endsWith('/gone')).length, 0, 'inscrição expirada foi removida');
   assert.ok(sent.some(s => s.url.endsWith('/ana')), 'o outro aparelho da Ana continua recebendo');
 });
+
+test('envio: remetente VAPID é o site https; textos longos são cortados e cabem no limite de ~4 KB do push', async () => {
+  const { sendPush, getVapid } = await import('../../lib/push.js');
+  const vapid = await getVapid(srv.store);
+  const b = browser();
+  const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/limite', keys: b.keys };
+  sent.length = 0;
+  const r = await sendPush(vapid, sub, { title: 'T'.repeat(300), text: 'x'.repeat(5000), url: '/pelada/p/PL-ABCDEF', tag: 'a' }, { subject: 'https://arena.exemplo.com' });
+  assert.equal(r.ok, true);
+  const msg = b.decrypt(sent[0].body);
+  assert.ok(msg.title.length <= 80 && msg.text.length <= 400, 'cortado');
+  assert.ok(sent[0].body.length < 4096, 'cabe em um registro aes128gcm');
+  const claims = JSON.parse(Buffer.from(/t=([^.]+\.([^.]+))\./.exec(sent[0].headers.Authorization)[2], 'base64url'));
+  assert.equal(claims.sub, 'https://arena.exemplo.com');
+  assert.ok(claims.exp - Date.now() / 1000 <= 24 * 3600, 'exp de no máximo 24 h (exigência dos serviços)');
+  // remetente inválido cai no padrão (mailto:)
+  sent.length = 0;
+  await sendPush(vapid, sub, { title: 'a', text: 'b' }, { subject: 'qualquer coisa' });
+  assert.match(JSON.parse(Buffer.from(/t=[^.]+\.([^.]+)\./.exec(sent[0].headers.Authorization)[1], 'base64url')).sub, /^mailto:/);
+});
