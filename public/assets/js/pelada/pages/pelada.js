@@ -145,13 +145,11 @@ export default async function (ctx) {
     return html`<ul class="player-list card flush">${p.members.map(pid => html`<li>${avatar(p.people[pid], pid, { size: 40 })}<div class="grow" style="min-width:0"><strong class="ellipsis" style="display:block">${p.people[pid]?.name || '?'}</strong><span class="muted small">${presences(pid)} ${presences(pid) === 1 ? 'presença' : 'presenças'}</span></div>${pid === p.owner ? html`<span class="badge gold">${cap(G().owner)}</span>` : ''}<span class="badge">${goals[pid] || 0} ${(goals[pid] || 0) === 1 ? 'gol' : 'gols'}</span>${isOwner() && pid !== p.owner ? html`<button type="button" class="icon-btn danger" data-rm-member="${pid}" aria-label="Excluir ${p.people[pid]?.name || G().player} da pelada" title="Excluir da pelada">${ic('trash', { size: 18 })}</button>` : ''}</li>`)}</ul>`;
   }
 
-  const dangerZone = () => isOwner() ? html`<div class="danger-zone"><button type="button" class="btn btn-sm btn-outline-danger" data-delete>${ic('trash', { size: 15 })} Excluir esta pelada</button></div>` : '';
-
   const body = () => ({ jogos: daysTab, historico: historyTab, artilharia: scorersTab, jogadores: playersTab })[tab]();
 
   function paint() {
     const y = window.scrollY;
-    render(ctx.root, page(html`${header()}${actions()}${tabsBar()}<section class="tab-body" data-body>${body()}</section>${dangerZone()}`));
+    render(ctx.root, page(html`${header()}${actions()}${tabsBar()}<section class="tab-body" data-body>${body()}</section>`));
     wireShell(ctx.root, ctx.signal);
     window.scrollTo({ top: y });
     ui.novo = false;
@@ -216,11 +214,6 @@ export default async function (ctx) {
         toast(muted ? 'Você voltou a receber as notificações desta pelada.' : 'Notificações desta pelada silenciadas. Dá para reativar aqui ou em Configurações.', { type: 'success' });
       } catch (err) { toast(err.message, { type: 'error' }); }
       paint();
-      return;
-    }
-    if (t.closest('[data-delete]')) {
-      if (!(await confirmDialog({ title: 'Excluir a pelada?', text: 'Todas as datas, listas de presença, partidas e gols serão apagados para todos. Isso não pode ser desfeito.', ok: 'Excluir pelada', danger: true }))) return;
-      try { await api.del(`/pelada/peladas/${id}`); toast('Pelada excluída.'); navigate('/pelada/painel'); } catch (err) { toast(err.message, { type: 'error' }); }
       return;
     }
     const pt = t.closest('[data-pod-tab]');

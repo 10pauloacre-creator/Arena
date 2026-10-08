@@ -116,7 +116,10 @@ export default async function (ctx) {
           <div data-days class="day-list">${st.days.length ? st.days.map(dayCard) : html`<div class="empty">${ic('calendar')}<strong>Nenhuma data escolhida</strong><span>Marque ao menos um dia no calendário.</span></div>`}</div></section>
         <div class="form-error" hidden role="alert"></div>
         <div class="form-actions"><a class="btn" href="${editId ? '/pelada/p/' + editId : '/pelada/painel'}">Cancelar</a><button class="btn btn-gold btn-lg" type="submit" id="pf-go">${ic(editId ? 'save' : 'trophy', { size: 20 })} ${editId ? 'Salvar alterações' : 'Criar pelada'}</button></div>
-      </form>`, { nav: false });
+      </form>
+      ${editId ? html`<section class="card stack pel-danger" aria-labelledby="pf-danger"><h2 class="card-title" id="pf-danger">${ic('triangle-alert')} Zona de perigo</h2>
+        <p class="muted small" style="margin:0">Excluir a pelada apaga todas as datas, listas de presença, partidas e gols para todos os participantes. Não dá para desfazer.</p>
+        <div><button type="button" class="btn btn-outline-danger" data-delete>${ic('trash', { size: 16 })} Excluir pelada</button></div></section>` : ''}`, { nav: false });
   }
 
   let cal = null;
@@ -161,6 +164,11 @@ export default async function (ctx) {
         const url = await pickAndCrop(kind === 'avatar' ? { aspect: 1, outW: 256, title: 'Foto de perfil da pelada', maxBytes: 80_000 } : { aspect: 16 / 7, outW: 960, title: 'Imagem de capa', maxBytes: 240_000 });
         if (url) { st[kind] = url; st[kind + 'Url'] = url; paint(); }
       } catch (err) { toast(err.message, { type: 'error' }); }
+      return;
+    }
+    if (e.target.closest('[data-delete]')) {
+      if (!(await confirmDialog({ title: 'Excluir a pelada?', text: 'Todas as datas, listas de presença, partidas e gols serão apagados para todos. Isso não pode ser desfeito.', ok: 'Excluir pelada', danger: true }))) return;
+      try { await api.del(`/pelada/peladas/${editId}`); toast('Pelada excluída.'); navigate('/pelada/painel'); } catch (err) { toast(err.message, { type: 'error' }); }
       return;
     }
     const clear = e.target.closest('[data-clear]');
