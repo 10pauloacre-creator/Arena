@@ -20,10 +20,10 @@ async function newPlayer(name, birth = '15/05/1992', extra = {}) {
 const today = () => new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
 
 let setups = 0;
-async function setup({ count = 10, min = 5, noTeams = false, matches = 0 } = {}) {
+async function setup({ count = 10, min = 5, noTeams = false, matches = 0, autoDraw = false, autoEvery = 1 } = {}) {
   const tag = `S${++setups}`;
   const owner = await newPlayer(`Dono ${tag} da Pelada`);
-  const r = await owner.post('/pelada/peladas', { name: 'Pelada de Teste', gender: 'masculino', minPerTeam: min, noTeams, matchMinutes: 10, days: [{ date: today(), matches }, { date: '2030-01-05' }] });
+  const r = await owner.post('/pelada/peladas', { name: 'Pelada de Teste', gender: 'masculino', minPerTeam: min, noTeams, autoDraw, autoEvery, matchMinutes: 10, days: [{ date: today(), matches }, { date: '2030-01-05' }] });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   const id = r.data.pelada.id;
   const dayId = r.data.pelada.days.find(d => d.date === today()).id;
@@ -130,7 +130,7 @@ test('criar pelada: validações, ID, imagens e link de convite só para o criad
   assert.deepEqual(p.days.map(d => d.date), ['2030-03-07', '2030-03-14']);
   assert.equal(p.days[0].matches.length, 2);
   assert.equal(p.days[0].custom, false); assert.equal(p.days[0].org.minPerTeam, 6);
-  assert.equal(p.days[1].custom, true); assert.deepEqual(p.days[1].org, { minPerTeam: 4, noTeams: false, matchMinutes: 8 });
+  assert.equal(p.days[1].custom, true); assert.deepEqual(p.days[1].org, { minPerTeam: 4, noTeams: false, matchMinutes: 8, autoDraw: false, autoEvery: 1 });
   assert.equal(p.img.avatar, 1); assert.equal(p.img.cover, 1);
   assert.equal(p.invite.url, `${srv.base}/pelada/p/${p.id}`);
 
@@ -216,59 +216,66 @@ test('ETag: leitura repetida devolve 304 e muda quando alguém marca presença',
   assert.equal((await fetch(`${srv.base}/api/pelada/peladas/${s.id}`, { headers: { 'If-None-Match': etag } })).status, 200);
 });
 
-test('sorteio: regras A e B, permissões, convidados e proteção do histórico', async () => {
-  // 11 presentes, mínimo 5 → 2 times de 5 + sobra de 1 → regra B (um time com 6)
+test('sorteio: só o organizador sorteia; times completos, Cerca, convidados e retardatários', async () => {
+  // 11 presentes, mínimo 5 → 2 times de 5 + 1 jogador na Cerca
   const s = await setup({ count: 11 });
   const outsider = await newPlayer('Nao Confirmado');
   assert.equal((await outsider.post(`${s.base}/draw`)).status, 403);
   assert.equal((await new Client(srv.base).post(`${s.base}/draw`)).status, 401);
-  const d1 = await s.players[3].post(`${s.base}/draw`); // um confirmado faz o primeiro sorteio
+  assert.equal((await s.players[3].post(`${s.base}/draw`)).status, 403); // nem quem confirmou presença sorteia
+  assert.equal((await s.players[1].post(`${s.base}/draw`)).status, 403);
+  const d1 = await s.owner.post(`${s.base}/draw`);
   assert.equal(d1.status, 200, JSON.stringify(d1.data));
   let day = d1.data.pelada.days.find(d => d.id === s.dayId);
   assert.equal(day.draw.teams.length, 2);
-  assert.deepEqual(day.draw.teams.map(t => t.players.length).sort(), [5, 6]);
-  assert.equal(day.draw.teams.flatMap(t => t.players).length, 11);
-  assert.ok(day.draw.notes.some(x => /desfeito/.test(x)));
+  assert.deepEqual(day.draw.teams.map(t => t.players.length), [5, 5]);
+  assert.equal(day.fence.length, 1);
+  assert.equal(day.draw.teams.flatMap(t => t.players).length + day.fence.length, 11);
+  assert.ok(day.draw.notes.some(x => /Cerca/.test(x)));
   assert.match(day.draw.teams[0].label, /^Time 1 - \S+/);
-  assert.deepEqual(day.free, []);
+  assert.equal(day.draw.teams[0].incomplete, undefined);
   assert.deepEqual(day.queue, ['t1', 't2']);
-  // depois do primeiro, só o criador refaz
-  assert.equal((await s.players[2].post(`${s.base}/draw`)).status, 403);
+  // o criador refaz quando quiser
   const d2 = await s.owner.post(`${s.base}/draw`);
   assert.equal(d2.status, 200);
   assert.notEqual(d2.data.drawId, d1.data.drawId);
 
-  // convidado depois do sorteio: avulso ou direto em um time
+  // convidado depois do sorteio: Cerca ou direto em um time
   const g1 = await s.owner.post(`${s.base}/guests`, { name: 'Zé Convidado', teamId: 'free' });
   assert.equal(g1.status, 200);
   day = g1.data.pelada.days.find(d => d.id === s.dayId);
-  assert.deepEqual(day.free, [g1.data.guestPid]);
+  assert.ok(day.fence.includes(g1.data.guestPid));
+  assert.equal(day.fence.length, 2);
   assert.equal(g1.data.pelada.people[g1.data.guestPid].guest, true);
   assert.equal((await s.owner.post(`${s.base}/guests`, { name: 'zé convidado' })).status, 409); // nome repetido na lista
   assert.equal((await s.players[1].post(`${s.base}/guests`, { name: 'Intruso' })).status, 403);
-  const small = day.draw.teams.reduce((a, b) => (a.players.length <= b.players.length ? a : b));
+  const small = day.draw.teams[0];
   const g2 = await s.owner.post(`${s.base}/guests`, { name: 'Chico Convidado', teamId: small.id });
   day = g2.data.pelada.days.find(d => d.id === s.dayId);
   assert.ok(day.draw.teams.find(t => t.id === small.id).players.includes(g2.data.guestPid));
-  // encaixar o avulso em um time
-  const as = await s.owner.post(`${s.base}/assign`, { pid: g1.data.guestPid, teamId: day.draw.teams[0].id });
+  // encaixar quem está na Cerca em um time
+  const as = await s.owner.post(`${s.base}/assign`, { pid: g1.data.guestPid, teamId: day.draw.teams[1].id });
   day = as.data.pelada.days.find(d => d.id === s.dayId);
-  assert.deepEqual(day.free, []);
-  assert.ok(day.draw.teams[0].players.includes(g1.data.guestPid));
+  assert.ok(!day.fence.includes(g1.data.guestPid));
+  assert.ok(day.draw.teams[1].players.includes(g1.data.guestPid));
   // quem retira a presença sai do time
   const leaver = s.players[5];
-  const before = day.draw.teams.flatMap(t => t.players).length;
+  const before = day.draw.teams.flatMap(t => t.players).length + day.fence.length;
   const lv = await leaver.post(`${s.base}/presence`, { present: false });
   day = lv.data.pelada.days.find(d => d.id === s.dayId);
-  assert.equal(day.draw.teams.flatMap(t => t.players).length, before - 1);
-  assert.ok(!day.draw.teams.some(t => t.players.includes(`u:${leaver.player.id}`)));
+  assert.equal(day.draw.teams.flatMap(t => t.players).length + day.fence.length, before - 1);
+  assert.ok(![...day.draw.teams.flatMap(t => t.players), ...day.fence].includes(`u:${leaver.player.id}`));
   assert.ok(day.draw.teams.every(t => t.captain && t.players.includes(t.captain)));
+  // quem chega depois do sorteio entra na Cerca
+  const late = await newPlayer('Chegou Atrasado');
+  const lt = await late.post(`${s.base}/presence`, { present: true });
+  assert.ok(lt.data.pelada.days.find(d => d.id === s.dayId).fence.includes(`u:${late.player.id}`));
 });
 
 test('sorteio: falta de jogadores explica o motivo; "sem formação de times" bloqueia o sorteio', async () => {
   const few = await setup({ count: 6 });
   const r = await few.owner.post(`${few.base}/draw`);
-  assert.equal(r.status, 400); assert.equal(r.data.error.code, 'DRAW_IMPOSSIBLE'); assert.match(r.data.error.message, /8 presentes/);
+  assert.equal(r.status, 400); assert.equal(r.data.error.code, 'DRAW_IMPOSSIBLE'); assert.match(r.data.error.message, /10 presentes/);
 
   const nt = await setup({ count: 10, noTeams: true });
   const r2 = await nt.owner.post(`${nt.base}/draw`);
@@ -471,4 +478,201 @@ test('tempo esgotado: o cronômetro acaba e o encerramento automático é aceito
     const m = fin.data.pelada.days.find(d => d.id === s.dayId).matches[0];
     assert.equal(m.status, 'finished'); assert.equal(m.timer.startedAt, null); assert.equal(m.timer.elapsedMs, 60_000); // limitado ao tempo regulamentar
   } finally { setClock(null); }
+});
+
+// ---------------------------------------------------------------- Cerca, sorteio automático e correções
+const dayOf = (v, dayId) => v.days.find(d => d.id === dayId);
+
+test('sorteio automático pela API: configuração, rotação da Cerca ao encerrar e sorteio manual com partida em andamento', async () => {
+  const s = await setup({ count: 17, min: 5, autoDraw: true, autoEvery: 1 });
+  let v = await s.view();
+  assert.equal(v.autoDraw, true); assert.equal(v.autoEvery, 1);
+  assert.deepEqual([dayOf(v, s.dayId).org.autoDraw, dayOf(v, s.dayId).org.autoEvery], [true, 1]);
+  // a data pode ter a própria regra
+  const other = await s.owner.post(`/pelada/peladas/${s.id}/days`, { date: '2030-02-02', org: { autoDraw: true, autoEvery: 3 } });
+  assert.deepEqual([dayOf(other.data.pelada, other.data.dayId).org.autoDraw, dayOf(other.data.pelada, other.data.dayId).org.autoEvery], [true, 3]);
+  assert.equal((await s.owner.post(`/pelada/peladas/${s.id}/days`, { date: '2030-02-09', org: { autoEvery: 9 } })).status, 400);
+  assert.equal((await s.owner.patch(`/pelada/peladas/${s.id}`, { autoEvery: 0 })).data.pelada.autoEvery, 0); // nunca
+  assert.equal((await s.owner.patch(`/pelada/peladas/${s.id}`, { autoEvery: 1 })).data.pelada.autoEvery, 1);
+
+  await s.owner.post(`${s.base}/draw`);
+  v = await s.view();
+  let day = dayOf(v, s.dayId);
+  const [t1, t2, t3] = day.draw.teams.map(t => t.id);
+  const fence = [...day.fence];
+  assert.equal(fence.length, 2);
+  const mid = (await s.owner.post(`${s.base}/matches`, { a: t1, b: t2 })).data.matchId;
+  const mp = `${s.base}/matches/${mid}`;
+  await s.owner.post(`${mp}/timer`, { action: 'start' });
+
+  // com a partida em andamento o sorteio continua ativo: t1 e t2 não mudam, t3 + Cerca são sorteados (Cerca obrigatória)
+  const live = await s.owner.post(`${s.base}/draw`);
+  assert.equal(live.status, 200, JSON.stringify(live.data));
+  day = dayOf(live.data.pelada, s.dayId);
+  assert.deepEqual(day.draw.teams.find(t => t.id === t1).players, dayOf(v, s.dayId).draw.teams.find(t => t.id === t1).players);
+  assert.deepEqual(day.draw.teams.find(t => t.id === t2).players, dayOf(v, s.dayId).draw.teams.find(t => t.id === t2).players);
+  assert.ok(fence.every(pid => day.draw.teams.find(t => t.id === t3).players.includes(pid)));
+  assert.equal(day.matches[0].status, 'live');
+  assert.equal(day.fence.length, 2);
+  assert.ok(day.draw.notes.some(n => /se mantêm/.test(n)));
+
+  // o vencedor continua; a Cerca (de agora) entra no time que perdeu; os substituídos viram a nova Cerca
+  const winner = day.draw.teams.find(t => t.id === t1).players[0];
+  await s.owner.post(`${mp}/goals`, { teamId: t1, pid: winner });
+  const fin = await s.owner.post(`${mp}/finish`, {});
+  assert.equal(fin.status, 200, JSON.stringify(fin.data));
+  assert.ok(fin.data.info.rotation);
+  day = dayOf(fin.data.pelada, s.dayId);
+  const next = day.matches[1];
+  assert.equal(next.a, t1);
+  assert.equal(next.b, fin.data.info.rotation.teamId);
+  assert.ok(day.fence.length === 2 && fin.data.info.rotation.fenceOut.every(pid => day.fence.includes(pid)));
+  // a partida encerrada mostra os times como eram quando ela terminou
+  assert.deepEqual(day.matches[0].teams.b.players, dayOf(v, s.dayId).draw.teams.find(t => t.id === t2).players);
+  assert.match(day.matches[0].teams.a.label, /^Time 1 - /);
+  assert.ok(day.draw.log.length === 1);
+});
+
+test('só o organizador corrige partida encerrada: placar, gols e artilharia se ajustam', async () => {
+  const s = await setup({ count: 10, min: 5 });
+  await s.owner.post(`${s.base}/draw`);
+  const day0 = dayOf(await s.view(), s.dayId);
+  const [t1, t2] = day0.draw.teams;
+  const mid = (await s.owner.post(`${s.base}/matches`, { a: t1.id, b: t2.id })).data.matchId;
+  const mp = `${s.base}/matches/${mid}`;
+  await s.owner.post(`${mp}/goals`, { teamId: t1.id, pid: t1.players[0] });
+  await s.owner.post(`${mp}/timer`, { action: 'start' });
+  await s.owner.post(`${mp}/finish`, {});
+  const fixer = t2.players[0];
+  assert.equal((await s.players[1].post(`${mp}/goals`, { teamId: t2.id, pid: fixer })).status, 403);
+  const a = await s.owner.post(`${mp}/goals`, { teamId: t2.id, pid: fixer });
+  assert.equal(a.status, 200, JSON.stringify(a.data));
+  let day = dayOf(a.data.pelada, s.dayId);
+  assert.deepEqual(day.matches[0].score, { a: 1, b: 1 });
+  assert.equal(day.matches[0].status, 'finished');
+  assert.deepEqual(day.ranking.map(r => r.goals), [1, 1]);
+  const noAuthor = await s.owner.post(`${mp}/goals`, { teamId: t2.id, pid: null });
+  assert.deepEqual(dayOf(noAuthor.data.pelada, s.dayId).matches[0].score, { a: 1, b: 2 });
+  const goalId = dayOf(noAuthor.data.pelada, s.dayId).matches[0].goals.find(g => g.pid === t1.players[0]).id;
+  assert.equal((await s.players[1].del(`${mp}/goals/${goalId}`)).status, 403);
+  const rm = await s.owner.del(`${mp}/goals/${goalId}`);
+  day = dayOf(rm.data.pelada, s.dayId);
+  assert.deepEqual(day.matches[0].score, { a: 0, b: 2 });
+  assert.deepEqual(day.ranking.map(r => [r.pid, r.goals]), [[fixer, 1]]);
+  assert.equal((await s.owner.post(`${mp}/goals`, { teamId: t1.id, pid: t2.players[1] })).status, 400); // jogador de outro time
+});
+
+test('sair da pelada: some do painel e das listas de hoje; gols continuam na artilharia; o organizador não sai; dá para voltar', async () => {
+  const s = await setup({ count: 10, min: 5 });
+  await s.owner.post(`${s.base}/draw`);
+  const day0 = dayOf(await s.view(), s.dayId);
+  const [t1, t2] = day0.draw.teams;
+  const scorer = s.players.find(pl => `u:${pl.player.id}` !== `u:${s.owner.player.id}` && t1.players.includes(`u:${pl.player.id}`));
+  const spid = `u:${scorer.player.id}`;
+  const mid = (await s.owner.post(`${s.base}/matches`, { a: t1.id, b: t2.id })).data.matchId;
+  for (let i = 0; i < 3; i++) await s.owner.post(`${s.base}/matches/${mid}/goals`, { teamId: t1.id, pid: spid });
+  assert.equal((await scorer.get('/pelada/mine')).data.joined.length, 1);
+  assert.equal((await new Client(srv.base).post(`/pelada/peladas/${s.id}/leave`)).status, 401);
+  assert.equal((await s.owner.post(`/pelada/peladas/${s.id}/leave`)).status, 409); // o organizador não sai
+
+  const out = await scorer.post(`/pelada/peladas/${s.id}/leave`);
+  assert.equal(out.status, 200, JSON.stringify(out.data));
+  assert.equal(out.data.pelada.viewer.isMember, false);
+  assert.ok(!out.data.pelada.members.includes(spid));
+  assert.equal((await scorer.get('/pelada/mine')).data.joined.length, 0); // "ela não aparece mais"
+  let day = dayOf(out.data.pelada, s.dayId);
+  assert.ok(!day.attendance.some(x => x.pid === spid));
+  assert.ok(!day.draw.teams.some(t => t.players.includes(spid)) && !day.fence.includes(spid));
+  // a artilharia do dia e a geral continuam com os 3 gols
+  assert.deepEqual(day.ranking.map(r => [r.pid, r.goals]), [[spid, 3]]);
+  assert.deepEqual(out.data.pelada.ranking.map(r => [r.pid, r.goals]), [[spid, 3]]);
+  assert.equal(out.data.pelada.people[spid].name, scorer.player.name);
+  // entrando de novo pelo link, volta a participar
+  assert.equal((await scorer.post(`/pelada/peladas/${s.id}/join`)).data.pelada.viewer.isMember, true);
+  assert.equal((await scorer.get('/pelada/mine')).data.joined.length, 1);
+});
+
+test('o organizador exclui jogadores: só ele, nunca a si mesmo, e os gols do excluído continuam na artilharia', async () => {
+  const s = await setup({ count: 10, min: 5 });
+  await s.owner.post(`${s.base}/draw`);
+  const day0 = dayOf(await s.view(), s.dayId);
+  const [t1, t2] = day0.draw.teams;
+  const victim = s.players.find(pl => `u:${pl.player.id}` !== `u:${s.owner.player.id}` && t1.players.includes(`u:${pl.player.id}`));
+  const vpid = `u:${victim.player.id}`;
+  const mid = (await s.owner.post(`${s.base}/matches`, { a: t1.id, b: t2.id })).data.matchId;
+  await s.owner.post(`${s.base}/matches/${mid}/goals`, { teamId: t1.id, pid: vpid });
+  const del = pid => `/pelada/peladas/${s.id}/members/${encodeURIComponent(pid)}`;
+  assert.equal((await s.players[1].del(del(vpid))).status, 403);
+  assert.equal((await new Client(srv.base).del(del(vpid))).status, 401);
+  assert.equal((await s.owner.del(del(`u:${s.owner.player.id}`))).status, 409);
+  assert.equal((await s.owner.del(del('u:naoexiste'))).status, 404);
+  assert.equal((await s.owner.del(del('g:xyz'))).status, 404);
+  const r = await s.owner.del(del(vpid));
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.ok(!r.data.pelada.members.includes(vpid));
+  assert.equal((await victim.get('/pelada/mine')).data.joined.length, 0);
+  const day = dayOf(r.data.pelada, s.dayId);
+  assert.ok(!day.attendance.some(a => a.pid === vpid));
+  assert.deepEqual(r.data.pelada.ranking.map(x => [x.pid, x.goals]), [[vpid, 1]]);
+});
+
+test('login salvo no aparelho: a chave refaz a sessão sem pedir nome e data; senha nova invalida as chaves antigas', async () => {
+  const c = new Client(srv.base);
+  const su = await c.post('/pelada/auth/signup', { name: 'Fica Logado Silva', birth: '03/03/1993' });
+  assert.ok(su.data.token && su.data.token.includes('.'));
+  const me = await c.get('/pelada/auth/me');
+  assert.equal(me.data.player.id, su.data.player.id);
+  assert.ok(me.data.token);
+  assert.match(me.headers.get('set-cookie'), /pl_session=.*Max-Age=\d{8}/); // a sessão é renovada por mais um ano a cada abertura
+  // sem cookie (limpeza do navegador): a chave guardada restaura a sessão
+  const fresh = new Client(srv.base);
+  assert.equal((await fresh.get('/pelada/auth/me')).data.player, null);
+  const back = await fresh.post('/pelada/auth/resume', { token: su.data.token });
+  assert.equal(back.status, 200);
+  assert.equal(back.data.player.name, 'Fica Logado Silva');
+  assert.equal((await fresh.get('/pelada/auth/me')).data.player.id, su.data.player.id);
+  assert.equal((await new Client(srv.base).post('/pelada/auth/resume', { token: 'lixo.lixo' })).status, 401);
+  assert.equal((await new Client(srv.base).post('/pelada/auth/resume', {})).status, 401);
+  // login por senha também entrega a chave; trocar a senha invalida as chaves antigas e entrega uma nova
+  const login = await new Client(srv.base).post('/pelada/auth/login', { name: 'Fica Logado Silva', secret: '03/03/1993' });
+  assert.ok(login.data.token);
+  const pw = await c.post('/pelada/auth/password', { current: '03/03/1993', next: 'senha-nova-9' });
+  assert.equal(pw.status, 200); assert.ok(pw.data.token);
+  assert.equal((await new Client(srv.base).post('/pelada/auth/resume', { token: su.data.token })).status, 401);
+  assert.equal((await new Client(srv.base).post('/pelada/auth/resume', { token: pw.data.token })).status, 200);
+  // logout não deixa sessão aberta no servidor (a chave do aparelho é apagada pelo app)
+  assert.equal((await c.post('/pelada/auth/logout')).status, 200);
+});
+
+test('link de convite: o app abre com a pré-visualização da pelada (capa, foto e dados) nas metatags', async () => {
+  const owner = await newPlayer('Organizadora Do Link');
+  const mk = body => owner.post('/pelada/peladas', { gender: 'feminino', minPerTeam: 6, days: [{ date: '2099-05-01' }], ...body });
+  const full = (await mk({ name: 'Pelada "das" <Quintas> & Cia', avatar: PNG, cover: PNG, preview: PNG })).data.pelada;
+  const get = async path => { const r = await fetch(srv.base + path); return { status: r.status, type: r.headers.get('content-type'), text: await r.text() }; };
+  let page = await get(`/pelada/p/${full.id}`);
+  assert.equal(page.status, 200); assert.match(page.type, /text\/html/);
+  assert.match(page.text, /<script type="module" src="\/assets\/js\/pelada\/main\.js">/); // o app de sempre
+  assert.match(page.text, /<meta property="og:title" content="Pelada &quot;das&quot; &lt;Quintas&gt; &amp; Cia · Pelada">/); // nome escapado
+  assert.match(page.text, /og:description" content="👩 Pelada feminina · organizada por Organizadora Do Link · 1 participante · mín\. 6 por time · próximo jogo 01\/05\/2099\./);
+  assert.match(page.text, new RegExp(`og:image" content="${srv.base}/pelada-img/p/${full.id}/preview\\?v=1"`));
+  assert.match(page.text, new RegExp(`og:url" content="${srv.base}/pelada/p/${full.id}"`));
+  assert.match(page.text, /twitter:card" content="summary_large_image"/);
+  assert.equal((page.text.match(/<title>/g) || []).length, 1);
+  assert.equal((page.text.match(/og:image"/g) || []).length, 1);
+  assert.equal((await fetch(`${srv.base}/pelada-img/p/${full.id}/preview?v=1`)).status, 200);
+  // sem a prévia montada: capa; sem capa: foto de perfil; sem nada: ícone do app
+  const coverOnly = (await mk({ name: 'So Capa FC', cover: PNG })).data.pelada;
+  assert.match((await get(`/pelada/p/${coverOnly.id}`)).text, /og:image" content="[^"]+\/cover\?v=1"/);
+  const avatarOnly = (await mk({ name: 'So Foto FC', avatar: PNG })).data.pelada;
+  const av = await get(`/pelada/p/${avatarOnly.id}`);
+  assert.match(av.text, /og:image" content="[^"]+\/avatar\?v=1"/); assert.match(av.text, /twitter:card" content="summary"/);
+  const none = (await mk({ name: 'Sem Imagem FC' })).data.pelada;
+  assert.match((await get(`/pelada/p/${none.id}`)).text, /og:image" content="[^"]+\/pelada\/icons\/icon-512\.png"/);
+  // o dono atualiza a prévia depois (editar pelada); ID inexistente devolve o app com 404
+  assert.equal((await owner.patch(`/pelada/peladas/${none.id}`, { preview: PNG })).data.pelada.img.preview, 1);
+  assert.match((await get(`/pelada/p/${none.id}`)).text, /\/preview\?v=1"/);
+  assert.equal((await owner.patch(`/pelada/peladas/${none.id}`, { preview: 'data:text/html;base64,PGI+' })).status, 400);
+  page = await get('/pelada/p/PL-AAAAAA');
+  assert.equal(page.status, 404); assert.match(page.text, /main\.js/);
+  assert.equal((await get('/pelada/p/lixo')).status, 404);
 });

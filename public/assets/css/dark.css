@@ -34,12 +34,13 @@
 [data-theme="dark"] .pl-top { background: rgb(10 15 29 / .92); }
 [data-theme="dark"] .danger-zone { background: #2a1117; border-color: #5a2230; }
 [data-theme="dark"] .form-error { border-color: #6b2432; color: #ff9aab; }
-[data-theme="dark"] .form-note.warn, [data-theme="dark"] .storage-warn, [data-theme="dark"] .team-warn,
+[data-theme="dark"] .form-note.warn, [data-theme="dark"] .storage-warn,
 [data-theme="dark"] .banner-test { color: #f0c46a; border-color: #5a4515; }
 [data-theme="dark"] .storage-warn { background: var(--amber-50); }
 [data-theme="dark"] .draw-card, [data-theme="dark"] .podium-card, [data-theme="dark"] .invite { background: var(--surface); border-color: #5a4515; }
 [data-theme="dark"] .invite { border-color: var(--pl-100); }
-[data-theme="dark"] .team-card.incomplete { border-color: #5a4515; }
+[data-theme="dark"] .match-fence, [data-theme="dark"] .fence-box, [data-theme="dark"] .auto-draw { background: var(--surface-2); }
+[data-theme="dark"] .mf-list li { background: var(--surface); }
 [data-theme="dark"] .next-info { background: var(--blue-50); border-color: var(--blue-100); }
 [data-theme="dark"] .draw-notes { background: var(--amber-50); }
 [data-theme="dark"] .btn-outline-danger { border-color: #6b2432; }
@@ -56,3 +57,12 @@
 /* regras e premiação (criação de torneio / página do visitante) */
 [data-theme="dark"] .rule-tag.ack { color: #f0c46a; }
 [data-theme="dark"] .prize-view li:first-child .place { color: #e9b13a; }
+
+/* notificações */
+[data-theme="dark"] .ntf-item.unread { background: var(--pl-50); }
+[data-theme="dark"] .ntf-item.unread:hover { background: var(--pl-100); }
+[data-theme="dark"] .ntf-ico.t-presence, [data-theme="dark"] .ntf-ico.t-reminder { color: var(--green); }
+[data-theme="dark"] .ntf-ico.t-absence { color: var(--red); }
+[data-theme="dark"] .ntf-ico.t-draw, [data-theme="dark"] .ntf-ico.t-result { color: var(--gold); }
+[data-theme="dark"] .ntf-ico.t-match { background: #241d4d; color: #a993ff; }
+[data-theme="dark"] .bell { color: var(--ink-2); }

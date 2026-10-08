@@ -1,15 +1,18 @@
-// Partida: escolha dos times, cronômetro, súmula (gols por jogador), "jogador de fora" e próxima partida automática.
+// Partida: escolha dos times, cronômetro, súmula (gols por jogador), "jogador de fora", Cerca no rodapé e próxima partida automática.
 import { html, ic } from '../../ui/dom.js';
-import { fmtClock, timerRemaining, firstName } from '../../shared/pelada.js';
+import { fmtClock, timerRemaining, firstName, joinNames } from '../../shared/pelada.js';
+import { avatar } from './img.js';
 
 const STATUS = { scheduled: ['Agendada', ''], live: ['Ao vivo', 'live'], paused: ['Pausada', 'warn'], finished: ['Encerrada', 'dark'] };
 
 export const teamOf = (day, id) => day.draw?.teams.find(t => t.id === id) || null;
+/** Time de um lado da partida. Encerrada: como era quando terminou (os times mudam de jogadores nos sorteios). */
+export const matchTeam = (day, m, side) => m.teams?.[side] || (m[side] ? teamOf(day, m[side]) : null);
 export const isRunning = m => m.status === 'live' && !!m.timer.startedAt;
 const statusKey = m => (m.status === 'live' && !m.timer.startedAt ? 'paused' : m.status);
 
 function slot(day, m, side, isOwner) {
-  const id = m[side], t = id ? teamOf(day, id) : null;
+  const id = m[side], t = id ? matchTeam(day, m, side) : null;
   if (t) return html`<button type="button" class="slot filled" data-slot="${side}" data-match="${m.id}" ${isOwner && m.status === 'scheduled' ? '' : 'disabled'} title="${isOwner && m.status === 'scheduled' ? 'Trocar time' : t.label}"><span class="team-num sm">${t.number}</span><span class="slot-name">${t.label}</span></button>`;
   return html`<button type="button" class="slot empty" data-slot="${side}" data-match="${m.id}" ${isOwner ? '' : 'disabled'}>${ic('plus', { size: 16 })}<span>${isOwner ? 'Escolher time' : 'A definir'}</span></button>`;
 }
@@ -29,14 +32,14 @@ function shortName(pel, pid, everyone) {
 }
 
 function sumulaCol(pel, day, m, side) {
-  const teamId = m[side], t = teamOf(day, teamId);
+  const teamId = m[side], t = matchTeam(day, m, side);
   if (!t) return '';
   const loans = m.loans[teamId] || [];
   const roster = [...t.players, ...loans];
-  const everyone = [...(teamOf(day, m.a)?.players || []), ...(teamOf(day, m.b)?.players || []), ...Object.values(m.loans).flat()];
+  const everyone = [...(matchTeam(day, m, 'a')?.players || []), ...(matchTeam(day, m, 'b')?.players || []), ...Object.values(m.loans).flat()];
   const count = pid => m.goals.filter(g => g.teamId === teamId && g.pid === pid).length;
   const noAuthor = m.goals.filter(g => g.teamId === teamId && !g.pid).length;
-  return html`<div class="sum-col"><h5>${t.label}${t.incomplete ? html` <span class="badge warn" title="Time incompleto: pode pegar jogadores de fora">incompleto</span>` : ''}</h5>
+  return html`<div class="sum-col"><h5>${t.label}</h5>
     <div class="chips">${roster.map(pid => {
       const n = count(pid), loan = loans.includes(pid);
       return html`<span class="chip${n ? ' has' : ''}${loan ? ' loan' : ''}"><button type="button" class="chip-main" data-goal="${teamId}|${pid}" data-match="${m.id}" aria-label="Gol de ${pel.people[pid]?.name || ''}">${ic('goal', { size: 14 })}<span>${shortName(pel, pid, everyone)}</span>${n ? html`<b>${n}</b>` : ''}</button>${n ? html`<button type="button" class="chip-minus" data-ungoal="${teamId}|${pid}" data-match="${m.id}" aria-label="Remover um gol de ${pel.people[pid]?.name || ''}">${ic('minus', { size: 12 })}</button>` : ''}${loan && !n ? html`<button type="button" class="chip-minus" data-unloan="${teamId}|${pid}" data-match="${m.id}" aria-label="Devolver ${pel.people[pid]?.name || ''}">${ic('x', { size: 12 })}</button>` : ''}</span>`;
@@ -46,26 +49,42 @@ function sumulaCol(pel, day, m, side) {
     <button type="button" class="btn btn-sm btn-ghost" data-loan="${teamId}" data-match="${m.id}">${ic('user-plus', { size: 15 })} Jogador de fora</button></div>`;
 }
 
-export function nextInfoText(day, m) {
-  if (!m.next) return '';
-  const st = teamOf(day, m.next.stayer), lv = teamOf(day, m.next.leaver);
+export function nextInfoText(pel, day, m) {
+  const nx = m.next;
+  if (!nx) return '';
+  const side = id => (id === m.a ? matchTeam(day, m, 'a') : id === m.b ? matchTeam(day, m, 'b') : teamOf(day, id));
+  const st = side(nx.stayer), lv = side(nx.leaver);
   if (!st || !lv) return '';
-  return m.next.reason === 'venceu'
+  const nameOf = pid => firstName(pel.people[pid]?.name || '?');
+  const r = nx.rotation;
+  if (r) {
+    const lead = teamOf(day, r.teamId);
+    return `${st.label} ${nx.reason === 'venceu' ? 'venceu e continua' : 'continua (empate)'}. Sorteio automático: ${r.fenceIn.length ? `${joinNames(r.fenceIn, nameOf)} da Cerca ${r.fenceIn.length === 1 ? 'entrou' : 'entraram'} no ${lead?.label || 'novo time'}` : `${lead?.label || 'um novo time'} foi sorteado`}. ${r.fenceOut.length ? `Nova Cerca: ${joinNames(r.fenceOut, nameOf)}.` : 'A Cerca ficou vazia.'}`;
+  }
+  return nx.reason === 'venceu'
     ? `${st.label} venceu e continua; ${lv.label} vai para o fim da fila.`
     : `Empate: ${lv.label} (há mais partidas seguidas na quadra) dá lugar ao próximo da fila; ${st.label} continua.`;
 }
 
-/** `now` = relógio do servidor estimado (ms). */
-export function matchCard(pel, day, m, { isOwner, now, index }) {
+/** Rodapé da partida: quem ficou de fora (a Cerca) e entra no time que perder. */
+export function fenceFooter(pel, day) {
+  const fence = day.fence || [];
+  return html`<footer class="match-fence" aria-label="Cerca"><span class="mf-title">${ic('users', { size: 15 })} Cerca</span>
+    ${fence.length ? html`<ul class="mf-list">${fence.map(pid => html`<li>${avatar(pel.people[pid], pid, { size: 24 })}<span>${firstName(pel.people[pid]?.name || '?')}</span></li>`)}</ul><span class="mf-hint">aguardam a próxima partida</span>`
+      : html`<span class="mf-hint">Ninguém de fora no momento.</span>`}</footer>`;
+}
+
+/** `now` = relógio do servidor estimado (ms). `fixOpen` = ids das partidas com a edição de placar aberta. */
+export function matchCard(pel, day, m, { isOwner, now, index, fixOpen = null }) {
   const [label, cls] = STATUS[statusKey(m)];
-  const a = teamOf(day, m.a), b = teamOf(day, m.b);
+  const a = matchTeam(day, m, 'a'), b = matchTeam(day, m, 'b');
   const ready = !!(m.a && m.b);
   const remaining = timerRemaining(m.timer, now);
   const running = isRunning(m);
   const finished = m.status === 'finished';
   const mins = Math.round(m.timer.durationMs / 60000);
   const timeUp = !finished && m.status === 'live' && remaining <= 0;
-  const nextText = nextInfoText(day, m);
+  const nextText = nextInfoText(pel, day, m);
   const nextMatch = m.next ? day.matches.find(x => x.id === m.next.matchId) : null;
   return html`<article class="match ${finished ? 'finished' : ''} ${running ? 'running' : ''}" data-match-card="${m.id}">
     <header class="match-head"><span class="match-n">Partida ${index + 1}</span><span class="badge ${cls}">${running ? html`<span class="dot"></span> ` : ''}${label}</span>${m.auto && m.status === 'scheduled' ? html`<span class="badge info" title="Criada automaticamente pela fila">${ic('wand-sparkles', { size: 13 })} automática</span>` : ''}<span class="spacer"></span>
@@ -85,15 +104,18 @@ export function matchCard(pel, day, m, { isOwner, now, index }) {
     ${isOwner && ready && !finished ? html`<div class="sumula"><h4>${ic('clipboard-check', { size: 18 })} Súmula: toque no jogador que fez o gol</h4><div class="sum-cols">${sumulaCol(pel, day, m, 'a')}${sumulaCol(pel, day, m, 'b')}</div>
       <div class="row wrap" style="justify-content:flex-end;margin-top:10px"><button class="btn btn-gold" data-finish="${m.id}">${ic('flag', { size: 18 })} Encerrar partida</button></div></div>` : ''}
     ${!isOwner && ready && m.goals.length ? html`<div class="scorers"><p><b>${a?.label || 'Time A'}:</b> ${scorersText(pel, m, m.a) || '—'}</p><p><b>${b?.label || 'Time B'}:</b> ${scorersText(pel, m, m.b) || '—'}</p></div>` : ''}
-    ${finished && isOwner && m.goals.length ? html`<div class="scorers"><p><b>${a?.label}:</b> ${scorersText(pel, m, m.a) || '—'}</p><p><b>${b?.label}:</b> ${scorersText(pel, m, m.b) || '—'}</p>
-      <details class="fix"><summary>Corrigir gols</summary><div class="sum-cols">${sumulaCol(pel, day, { ...m, status: 'live' }, 'a')}${sumulaCol(pel, day, { ...m, status: 'live' }, 'b')}</div></details></div>` : ''}
-    ${finished && nextText ? html`<div class="next-info">${ic('wand-sparkles', { size: 16 })} <span><b>Próxima partida criada${nextMatch ? `: ${teamOf(day, nextMatch.a)?.label} × ${teamOf(day, nextMatch.b)?.label}` : ''}.</b> ${nextText}</span></div>` : ''}
+    ${finished && isOwner && ready ? html`<div class="scorers">${m.goals.length ? html`<p><b>${a?.label}:</b> ${scorersText(pel, m, m.a) || '—'}</p><p><b>${b?.label}:</b> ${scorersText(pel, m, m.b) || '—'}</p>` : html`<p class="muted">Nenhum gol anotado nesta partida.</p>`}
+      <details class="fix" data-fix="${m.id}" ${fixOpen?.has(m.id) ? 'open' : ''}><summary>${ic('pencil', { size: 15 })} Editar placar e gols</summary>
+        <p class="muted small" style="margin:8px 0">Só o organizador corrige o resultado de uma partida encerrada: toque em quem fez o gol (ou em "Sem autor") para somar e no − para tirar. A artilharia se ajusta sozinha; a próxima partida já montada não muda.</p>
+        <div class="sum-cols">${sumulaCol(pel, day, m, 'a')}${sumulaCol(pel, day, m, 'b')}</div></details></div>` : ''}
+    ${finished && nextText ? html`<div class="next-info">${ic('wand-sparkles', { size: 16 })} <span><b>Próxima partida criada${nextMatch && nextMatch.a && nextMatch.b ? `: ${matchTeam(day, nextMatch, 'a')?.label} × ${matchTeam(day, nextMatch, 'b')?.label}` : ''}.</b> ${nextText}</span></div>` : ''}
+    ${!finished && day.draw ? fenceFooter(pel, day) : ''}
   </article>`;
 }
 
 /** Cartão de partida (histórico): resultado compacto + quem fez os gols. */
 export function matchLine(pel, day, m) {
-  const a = teamOf(day, m.a), b = teamOf(day, m.b);
+  const a = matchTeam(day, m, 'a'), b = matchTeam(day, m, 'b');
   if (!a || !b) return '';
   return html`<li class="hist-match"><div class="hm-score"><span class="ellipsis">${a.label}</span><b class="num">${m.score.a} × ${m.score.b}</b><span class="ellipsis">${b.label}</span></div>
     ${m.goals.length ? html`<div class="hm-goals muted small">${ic('goal', { size: 13 })} ${scorersText(pel, m, m.a) || '—'} <span aria-hidden="true">|</span> ${scorersText(pel, m, m.b) || '—'}</div>` : ''}</li>`;

@@ -11,9 +11,11 @@ import { qrSvg } from '../../ui/qr.js';
 import { podiumPanel } from '../ui/podium.js';
 import { matchLine } from '../ui/match.js';
 import { resultsData, runShare } from '../ui/share.js';
+import { composePreview } from '../ui/preview.js';
 import { fetchPelada } from '../data.js';
 import { poll } from '../ui/poll.js';
-import { GENDERS } from '../../shared/pelada.js';
+import { GENDERS, autoDrawLabel } from '../../shared/pelada.js';
+import { N, onNotif, savePrefs } from '../notify.js';
 
 const TABS = [['jogos', 'Jogos', 'calendar'], ['historico', 'Histórico', 'clipboard-check'], ['artilharia', 'Artilharia', 'trophy'], ['jogadores', 'Jogadores', 'users']];
 const DOW = new Intl.DateTimeFormat('pt-BR', { month: 'short' });
@@ -54,19 +56,27 @@ export default async function (ctx) {
     const p = pel(), g = GENDERS[p.gender], ownerP = p.people[p.owner];
     const cover = peladaImg(p.id, 'cover', p.img.cover);
     return html`<header class="pel-head ${cover ? 'has-cover' : ''} ${p.gender}">
+      ${isMember() && !isOwner() ? html`<button type="button" class="leave-btn" data-leave aria-label="Sair da pelada" title="Sair da pelada">${ic('log-out', { size: 20 })}</button>` : ''}
       <div class="pel-cover">${cover ? html`<img src="${cover}" alt="" decoding="async">` : ''}</div>
       <div class="pel-id">${peladaAvatar(p, 84)}<div class="grow" style="min-width:0"><h1>${p.name}</h1>
         <div class="row wrap" style="gap:8px;margin-top:8px"><span class="badge ${p.gender === 'feminino' ? 'pink' : 'info'}">${g.emoji} ${g.label}</span><span class="badge">${ic('users', { size: 13 })} ${p.members.length} ${p.members.length === 1 ? 'participante' : 'participantes'}</span>
-          <span class="badge">mín. ${p.minPerTeam} por time</span>${p.noTeams ? html`<span class="badge warn">Sem formação de times</span>` : ''}${p.demo ? html`<span class="badge warn">Demonstração</span>` : ''}
+          <span class="badge">mín. ${p.minPerTeam} por time</span>${p.noTeams ? html`<span class="badge warn">Sem formação de times</span>` : p.autoDraw ? html`<span class="badge" title="Sorteio automático de jogadores">${ic('shuffle', { size: 13 })} ${autoDrawLabel(p).replace('Sorteio automático ', 'Auto ')}</span>` : ''}${p.demo ? html`<span class="badge warn">Demonstração</span>` : ''}
           <button type="button" class="badge idchip" data-copy="${p.id}" title="Copiar ID" aria-label="Copiar ID ${p.id}">ID ${p.id} ${ic('copy', { size: 13 })}</button></div>
         <p class="muted-on-dark small" style="margin:8px 0 0">Organizada por <b>${ownerP?.name || '—'}</b></p></div></div>
     </header>`;
   }
 
+  /** Silenciar/ativar as notificações só desta pelada (atalho para Configurações). */
+  function muteBtn() {
+    if (!N.prefs || !N.prefs.enabled) return '';
+    const muted = N.prefs.muted.includes(pel().id);
+    return html`<button type="button" class="btn btn-sm ${muted ? '' : 'btn-ghost'}" data-mute aria-pressed="${String(muted)}" title="${muted ? 'Você não recebe notificações desta pelada' : 'Você recebe notificações desta pelada'}">${ic('bell', { size: 16 })} ${muted ? 'Notificações silenciadas' : 'Notificações ativadas'}</button>`;
+  }
+
   function actions() {
     const p = pel();
-    if (isOwner()) return html`<div class="pel-actions"><a class="btn btn-primary" href="/pelada/p/${p.id}/editar">${ic('pencil', { size: 16 })} Editar pelada</a><button type="button" class="btn" data-add-day>${ic('plus', { size: 16 })} Adicionar data</button><span class="badge gold">Você é o organizador</span></div>`;
-    if (isMember()) return html`<div class="pel-actions"><span class="badge ok">${ic('circle-check', { size: 14 })} Você participa desta pelada</span></div>`;
+    if (isOwner()) return html`<div class="pel-actions"><a class="btn btn-primary" href="/pelada/p/${p.id}/editar">${ic('pencil', { size: 16 })} Editar pelada</a><button type="button" class="btn" data-add-day>${ic('plus', { size: 16 })} Adicionar data</button><span class="badge gold">Você é o organizador</span>${muteBtn()}</div>`;
+    if (isMember()) return html`<div class="pel-actions"><span class="badge ok">${ic('circle-check', { size: 14 })} Você participa desta pelada</span>${muteBtn()}</div>`;
     return html`<div class="pel-actions"><button type="button" class="btn btn-lg btn-primary" data-join>${ic('user-plus', { size: 20 })} Participar da pelada</button><span class="muted small">${S.player ? 'Entre com um toque.' : 'Sem conta? Crie em 10 segundos.'}</span></div>`;
   }
 
@@ -122,7 +132,7 @@ export default async function (ctx) {
   function playersTab() {
     const p = pel(), goals = Object.fromEntries(p.ranking.map(r => [r.pid, r.goals]));
     const presences = pid => p.days.filter(d => d.attendance.some(a => a.pid === pid)).length;
-    return html`<ul class="player-list card flush">${p.members.map(pid => html`<li>${avatar(p.people[pid], pid, { size: 40 })}<div class="grow" style="min-width:0"><strong class="ellipsis" style="display:block">${p.people[pid]?.name || '?'}</strong><span class="muted small">${presences(pid)} ${presences(pid) === 1 ? 'presença' : 'presenças'}</span></div>${pid === p.owner ? html`<span class="badge gold">Organizador</span>` : ''}<span class="badge">${goals[pid] || 0} ${(goals[pid] || 0) === 1 ? 'gol' : 'gols'}</span></li>`)}</ul>`;
+    return html`<ul class="player-list card flush">${p.members.map(pid => html`<li>${avatar(p.people[pid], pid, { size: 40 })}<div class="grow" style="min-width:0"><strong class="ellipsis" style="display:block">${p.people[pid]?.name || '?'}</strong><span class="muted small">${presences(pid)} ${presences(pid) === 1 ? 'presença' : 'presenças'}</span></div>${pid === p.owner ? html`<span class="badge gold">Organizador</span>` : ''}<span class="badge">${goals[pid] || 0} ${(goals[pid] || 0) === 1 ? 'gol' : 'gols'}</span>${isOwner() && pid !== p.owner ? html`<button type="button" class="icon-btn danger" data-rm-member="${pid}" aria-label="Excluir ${p.people[pid]?.name || 'jogador'} da pelada" title="Excluir da pelada">${ic('trash', { size: 18 })}</button>` : ''}</li>`)}</ul>`;
   }
 
   const dangerZone = () => isOwner() ? html`<div class="danger-zone"><button type="button" class="btn btn-sm btn-outline-danger" data-delete>${ic('trash', { size: 15 })} Excluir esta pelada</button></div>` : '';
@@ -174,6 +184,29 @@ export default async function (ctx) {
       return;
     }
     if (t.closest('[data-add-day]')) { addDayDialog(); return; }
+    if (t.closest('[data-leave]')) {
+      if (!(await confirmDialog({ title: 'Sair da pelada?', text: `Você deixa de participar de "${pel().name}": ela some das suas peladas e você sai das listas de hoje e das próximas datas. Os gols que você já marcou continuam na artilharia. Para voltar, é só abrir o link de convite de novo.`, ok: 'Sair da pelada', danger: true }))) return;
+      try { await api.post(`/pelada/peladas/${id}/leave`); toast('Você saiu da pelada.'); navigate('/pelada/painel'); } catch (err) { toast(err.message, { type: 'error' }); }
+      return;
+    }
+    const rmm = t.closest('[data-rm-member]');
+    if (rmm) {
+      const pid = rmm.dataset.rmMember, name = pel().people[pid]?.name || 'esta pessoa';
+      if (!(await confirmDialog({ title: `Excluir ${name} da pelada?`, text: `${name} deixa de participar e sai das listas de hoje e das próximas datas. Os gols que já marcou continuam somando na artilharia.`, ok: 'Excluir jogador', danger: true }))) return;
+      if (await mutate(() => api.del(`/pelada/peladas/${id}/members/${encodeURIComponent(pid)}`))) toast(`${name} foi excluído da pelada.`, { type: 'success' });
+      return;
+    }
+    const mb = t.closest('[data-mute]');
+    if (mb) {
+      const muted = N.prefs.muted.includes(id);
+      mb.disabled = true;
+      try {
+        await savePrefs({ muted: muted ? N.prefs.muted.filter(x => x !== id) : [...N.prefs.muted, id] });
+        toast(muted ? 'Você voltou a receber as notificações desta pelada.' : 'Notificações desta pelada silenciadas. Dá para reativar aqui ou em Configurações.', { type: 'success' });
+      } catch (err) { toast(err.message, { type: 'error' }); }
+      paint();
+      return;
+    }
     if (t.closest('[data-delete]')) {
       if (!(await confirmDialog({ title: 'Excluir a pelada?', text: 'Todas as datas, listas de presença, partidas e gols serão apagados para todos. Isso não pode ser desfeito.', ok: 'Excluir pelada', danger: true }))) return;
       try { await api.del(`/pelada/peladas/${id}`); toast('Pelada excluída.'); navigate('/pelada/painel'); } catch (err) { toast(err.message, { type: 'error' }); }
@@ -204,7 +237,25 @@ export default async function (ctx) {
     });
   }
 
+  // peladas criadas antes da prévia do link: o organizador gera a imagem (capa + foto + nome) uma vez, ao abrir a pelada
+  async function ensurePreview() {
+    const p = pel();
+    if (!isOwner() || p.img.preview || (!p.img.cover && !p.img.avatar)) return;
+    const key = 'pelada.preview.' + p.id;
+    try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, '1'); } catch { /* sem armazenamento */ }
+    const preview = await composePreview({ name: p.name, gender: p.gender, coverUrl: peladaImg(p.id, 'cover', p.img.cover), avatarUrl: peladaImg(p.id, 'avatar', p.img.avatar) });
+    if (!preview || !ctx.isCurrent()) return;
+    try { await api.patch(`/pelada/peladas/${id}`, { preview }); st.etag = null; } catch { /* tenta de novo na próxima visita */ }
+  }
+
   paint();
+  ensurePreview();
+  // o botão de silenciar depende das preferências, que chegam junto com as notificações
+  let prefsKey = JSON.stringify(N.prefs?.muted || null) + N.prefs?.enabled;
+  ctx.onLeave(onNotif(() => {
+    const k = JSON.stringify(N.prefs?.muted || null) + N.prefs?.enabled;
+    if (k !== prefsKey && !document.querySelector('dialog[open]')) { prefsKey = k; paint(); }
+  }));
   if (ui.novo === false && ctx.query.novo === '1') $('.invite', ctx.root)?.scrollIntoView({ block: 'center' });
 
   poll(ctx, async () => {

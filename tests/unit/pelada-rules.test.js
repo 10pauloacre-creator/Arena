@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   parseBirth, parseDateParts, normalizeSecret, maskDate, nameKey, normalizePeladaId, PELADA_ID_RE, planTeams, drawTeams, minPlayersForDraw,
   nextPairing, rankGoals, matchScore, timerRemaining, fmtClock, mulberry32, teamLabel, rangeLabel, sharePeriod,
+  formTeams, AUTO_EVERY_OPTIONS, autoDrawLabel,
 } from '../../public/assets/js/shared/pelada.js';
 
 const people = n => Array.from({ length: n }, (_, i) => ({ pid: `u:${i + 1}`, name: `Jogadora ${i + 1}`, guest: i % 7 === 6 }));
@@ -41,57 +42,63 @@ test('nome de usuário e ID da pelada', () => {
   assert.ok(!PELADA_ID_RE.test('PL-0O1IL2'));
 });
 
-test('sorteio — planejamento: exemplos com mínimo de 5', () => {
-  const sizes = n => planTeams(n, 5);
-  assert.deepEqual(sizes(25).sizes, [5, 5, 5, 5, 5]);
-  assert.equal(sizes(25).incomplete, null);
-  // Regra A: sobra de 3 ou 4 → o time incompleto se mantém
-  const a4 = sizes(24); assert.deepEqual(a4.sizes, [5, 5, 5, 5, 4]); assert.deepEqual(a4.incomplete, { index: 4, size: 4, missing: 1 });
-  const a3 = sizes(23); assert.deepEqual(a3.sizes, [5, 5, 5, 5, 3]); assert.equal(a3.incomplete.missing, 2);
-  // Regra B: sobra de 1 ou 2 → dissolve e distribui
-  const b1 = sizes(26); assert.deepEqual(b1.sizes, [5, 5, 5, 5, 5]); assert.equal(b1.extras, 1); assert.equal(b1.incomplete, null);
-  const b2 = sizes(27); assert.equal(b2.extras, 2);
-  assert.deepEqual(sizes(10).sizes, [5, 5]);
-  // mínimo de 2 times
-  assert.equal(sizes(7).ok, false);
-  assert.match(sizes(7).error, /8/);
-  assert.equal(sizes(8).ok, true); assert.deepEqual(sizes(8).sizes, [5, 3]);
-  assert.equal(sizes(6).ok, false);
-  assert.equal(sizes(5).ok, false);
-  assert.equal(sizes(0).ok, false);
-  assert.equal(minPlayersForDraw(5), 8);
-  assert.equal(minPlayersForDraw(3), 6);
+test('sorteio — planejamento: times completos e a sobra vai para a Cerca (sem time incompleto)', () => {
+  const plan = n => planTeams(n, 5);
+  assert.deepEqual(plan(25).sizes, [5, 5, 5, 5, 5]); assert.equal(plan(25).fence, 0);
+  for (const [n, fence] of [[24, 4], [23, 3], [26, 1], [27, 2]]) {
+    const r = plan(n);
+    assert.ok(r.ok); assert.deepEqual(r.sizes, [5, 5, 5, 5, 5].slice(0, Math.floor(n / 5))); assert.equal(r.fence, fence, `n=${n}`);
+  }
+  assert.deepEqual(plan(10).sizes, [5, 5]);
+  // precisa de 2 times COMPLETOS: 8 presentes com mínimo 5 não bastam
+  for (const n of [0, 5, 6, 7, 8, 9]) assert.equal(plan(n).ok, false, `n=${n}`);
+  assert.match(plan(8).error, /10 presentes \(há 8\)/);
+  assert.equal(minPlayersForDraw(5), 10);
   assert.equal(minPlayersForDraw(2), 4);
-  // mínimos pequenos: nunca existe "time incompleto" válido (< 3), só a regra B
-  assert.equal(planTeams(7, 3).extras, 1);
-  assert.equal(planTeams(5, 2).extras, 1);
-  // mínimo grande
-  assert.deepEqual(planTeams(14, 11).sizes, [11, 3]);
-  assert.equal(planTeams(13, 11).ok, false);
+  assert.equal(planTeams(14, 11).ok, false);
+  assert.deepEqual(planTeams(22, 11).sizes, [11, 11]);
 });
 
-test('sorteio — todos os jogadores entram uma única vez e os tamanhos seguem as regras', () => {
+test('sorteio — todos entram uma única vez: times de exatamente `min` e quem sobra é a Cerca', () => {
   for (let n = 8; n <= 41; n++) {
     for (const min of [4, 5, 7]) {
       const plan = planTeams(n, min);
       const res = drawTeams(people(n), min, mulberry32(n * 31 + min));
       assert.equal(res.ok, plan.ok, `n=${n} min=${min}`);
       if (!res.ok) continue;
-      const all = res.teams.flatMap(t => t.players);
+      const inTeams = res.teams.flatMap(t => t.players);
+      const all = [...inTeams, ...res.fence];
       assert.equal(all.length, n);
       assert.equal(new Set(all).size, n, `duplicados n=${n} min=${min}`);
-      const k = Math.floor(n / min), r = n % min;
-      if (r === 0) assert.ok(res.teams.every(t => t.players.length === min));
-      else if (r >= 3) { assert.equal(res.teams.length, k + 1); assert.equal(res.teams.at(-1).players.length, r); assert.ok(res.teams.at(-1).incomplete); assert.equal(res.teams.at(-1).missing, min - r); }
-      else {
-        assert.equal(res.teams.length, k); // time incompleto dissolvido
-        const big = res.teams.filter(t => t.players.length === min + 1).length;
-        assert.equal(big, r, `n=${n} min=${min}: ${r} times com ${min + 1}`);
-        assert.ok(res.teams.every(t => t.players.length === min || t.players.length === min + 1));
-      }
-      res.teams.forEach((t, i) => { assert.equal(t.number, i + 1); assert.ok(t.players.includes(t.captain)); });
+      assert.equal(res.teams.length, Math.floor(n / min));
+      assert.ok(res.teams.every(t => t.players.length === min));
+      assert.equal(res.fence.length, n % min);
+      res.teams.forEach((t, i) => { assert.equal(t.number, i + 1); assert.ok(t.players.includes(t.captain)); assert.equal(t.incomplete, undefined); });
     }
   }
+});
+
+test('sorteio — a Cerca anterior (`must`) entra obrigatoriamente, nos dois primeiros times, e o capitão é um deles', () => {
+  for (let seed = 1; seed <= 40; seed++) {
+    const list = people(17);
+    const must = ['u:3', 'u:9'];
+    const res = drawTeams(list, 5, mulberry32(seed), { must });
+    assert.ok(res.ok);
+    assert.ok(must.every(pid => !res.fence.includes(pid)), 'quem estava na Cerca não pode sobrar de novo');
+    const first = res.teams.slice(0, 2);
+    assert.ok(must.every(pid => first.some(t => t.players.includes(pid))), `seed ${seed}: Cerca nos 2 primeiros times`);
+    assert.equal(res.fence.length, 2);
+  }
+  // formTeams: com um único time à frente, a Cerca inteira vai junto e o time é completado por sorteio
+  const f = formTeams(people(12), 5, mulberry32(4), { must: ['u:1', 'u:2'], mustTeams: 1 });
+  assert.ok(f.teams[0].players.includes('u:1') && f.teams[0].players.includes('u:2'));
+  assert.ok(['u:1', 'u:2'].includes(f.teams[0].captain)); // capitão: integrante principal (quem veio da Cerca)
+  assert.equal(f.teams[0].players.length, 5);
+  assert.equal(f.fence.length, 2);
+  // mais gente na Cerca do que cabe em um time: o excedente segue para o time seguinte
+  const big = formTeams(people(20), 5, mulberry32(2), { must: people(7).map(p => p.pid), mustTeams: 1 });
+  assert.equal(big.teams[0].players.filter(pid => Number(pid.slice(2)) <= 7).length, 5);
+  assert.equal(big.teams[1].players.filter(pid => Number(pid.slice(2)) <= 7).length, 2);
 });
 
 test('sorteio — capitão evita convidados quando há jogadores com conta e a semente reproduz o resultado', () => {
@@ -106,11 +113,21 @@ test('sorteio — capitão evita convidados quando há jogadores com conta e a s
   assert.match(teamLabel(a.teams[0], pid => list.find(p => p.pid === pid).name), /^Time 1 - Jogadora$/);
 });
 
-test('sorteio — notas explicam as decisões (regras A e B)', () => {
+test('sorteio — as notas explicam a Cerca', () => {
   const b = drawTeams(people(27), 5, mulberry32(1));
-  assert.ok(b.notes.some(n => /desfeito/.test(n) && /distribuíd/.test(n)));
-  const a = drawTeams(people(24), 5, mulberry32(1));
-  assert.ok(a.notes.some(n => /faltam 1/.test(n) && /de fora/.test(n)));
+  assert.ok(b.notes.some(n => /Sobraram 2 jogadores/.test(n) && /Cerca/.test(n) && /time que perder/.test(n)));
+  assert.ok(!b.notes.some(n => /incompleto|distribuíd/.test(n)));
+  const none = drawTeams(people(25), 5, mulberry32(1));
+  assert.equal(none.notes.length, 1);
+  assert.ok(drawTeams(people(12), 5, mulberry32(1), { must: ['u:1'] }).notes.some(n => /Cerca anterior/.test(n)));
+});
+
+test('sorteio automático: rótulos e opções (1, 2, 3 partidas ou nunca)', () => {
+  assert.deepEqual(AUTO_EVERY_OPTIONS.map(o => o[0]), [1, 2, 3, 0]);
+  assert.equal(autoDrawLabel({ autoDraw: false, autoEvery: 1 }), 'Sorteio automático desligado');
+  assert.equal(autoDrawLabel({ autoDraw: true, autoEvery: 1 }), 'Sorteio automático a cada 1 partida');
+  assert.equal(autoDrawLabel({ autoDraw: true, autoEvery: 3 }), 'Sorteio automático a cada 3 partidas');
+  assert.match(autoDrawLabel({ autoDraw: true, autoEvery: 0 }), /nunca/);
 });
 
 test('fila de partidas: quem ganha fica; perdedor vai para o fim; empate tira quem está há mais tempo', () => {

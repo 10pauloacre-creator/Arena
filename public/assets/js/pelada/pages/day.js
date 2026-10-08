@@ -7,13 +7,13 @@ import { S } from '../session.js';
 import { page, wireShell, ensurePlayer, dayLong } from '../ui/shell.js';
 import { avatar } from '../ui/img.js';
 import { teamsHTML } from '../ui/teams.js';
-import { matchCard, teamOf, isRunning } from '../ui/match.js';
+import { matchCard, teamOf, matchTeam, isRunning } from '../ui/match.js';
 import { podiumPanel } from '../ui/podium.js';
 import { resultsData, runShare } from '../ui/share.js';
 import { playShuffle } from '../ui/shuffle.js';
 import { fetchPelada } from '../data.js';
 import { poll } from '../ui/poll.js';
-import { fmtClock, timerRemaining, planTeams, GENDERS } from '../../shared/pelada.js';
+import { fmtClock, timerRemaining, planTeams, autoDrawLabel, GENDERS } from '../../shared/pelada.js';
 
 const NO_TEAMS_TEXT = 'Esta opção desativa o sorteio automático de equipes. O sistema gerará apenas a lista de presença e permitirá a anotação individual de gols para o ranking de artilharia';
 
@@ -42,7 +42,7 @@ function patch(el, markup) {
 export default async function (ctx) {
   const { id, day: dayId } = ctx.params;
   const st = { pel: null, etag: null, offset: 0 };
-  const ui = { expanded: new Set(), podScope: 'day', seenDraw: undefined, fresh: null, ended: new Set(), pending: 0, drawing: false, chain: Promise.resolve() };
+  const ui = { expanded: new Set(), fixOpen: new Set(), podScope: 'day', seenDraw: undefined, fresh: null, ended: new Set(), pending: 0, drawing: false, chain: Promise.resolve() };
   document.title = 'Dia de jogo · Pelada';
   render(ctx.root, page(html`<div class="page-loading"><div class="spinner" role="status" aria-label="Carregando"></div></div>`));
   wireShell(ctx.root, ctx.signal);
@@ -76,7 +76,7 @@ export default async function (ctx) {
     const label = d.isToday ? 'Jogo de hoje' : d.isPast ? 'Jogo encerrado' : 'Próximo jogo';
     return html`<a class="btn btn-ghost btn-sm" href="/pelada/p/${p.id}">${ic('arrow-left', { size: 16 })} ${p.name}</a>
       <header class="day-hero ${p.gender}"><div><span class="eyebrow">${ic('calendar', { size: 15 })} ${label}</span><h1>${dayLong(d.date)}</h1>
-        <div class="row wrap" style="gap:8px;margin-top:10px"><span class="badge dark-on">${GENDERS[p.gender].emoji} ${GENDERS[p.gender].label}</span>${d.org.noTeams ? html`<span class="badge warn">Sem formação de times</span>` : html`<span class="badge dark-on">mín. ${d.org.minPerTeam} por time</span><span class="badge dark-on">${ic('timer', { size: 13 })} ${d.org.matchMinutes} min por partida</span>`}${d.custom ? html`<span class="badge info">Organização personalizada</span>` : ''}${p.demo ? html`<span class="badge warn">Demonstração</span>` : ''}</div></div>
+        <div class="row wrap" style="gap:8px;margin-top:10px"><span class="badge dark-on">${GENDERS[p.gender].emoji} ${GENDERS[p.gender].label}</span>${d.org.noTeams ? html`<span class="badge warn">Sem formação de times</span>` : html`<span class="badge dark-on">mín. ${d.org.minPerTeam} por time</span><span class="badge dark-on">${ic('timer', { size: 13 })} ${d.org.matchMinutes} min por partida</span>${d.org.autoDraw ? html`<span class="badge dark-on" title="Sorteio automático de jogadores">${ic('shuffle', { size: 13 })} ${autoDrawLabel(d.org).replace('Sorteio automático ', 'Auto ')}</span>` : ''}`}${d.custom ? html`<span class="badge info">Organização personalizada</span>` : ''}${p.demo ? html`<span class="badge warn">Demonstração</span>` : ''}</div></div>
         <div class="hero-count"><b>${d.attendance.length}</b><span>${d.attendance.length === 1 ? 'confirmado' : 'confirmados'}</span></div></header>`;
   }
 
@@ -84,7 +84,6 @@ export default async function (ctx) {
     const p = pel(), d = day(), v = p.viewer, owner = isOwner();
     const nameOf = pid => p.people[pid]?.name || '?';
     const g = GENDERS[p.gender];
-    const preselect = d.draw?.teams.find(t => t.incomplete)?.id || 'free';
     return html`<section class="card presence" aria-label="Lista de presença">
       <div class="row between wrap" style="gap:14px"><div><h2 class="card-title" style="margin:0">${ic('list-checks')} Lista de presença</h2><p class="muted small" style="margin:4px 0 0">${d.present ? 'Você está confirmado neste dia.' : v ? 'Confirme sua presença para entrar na lista e no sorteio.' : 'Crie sua conta rapidinho para participar e marcar presença.'}</p></div>
         ${v ? html`<button type="button" class="btn btn-lg ${d.present ? 'btn-outline-danger' : 'btn-primary'}" data-act="presence" data-fid="presence">${ic(d.present ? 'x' : 'circle-check', { size: 20 })} ${d.present ? 'Retirar Presença' : 'Marcar Presença'}</button>`
@@ -94,14 +93,14 @@ export default async function (ctx) {
           ${owner ? html`<button type="button" class="icon-btn" data-rm-att="${a.pid}" aria-label="Remover ${nameOf(a.pid)} da lista">${ic('x', { size: 18 })}</button>` : ''}</li>`)}</ul>`
         : html`<div class="empty">${ic('users')}<strong>Ninguém confirmou ainda</strong><span>Seja ${g.article === 'as' ? 'a primeira' : 'o primeiro'}: toque em ${v ? '"Marcar Presença"' : '"Participar da pelada"'}.</span></div>`}
       ${owner ? html`<form class="guest-form" data-guest-form novalidate><div class="field"><label for="g-name">Adicionar convidado</label><input id="g-name" name="name" data-keep="g-name" maxlength="40" autocomplete="off" placeholder="Nome de quem chegou"></div>
-        ${d.draw ? html`<div class="field"><label for="g-team">Entra em</label><select id="g-team" name="teamId" data-keep="g-team">${d.draw.teams.map(t => html`<option value="${t.id}" ${preselect === t.id ? 'selected' : ''}>${t.label} (${t.players.length})${t.incomplete ? ' · incompleto' : ''}</option>`)}<option value="free" ${preselect === 'free' ? 'selected' : ''}>Avulso (qualquer time pode chamar)</option></select></div>` : ''}
+        ${d.draw ? html`<div class="field"><label for="g-team">Entra em</label><select id="g-team" name="teamId" data-keep="g-team"><option value="free" selected>Cerca (aguarda a próxima partida)</option>${d.draw.teams.map(t => html`<option value="${t.id}">${t.label} (${t.players.length})</option>`)}</select></div>` : ''}
         <button class="btn" type="submit">${ic('user-plus', { size: 16 })} Adicionar</button>
-        <p class="hint" style="grid-column:1/-1;margin:0">${d.draw ? 'O convidado chegou depois do sorteio: encaixe em um time para inteirar ou deixe avulso.' : 'O convidado entra na lista e no sorteio de times.'} Os gols dele contam na artilharia.</p></form>` : ''}
+        <p class="hint" style="grid-column:1/-1;margin:0">${d.draw ? 'O convidado chegou depois do sorteio: ele entra na Cerca e aguarda a próxima partida, ou você o encaixa em um time agora.' : 'O convidado entra na lista e no sorteio de times.'} Os gols dele contam na artilharia.</p></form>` : ''}
     </section>`;
   }
 
   function drawSec() {
-    const p = pel(), d = day(), owner = isOwner(), v = p.viewer;
+    const p = pel(), d = day(), owner = isOwner();
     if (d.org.noTeams) {
       return html`<section class="card" aria-label="Gols do dia"><h2 class="card-title">${ic('target')} Sem formação de times</h2>
         <div class="form-note">${ic('info', { size: 16 })}<span>${NO_TEAMS_TEXT}.</span></div>
@@ -110,23 +109,24 @@ export default async function (ctx) {
           ${owner ? html`<button type="button" class="icon-btn" data-loose="${a.pid}" data-delta="-1" aria-label="Menos um gol de ${p.people[a.pid]?.name || ''}" ${(d.looseGoals[a.pid] || 0) ? '' : 'disabled'}>${ic('minus')}</button>` : ''}<output class="loose-n" aria-label="gols">${d.looseGoals[a.pid] || 0}</output>
           ${owner ? html`<button type="button" class="icon-btn plus" data-loose="${a.pid}" data-delta="1" aria-label="Mais um gol de ${p.people[a.pid]?.name || ''}">${ic('plus')}</button>` : ''}</li>`)}</ul>` : html`<div class="empty">${ic('users')}<span>Quando houver confirmados, anote os gols deles aqui.</span></div>`}</section>`;
     }
+    const started = d.matches.some(m => m.status !== 'scheduled');
+    const how = autoDrawLabel(d.org);
     if (!d.draw) {
       const n = d.attendance.length, plan = planTeams(n, d.org.minPerTeam);
-      const can = owner || (v && d.present);
       const preview = plan.ok
-        ? `Com ${n} confirmados: ${plan.sizes.length} times (${plan.sizes.join(' + ')} ${plan.sizes.length === 1 ? 'jogador' : 'jogadores'})${plan.extras ? `; ${plan.extras === 1 ? 'a sobra de 1 jogador é' : `as ${plan.extras} sobras são`} distribuída${plan.extras === 1 ? '' : 's'} entre os times` : ''}${plan.incomplete ? `; o último time fica incompleto (faltam ${plan.incomplete.missing})` : ''}.`
+        ? `Com ${n} confirmados: ${plan.k} ${plan.k === 1 ? 'time' : 'times'} de ${d.org.minPerTeam}${plan.r ? `; ${plan.r === 1 ? 'a sobra de 1 jogador vai' : `as ${plan.r} sobras vão`} para a Cerca` : ''}.`
         : plan.error;
       return html`<section class="card draw-card" aria-label="Sorteio"><h2 class="card-title">${ic('shuffle')} Sorteio de times</h2>
-        <p class="muted" style="margin:0">Times de no mínimo <b>${d.org.minPerTeam}</b>. Se sobrarem 3 ou mais, forma-se um time incompleto; se sobrarem 1 ou 2, eles são distribuídos entre os outros times.</p>
-        <p class="small" style="margin:10px 0 0">${ic('sparkles', { size: 14 })} ${preview}</p>
-        <div style="margin-top:16px"><button type="button" class="btn btn-xl btn-gold" data-act="draw" data-fid="draw" ${can && plan.ok ? '' : 'disabled'}>${ic('shuffle', { size: 22 })} Sortear Times</button></div>
-        ${!can ? html`<p class="hint" style="margin-top:8px">${v ? 'Marque presença para poder sortear os times, ou aguarde o organizador.' : 'Participe da pelada e marque presença para sortear, ou aguarde o organizador.'}</p>` : ''}
+        <p class="muted" style="margin:0">Times de <b>${d.org.minPerTeam}</b> jogadores. Quem sobra fica na <b>Cerca</b>: aguarda a próxima partida e entra no time que perder. ${how}.</p>
+        ${owner ? html`<p class="small" style="margin:10px 0 0">${ic('sparkles', { size: 14 })} ${preview}</p>
+          <div style="margin-top:16px"><button type="button" class="btn btn-xl btn-gold" data-act="draw" data-fid="draw" ${plan.ok ? '' : 'disabled'}>${ic('shuffle', { size: 22 })} Sortear Times</button></div>`
+          : html`<p class="hint" style="margin-top:10px">${ic('hourglass', { size: 14 })} O organizador faz o sorteio. Assim que ele sortear, os times aparecem aqui.</p>`}
       </section>`;
     }
-    const started = d.matches.some(m => m.status !== 'scheduled');
     return html`<section class="card" aria-label="Times sorteados"><div class="row between wrap"><h2 class="card-title" style="margin:0">${ic('shuffle')} Times sorteados</h2>
-        ${owner && !started ? html`<button type="button" class="btn btn-sm" data-act="redraw" data-fid="redraw">${ic('refresh-cw', { size: 15 })} Refazer sorteio</button>` : ''}</div>
-      <p class="muted small" style="margin:6px 0 14px">Toque no nome do time para ver ${GENDERS[p.gender].players === 'jogadoras' ? 'as jogadoras' : 'os jogadores'}.</p>
+        ${owner ? html`<button type="button" class="btn btn-gold" data-act="draw" data-fid="draw">${ic('shuffle', { size: 18 })} Sortear Times</button>` : ''}</div>
+      <p class="muted small" style="margin:6px 0 ${owner ? '4px' : '14px'}">Toque no nome do time para ver ${GENDERS[p.gender].players === 'jogadoras' ? 'as jogadoras' : 'os jogadores'}. ${how}.</p>
+      ${owner ? html`<p class="muted small" style="margin:0 0 14px">${started ? 'O sorteio fica sempre ativo: com a partida em andamento, os times em quadra se mantêm e os demais jogadores e a Cerca são sorteados para a próxima partida.' : 'Dá para refazer o sorteio enquanto nenhuma partida começou.'}</p>` : ''}
       ${teamsHTML(p, d, { expanded: ui.expanded, isOwner: owner, fresh: ui.fresh === d.draw.id })}</section>`;
   }
 
@@ -139,7 +139,7 @@ export default async function (ctx) {
     return html`<section class="card matches" aria-label="Partidas"><div class="row between wrap"><h2 class="card-title" style="margin:0">${ic('swords')} Partidas</h2>
         ${owner ? html`<button type="button" class="btn btn-primary" data-act="add-match" data-fid="add-match" ${d.draw ? '' : 'disabled'} title="${d.draw ? '' : 'Faça o sorteio primeiro'}">${ic('plus', { size: 18 })} Adicionar partida</button>` : ''}</div>
       ${d.draw && queue.length ? html`<p class="queue small"><b>Fila (de fora):</b> ${queue.join(' → ')}</p>` : ''}
-      ${d.matches.length ? html`<div class="match-list">${d.matches.map((m, i) => matchCard(p, d, m, { isOwner: owner, now, index: i }))}</div>`
+      ${d.matches.length ? html`<div class="match-list">${d.matches.map((m, i) => matchCard(p, d, m, { isOwner: owner, now, index: i, fixOpen: ui.fixOpen }))}</div>`
         : html`<div class="empty">${ic('swords')}<strong>Nenhuma partida ainda</strong><span>${owner ? 'Toque em "Adicionar partida", escolha os dois times e inicie o cronômetro. Ao encerrar, a próxima partida é criada sozinha.' : 'O organizador ainda não criou as partidas.'}</span></div>`}</section>`;
   }
 
@@ -203,7 +203,8 @@ export default async function (ctx) {
     ui.drawing = true; // a atualização automática espera: a animação é desta pessoa
     try {
       const d = day();
-      const names = d.attendance.map(a => pel().people[a.pid]?.name || '?');
+      const locked = new Set(d.matches.filter(m => m.status === 'live').flatMap(m => [m.a, m.b]).flatMap(id => teamOf(d, id)?.players || []));
+      const names = d.attendance.filter(a => !locked.has(a.pid)).map(a => pel().people[a.pid]?.name || '?');
       const req = post('/draw').then(r => ({ r }), e => ({ e }));
       const anim = playShuffle(names, { ms: 5000 });
       const out = await Promise.race([req, anim.then(() => null)]);
@@ -237,12 +238,12 @@ export default async function (ctx) {
 
   function pickLoan(m, teamId) {
     const d = day(), p = pel();
-    const inMatch = new Set([...(teamOf(d, m.a)?.players || []), ...(teamOf(d, m.b)?.players || []), ...Object.values(m.loans).flat()]);
+    const inMatch = new Set([...(matchTeam(d, m, 'a')?.players || []), ...(matchTeam(d, m, 'b')?.players || []), ...Object.values(m.loans).flat()]);
     const groups = [];
-    if (d.free.length) groups.push({ title: 'Avulsos', pids: d.free.filter(x => !inMatch.has(x)) });
-    for (const t of d.draw.teams) if (t.id !== m.a && t.id !== m.b) groups.push({ title: `${t.label}${m.a !== t.id && m.b !== t.id && d.queue.includes(t.id) ? ' · de fora' : ''}`, pids: t.players.filter(x => !inMatch.has(x)) });
+    if (d.fence.length) groups.push({ title: 'Cerca', pids: d.fence.filter(x => !inMatch.has(x)) });
+    for (const t of d.draw.teams) if (t.id !== m.a && t.id !== m.b) groups.push({ title: `${t.label}${d.queue.includes(t.id) ? ' · de fora' : ''}`, pids: t.players.filter(x => !inMatch.has(x)) });
     const list = groups.filter(g => g.pids.length);
-    const team = teamOf(d, teamId);
+    const team = m.a === teamId ? matchTeam(d, m, 'a') : matchTeam(d, m, 'b');
     return new Promise(resolve => {
       let chosen;
       const dlg = openDialog({
@@ -262,8 +263,18 @@ export default async function (ctx) {
     const t = e.target;
     const act = t.closest('[data-act]')?.dataset.act;
     if (act === 'presence') return togglePresence();
+    if (act === 'draw' && day().draw) {
+      const started = day().matches.some(m => m.status !== 'scheduled');
+      const auto = day().org.autoDraw;
+      if (!(await confirmDialog({
+        title: started ? 'Sortear a próxima composição?' : 'Refazer o sorteio?',
+        text: started
+          ? `Os times que estão em quadra e o vencedor que continua se mantêm. Os outros jogadores e a Cerca serão sorteados para a próxima partida${auto ? ' (quem está na Cerca entra obrigatoriamente)' : ''}.`
+          : 'Os times atuais serão descartados e um novo sorteio será feito com a lista de presença de agora.',
+        ok: 'Sortear Times' }))) return;
+      return doDraw();
+    }
     if (act === 'draw') return doDraw();
-    if (act === 'redraw') { if (await confirmDialog({ title: 'Refazer o sorteio?', text: 'Os times atuais serão descartados e um novo sorteio será feito com a lista de presença de agora.', ok: 'Sortear de novo' })) doDraw(); return; }
     if (act === 'add-match') { await enqueue(() => post('/matches')); return; }
     const tg = t.closest('[data-team-toggle]');
     if (tg) { const k = tg.dataset.teamToggle; ui.expanded.has(k) ? ui.expanded.delete(k) : ui.expanded.add(k); patch(sec('draw'), drawSec().s); return; }
@@ -323,7 +334,7 @@ export default async function (ctx) {
     if (fin) {
       const m = day().matches.find(x => x.id === fin.dataset.finish);
       const r = await enqueue(() => post(`/matches/${m.id}/finish`));
-      if (r) toast(r.next ? 'Partida encerrada! A próxima partida já foi criada.' : 'Partida encerrada.', { type: 'success' });
+      if (r) toast(r.next ? (r.info?.rotation ? 'Partida encerrada! Sorteio automático feito e a próxima partida já foi criada.' : 'Partida encerrada! A próxima partida já foi criada.') : 'Partida encerrada.', { type: 'success' });
       return;
     }
     const dm = t.closest('[data-del-match]');
@@ -340,9 +351,18 @@ export default async function (ctx) {
     if (sh) { sh.disabled = true; await runShare(resultsData(pel(), { scope: ui.podScope, dayId }), sh.dataset.share); sh.disabled = false; }
   });
 
+  ctx.root.addEventListener('toggle', e => {
+    const f = e.target.matches?.('[data-fix]') ? e.target : null;
+    if (f) f.open ? ui.fixOpen.add(f.dataset.fix) : ui.fixOpen.delete(f.dataset.fix);
+  }, true);
+
   ctx.root.addEventListener('change', async e => {
     const a = e.target.closest('[data-assign]');
-    if (a && a.value) await enqueue(() => post('/assign', { pid: a.dataset.assign, teamId: a.value }));
+    if (a && a.value) await enqueue(() => post('/assign', { pid: a.dataset.assign, teamId: a.value === '__fence' ? null : a.value }));
+  });
+  ctx.root.addEventListener('click', async e => {
+    const c = e.target.closest('[data-captain]');
+    if (c) await enqueue(() => post('/captain', { pid: c.dataset.captain, teamId: c.dataset.captainTeam }));
   });
 
   ctx.root.addEventListener('submit', async e => {
@@ -368,7 +388,7 @@ export default async function (ctx) {
         ui.ended.add(m.id); beep();
         if (isOwner()) {
           enqueue(() => post(`/matches/${m.id}/finish`, { auto: true }), { quiet: ['TIMER_RUNNING', 'MATCH_FINISHED'] }).then(r => {
-            if (r) toast(r.next ? 'Tempo esgotado! Partida encerrada e a próxima já foi criada.' : 'Tempo esgotado! Partida encerrada.', { type: 'success', ms: 5000 });
+            if (r) toast(r.next ? (r.info?.rotation ? 'Tempo esgotado! Partida encerrada, sorteio automático feito e a próxima já foi criada.' : 'Tempo esgotado! Partida encerrada e a próxima já foi criada.') : 'Tempo esgotado! Partida encerrada.', { type: 'success', ms: 5000 });
             else setTimeout(() => ui.ended.delete(m.id), 1200);
           });
         } else paint();
