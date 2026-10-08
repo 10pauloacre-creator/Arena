@@ -2,6 +2,7 @@
 import { html, ic } from '../../ui/dom.js';
 import { fmtClock, timerRemaining, firstName, joinNames } from '../../shared/pelada.js';
 import { avatar } from './img.js';
+import { gx, cap } from '../../shared/gender.js';
 import { emblem } from './emblem.js';
 
 const STATUS = { scheduled: ['Agendada', ''], live: ['Ao vivo', 'live'], paused: ['Pausada', 'warn'], finished: ['Encerrada', 'dark'] };
@@ -47,7 +48,7 @@ function sumulaCol(pel, day, m, side) {
     })}
       <span class="chip noauthor"><button type="button" class="chip-main" data-goal="${teamId}|" data-match="${m.id}" aria-label="Gol sem autor">${ic('goal', { size: 14 })}<span>Sem autor</span>${noAuthor ? html`<b>${noAuthor}</b>` : ''}</button>${noAuthor ? html`<button type="button" class="chip-minus" data-ungoal="${teamId}|" data-match="${m.id}" aria-label="Remover gol sem autor">${ic('minus', { size: 12 })}</button>` : ''}</span>
     </div>
-    <button type="button" class="btn btn-sm btn-ghost" data-loan="${teamId}" data-match="${m.id}">${ic('user-plus', { size: 15 })} Jogador de fora</button></div>`;
+    <button type="button" class="btn btn-sm btn-ghost" data-loan="${teamId}" data-match="${m.id}">${ic('user-plus', { size: 15 })} ${cap(gx(pel.gender).player)} de fora</button></div>`;
 }
 
 export function nextInfoText(pel, day, m) {
@@ -105,12 +106,12 @@ export function matchCard(pel, day, m, { isOwner, now, index, fixOpen = null, fl
         <button class="btn btn-sm" data-timer="reset" data-match="${m.id}" ${m.timer.elapsedMs || running ? '' : 'disabled'}>${ic('rotate-ccw', { size: 15 })} Zerar</button>
         <label class="mins"><span class="sr-only">Duração em minutos</span><input type="number" min="1" max="90" value="${mins}" data-mins="${m.id}" ${running ? 'disabled' : ''} aria-label="Duração da partida em minutos"> <span>min</span></label>
         <button class="btn btn-sm" data-timer="set" data-match="${m.id}" ${running ? 'disabled' : ''}>Definir</button></div>` : ''}</div>` : ''}
-    ${isOwner && ready && !finished ? html`<div class="sumula"><h4>${ic('clipboard-check', { size: 18 })} Súmula: toque no jogador que fez o gol</h4><div class="sum-cols">${sumulaCol(pel, day, m, 'a')}${sumulaCol(pel, day, m, 'b')}</div>
+    ${isOwner && ready && !finished ? html`<div class="sumula"><h4>${ic('clipboard-check', { size: 18 })} Súmula: toque n${gx(pel.gender).o} ${gx(pel.gender).player} que fez o gol</h4><div class="sum-cols">${sumulaCol(pel, day, m, 'a')}${sumulaCol(pel, day, m, 'b')}</div>
       <div class="row wrap" style="justify-content:flex-end;margin-top:10px"><button class="btn btn-gold" data-finish="${m.id}">${ic('flag', { size: 18 })} Encerrar partida</button></div></div>` : ''}
     ${!isOwner && ready && m.goals.length ? html`<div class="scorers"><p><b>${a?.label || 'Time A'}:</b> ${scorersText(pel, m, m.a) || '—'}</p><p><b>${b?.label || 'Time B'}:</b> ${scorersText(pel, m, m.b) || '—'}</p></div>` : ''}
     ${finished && isOwner && ready ? html`<div class="scorers">${m.goals.length ? html`<p><b>${a?.label}:</b> ${scorersText(pel, m, m.a) || '—'}</p><p><b>${b?.label}:</b> ${scorersText(pel, m, m.b) || '—'}</p>` : html`<p class="muted">Nenhum gol anotado nesta partida.</p>`}
       <details class="fix" data-fix="${m.id}" ${fixOpen?.has(m.id) ? 'open' : ''}><summary>${ic('pencil', { size: 15 })} Editar placar e gols</summary>
-        <p class="muted small" style="margin:8px 0">Só o organizador corrige o resultado de uma partida encerrada: toque em quem fez o gol (ou em "Sem autor") para somar e no − para tirar. A artilharia se ajusta sozinha; a próxima partida já montada não muda.</p>
+        <p class="muted small" style="margin:8px 0">Só ${gx(pel.gender).o} ${gx(pel.gender).owner} corrige o resultado de uma partida encerrada: toque em quem fez o gol (ou em "Sem autor") para somar e no − para tirar. A artilharia se ajusta sozinha; a próxima partida já montada não muda.</p>
         <div class="sum-cols">${sumulaCol(pel, day, m, 'a')}${sumulaCol(pel, day, m, 'b')}</div></details></div>` : ''}
     ${finished && nextText ? html`<div class="next-info">${ic('wand-sparkles', { size: 16 })} <span><b>Próxima partida criada${nextMatch && nextMatch.a && nextMatch.b ? `: ${matchTeam(day, nextMatch, 'a')?.label} × ${matchTeam(day, nextMatch, 'b')?.label}` : ''}.</b> ${nextText}</span></div>` : ''}
     ${!finished && day.draw ? fenceFooter(pel, day) : ''}

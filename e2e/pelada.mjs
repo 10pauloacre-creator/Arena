@@ -32,6 +32,10 @@ const T = { timeout: 9000 };
 const seen = (page, text, o = T) => page.getByText(text, { exact: false }).filter({ visible: true }).first().waitFor(o);
 const noOverflow = async (page, label) => {
   const over = await page.evaluate(() => document.documentElement.scrollWidth - screen.width);
+  if (over > 1) {
+    const culprits = await page.evaluate(() => [...document.querySelectorAll('body *')].filter(e => e.getBoundingClientRect().right > screen.width + 1 && !e.closest('dialog:not([open])')).slice(0, 6).map(e => `${e.tagName.toLowerCase()}.${String(e.className).slice(0, 40)} (${Math.round(e.getBoundingClientRect().right)})`));
+    console.log('      elementos que passam da borda:', culprits.join(' | '));
+  }
   assert(over <= 1, `${label}: rolagem horizontal de ${over}px`);
 };
 const shot = (page, n) => page.screenshot({ path: `${SHOTS}pel_${n}.png`, fullPage: true });
@@ -175,7 +179,8 @@ await test('página da pelada: botão "Convite" abre modal com link, ID, QR e co
     assert(await owner.evaluate(() => navigator.clipboard.readText()) === inviteUrl, 'link copiado');
     await dlg.locator('[data-close]').last().click();
     await dlg.waitFor({ state: 'detached', timeout: 5000 });
-    assert(await owner.locator('.qr-box').count() === 0, 'sem QR na tela depois de fechar');
+    const gone = await owner.waitForFunction(() => !document.querySelector('.qr-box'), null, { timeout: 4000 }).then(() => true, () => false);
+    assert(gone, 'sem QR na tela depois de fechar (diálogos abertos: ' + await owner.locator('dialog[open]').count() + ')');
     assert(await owner.locator('[data-invite]').count() === 1, 'só o botão "Convite" fica na tela');
     await seen(owner, peladaId);
     await shot(owner, '05-pelada-owner');

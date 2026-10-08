@@ -296,7 +296,8 @@ h1 { line-height: 1.12; }
 .team-count { font-size: 12.5px; color: var(--muted); font-weight: 600; white-space: nowrap; }
 .team-body { padding: 4px 14px 12px; border-top: 1px solid var(--line); }
 .team-players { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.team-players li { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.team-players li { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 6px 0; }
+.team-players li > .grow { flex: 1 1 90px; min-width: 0; }
 .team-players select { min-height: 34px; padding: 2px 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: #fff; font-size: 13px; max-width: 170px; }
 .fence-box { margin-top: 14px; padding: 14px; border-radius: var(--r-md); background: var(--surface-2); border: 1px dashed var(--line-strong); }
 .fence-box h4 { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }

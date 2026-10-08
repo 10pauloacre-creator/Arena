@@ -142,7 +142,7 @@ export default async function (ctx) {
   function playersTab() {
     const p = pel(), goals = Object.fromEntries(p.ranking.map(r => [r.pid, r.goals]));
     const presences = pid => p.days.filter(d => d.attendance.some(a => a.pid === pid)).length;
-    return html`<ul class="player-list card flush">${p.members.map(pid => html`<li>${avatar(p.people[pid], pid, { size: 40 })}<div class="grow" style="min-width:0"><strong class="ellipsis" style="display:block">${p.people[pid]?.name || '?'}</strong><span class="muted small">${presences(pid)} ${presences(pid) === 1 ? 'presença' : 'presenças'}</span></div>${pid === p.owner ? html`<span class="badge gold">${cap(G().owner)}</span>` : ''}<span class="badge">${goals[pid] || 0} ${(goals[pid] || 0) === 1 ? 'gol' : 'gols'}</span>${isOwner() && pid !== p.owner ? html`<button type="button" class="icon-btn danger" data-rm-member="${pid}" aria-label="Excluir ${p.people[pid]?.name || 'jogador'} da pelada" title="Excluir da pelada">${ic('trash', { size: 18 })}</button>` : ''}</li>`)}</ul>`;
+    return html`<ul class="player-list card flush">${p.members.map(pid => html`<li>${avatar(p.people[pid], pid, { size: 40 })}<div class="grow" style="min-width:0"><strong class="ellipsis" style="display:block">${p.people[pid]?.name || '?'}</strong><span class="muted small">${presences(pid)} ${presences(pid) === 1 ? 'presença' : 'presenças'}</span></div>${pid === p.owner ? html`<span class="badge gold">${cap(G().owner)}</span>` : ''}<span class="badge">${goals[pid] || 0} ${(goals[pid] || 0) === 1 ? 'gol' : 'gols'}</span>${isOwner() && pid !== p.owner ? html`<button type="button" class="icon-btn danger" data-rm-member="${pid}" aria-label="Excluir ${p.people[pid]?.name || G().player} da pelada" title="Excluir da pelada">${ic('trash', { size: 18 })}</button>` : ''}</li>`)}</ul>`;
   }
 
   const dangerZone = () => isOwner() ? html`<div class="danger-zone"><button type="button" class="btn btn-sm btn-outline-danger" data-delete>${ic('trash', { size: 15 })} Excluir esta pelada</button></div>` : '';
@@ -204,7 +204,7 @@ export default async function (ctx) {
     if (rmm) {
       const pid = rmm.dataset.rmMember, name = pel().people[pid]?.name || 'esta pessoa';
       if (!(await confirmDialog({ title: `Excluir ${name} da pelada?`, text: `${name} deixa de participar e sai das listas de hoje e das próximas datas. Os gols que já marcou continuam somando na artilharia.`, ok: `Excluir ${G().player}`, danger: true }))) return;
-      if (await mutate(() => api.del(`/pelada/peladas/${id}/members/${encodeURIComponent(pid)}`))) toast(`${name} foi excluído da pelada.`, { type: 'success' });
+      if (await mutate(() => api.del(`/pelada/peladas/${id}/members/${encodeURIComponent(pid)}`))) toast(`${name} foi ${G().excluded} da pelada.`, { type: 'success' });
       return;
     }
     const mb = t.closest('[data-mute]');

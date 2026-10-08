@@ -18,6 +18,7 @@ import { poll } from '../ui/poll.js';
 import { fmtClock, timerRemaining, planTeams, autoDrawLabel, firstName, GENDERS } from '../../shared/pelada.js';
 import { gx, cap } from '../../shared/gender.js';
 
+const gn = p => gx(p.gender);
 const firstOf = (p, pid) => firstName(p.people[pid]?.name || '?');
 const NO_TEAMS_TEXT = 'Esta opção desativa o sorteio automático de equipes. O sistema gerará apenas a lista de presença e permitirá a anotação individual de gols para o ranking de artilharia';
 
@@ -74,8 +75,8 @@ export default async function (ctx) {
     return html`<a class="btn btn-ghost btn-sm" href="/pelada/p/${p.id}">${ic('arrow-left', { size: 16 })} ${p.name}</a>
       <header class="day-hero ${p.gender}"><div><span class="eyebrow">${ic('calendar', { size: 15 })} ${label}</span><h1>${dayLong(d.date)}</h1>
         <div class="row wrap" style="gap:8px;margin-top:10px"><span class="badge dark-on">${GENDERS[p.gender].emoji} ${GENDERS[p.gender].label}</span>${d.org.noTeams ? html`<span class="badge warn">Sem formação de times</span>` : html`<span class="badge dark-on">mín. ${d.org.minPerTeam} por time</span><span class="badge dark-on">${ic('timer', { size: 13 })} ${d.org.matchMinutes} min por partida</span>${d.org.autoDraw ? html`<span class="badge dark-on" title="Sorteio automático de jogadores">${ic('shuffle', { size: 13 })} ${autoDrawLabel(d.org).replace('Sorteio automático ', 'Auto ')}</span>` : ''}`}${d.custom ? html`<span class="badge info">Organização personalizada</span>` : ''}${p.demo ? html`<span class="badge warn">Demonstração</span>` : ''}</div></div>
-        <div class="hero-count"><b>${d.attendance.length}</b><span>${d.attendance.length === 1 ? 'confirmado' : 'confirmados'}</span></div></header>
-      ${d.fixed ? html`<div class="fixed-banner" role="status">${ic('lock', { size: 18 })}<span><b>${d.fixed.inherited ? `Times fixos, mantidos do último dia de jogo${d.fixed.fromDate ? ` (${d.fixed.fromDate.slice(8, 10)}/${d.fixed.fromDate.slice(5, 7)})` : ''}.` : 'Times fixos.'}</b> ${d.fixed.inherited ? `${cap(gx(p.gender).os)} ${gx(p.gender).players} voltam ao próprio time ao confirmar presença.` : 'Os mesmos jogadores seguem nos mesmos times em todas as partidas e os próximos dias herdam esta formação.'}</span></div>` : ''}`;
+        <div class="hero-count"><b>${d.attendance.length}</b><span>${d.attendance.length === 1 ? gn(p).confirmed : gn(p).confirmeds}</span></div></header>
+      ${d.fixed ? html`<div class="fixed-banner" role="status">${ic('lock', { size: 18 })}<span><b>${d.fixed.inherited ? `Times fixos, mantidos do último dia de jogo${d.fixed.fromDate ? ` (${d.fixed.fromDate.slice(8, 10)}/${d.fixed.fromDate.slice(5, 7)})` : ''}.` : 'Times fixos.'}</b> ${d.fixed.inherited ? `${cap(gx(p.gender).os)} ${gx(p.gender).players} voltam ao próprio time ao confirmar presença.` : `${cap(gn(p).os)} ${gn(p).players} seguem nos mesmos times em todas as partidas e os próximos dias herdam esta formação.`}</span></div>` : ''}`;
   }
 
   function presenceSec() {
@@ -83,17 +84,17 @@ export default async function (ctx) {
     const nameOf = pid => p.people[pid]?.name || '?';
     const g = GENDERS[p.gender];
     return html`<section class="card presence" aria-label="Lista de presença">
-      <div class="row between wrap" style="gap:14px"><div><h2 class="card-title" style="margin:0">${ic('list-checks')} Lista de presença</h2><p class="muted small" style="margin:4px 0 0">${d.present ? 'Você está confirmado neste dia.' : v ? 'Confirme sua presença para entrar na lista e no sorteio.' : 'Crie sua conta rapidinho para participar e marcar presença.'}</p></div>
+      <div class="row between wrap" style="gap:14px"><div><h2 class="card-title" style="margin:0">${ic('list-checks')} Lista de presença</h2><p class="muted small" style="margin:4px 0 0">${d.present ? `Você está ${gn(p).confirmed} neste dia.` : v ? 'Confirme sua presença para entrar na lista e no sorteio.' : 'Crie sua conta rapidinho para participar e marcar presença.'}</p></div>
         ${v ? html`<button type="button" class="btn btn-lg ${d.present ? 'btn-outline-danger' : 'btn-primary'}" data-act="presence" data-fid="presence">${ic(d.present ? 'x' : 'circle-check', { size: 20 })} ${d.present ? 'Retirar Presença' : 'Marcar Presença'}</button>`
           : html`<button type="button" class="btn btn-lg btn-primary" data-act="presence" data-fid="presence">${ic('user-plus', { size: 20 })} Participar da pelada</button>`}</div>
       <h3 class="list-title">Lista de Confirmados <span class="badge">${d.attendance.length}</span></h3>
-      ${d.attendance.length ? html`<ul class="confirmed">${d.attendance.map((a, i) => html`<li class="${a.pid === v?.pid ? 'me' : ''}"><span class="n">${i + 1}</span>${avatar(p.people[a.pid], a.pid, { size: 38 })}<span class="grow ellipsis"><b>${nameOf(a.pid)}</b>${a.pid === v?.pid ? html` <span class="badge ok">Você</span>` : ''}${a.guest ? html` <span class="badge">Convidado</span>` : ''}${a.pid === p.owner ? html` <span class="badge gold">Organizador</span>` : ''}</span>
+      ${d.attendance.length ? html`<ul class="confirmed">${d.attendance.map((a, i) => html`<li class="${a.pid === v?.pid ? 'me' : ''}"><span class="n">${i + 1}</span>${avatar(p.people[a.pid], a.pid, { size: 38 })}<span class="grow ellipsis"><b>${nameOf(a.pid)}</b>${a.pid === v?.pid ? html` <span class="badge ok">Você</span>` : ''}${a.guest ? html` <span class="badge">${cap(gn(p).guest)}</span>` : ''}${a.pid === p.owner ? html` <span class="badge gold">${cap(gn(p).owner)}</span>` : ''}</span>
           ${owner ? html`<button type="button" class="icon-btn" data-rm-att="${a.pid}" aria-label="Remover ${nameOf(a.pid)} da lista">${ic('x', { size: 18 })}</button>` : ''}</li>`)}</ul>`
         : html`<div class="empty">${ic('users')}<strong>Ninguém confirmou ainda</strong><span>Seja ${g.article === 'as' ? 'a primeira' : 'o primeiro'}: toque em ${v ? '"Marcar Presença"' : '"Participar da pelada"'}.</span></div>`}
-      ${owner ? html`<form class="guest-form" data-guest-form novalidate><div class="field"><label for="g-name">Adicionar convidado</label><input id="g-name" name="name" data-keep="g-name" maxlength="40" autocomplete="off" placeholder="Nome de quem chegou"></div>
+      ${owner ? html`<form class="guest-form" data-guest-form novalidate><div class="field"><label for="g-name">Adicionar ${gn(p).guest}</label><input id="g-name" name="name" data-keep="g-name" maxlength="40" autocomplete="off" placeholder="Nome de quem chegou"></div>
         ${d.draw ? html`<div class="field"><label for="g-team">Entra em</label><select id="g-team" name="teamId" data-keep="g-team"><option value="free" selected>Cerca (aguarda a próxima partida)</option>${d.draw.teams.map(t => html`<option value="${t.id}">${t.label} (${t.players.length})</option>`)}</select></div>` : ''}
         <button class="btn" type="submit">${ic('user-plus', { size: 16 })} Adicionar</button>
-        <p class="hint" style="grid-column:1/-1;margin:0">${d.draw ? 'O convidado chegou depois do sorteio: ele entra na Cerca e aguarda a próxima partida, ou você o encaixa em um time agora.' : 'O convidado entra na lista e no sorteio de times.'} Os gols dele contam na artilharia.</p></form>` : ''}
+        <p class="hint" style="grid-column:1/-1;margin:0">${d.draw ? `${cap(gn(p).o)} ${gn(p).guest} chegou depois do sorteio: ${gn(p).ele} entra na Cerca e aguarda a próxima partida, ou você ${gn(p).ele === 'ela' ? 'a' : 'o'} encaixa em um time agora.` : `${cap(gn(p).o)} ${gn(p).guest} entra na lista e no sorteio de times.`} Os gols ${gn(p).dele} contam na artilharia.</p></form>` : ''}
     </section>`;
   }
 
@@ -103,22 +104,22 @@ export default async function (ctx) {
       return html`<section class="card" aria-label="Gols do dia"><h2 class="card-title">${ic('target')} Sem formação de times</h2>
         <div class="form-note">${ic('info', { size: 16 })}<span>${NO_TEAMS_TEXT}.</span></div>
         <h3 class="list-title">Gols do dia</h3>
-        ${d.attendance.length ? html`<ul class="loose-list">${d.attendance.map(a => html`<li>${avatar(p.people[a.pid], a.pid, { size: 36 })}<span class="grow ellipsis"><b>${p.people[a.pid]?.name || '?'}</b>${a.guest ? html` <span class="badge">Convidado</span>` : ''}</span>
+        ${d.attendance.length ? html`<ul class="loose-list">${d.attendance.map(a => html`<li>${avatar(p.people[a.pid], a.pid, { size: 36 })}<span class="grow ellipsis"><b>${p.people[a.pid]?.name || '?'}</b>${a.guest ? html` <span class="badge">${cap(gn(p).guest)}</span>` : ''}</span>
           ${owner ? html`<button type="button" class="icon-btn" data-loose="${a.pid}" data-delta="-1" aria-label="Menos um gol de ${p.people[a.pid]?.name || ''}" ${(d.looseGoals[a.pid] || 0) ? '' : 'disabled'}>${ic('minus')}</button>` : ''}<output class="loose-n" aria-label="gols">${d.looseGoals[a.pid] || 0}</output>
-          ${owner ? html`<button type="button" class="icon-btn plus" data-loose="${a.pid}" data-delta="1" aria-label="Mais um gol de ${p.people[a.pid]?.name || ''}">${ic('plus')}</button>` : ''}</li>`)}</ul>` : html`<div class="empty">${ic('users')}<span>Quando houver confirmados, anote os gols deles aqui.</span></div>`}</section>`;
+          ${owner ? html`<button type="button" class="icon-btn plus" data-loose="${a.pid}" data-delta="1" aria-label="Mais um gol de ${p.people[a.pid]?.name || ''}">${ic('plus')}</button>` : ''}</li>`)}</ul>` : html`<div class="empty">${ic('users')}<span>Quando houver ${gn(p).confirmeds}, anote os gols ${gn(p).deles} aqui.</span></div>`}</section>`;
     }
     const started = d.matches.some(m => m.status !== 'scheduled');
     const how = autoDrawLabel(d.org);
     if (!d.draw) {
       const n = d.attendance.length, plan = planTeams(n, d.org.minPerTeam);
       const preview = plan.ok
-        ? `Com ${n} confirmados: ${plan.k} ${plan.k === 1 ? 'time' : 'times'} de ${d.org.minPerTeam}${plan.r ? `; ${plan.r === 1 ? 'a sobra de 1 jogador vai' : `as ${plan.r} sobras vão`} para a Cerca` : ''}.`
+        ? `Com ${n} ${gn(p).confirmeds}: ${plan.k} ${plan.k === 1 ? 'time' : 'times'} de ${d.org.minPerTeam}${plan.r ? `; ${plan.r === 1 ? `a sobra de 1 ${gn(p).player} vai` : `as ${plan.r} sobras vão`} para a Cerca` : ''}.`
         : plan.error;
       return html`<section class="card draw-card" aria-label="Sorteio"><h2 class="card-title">${ic('shuffle')} Sorteio de times</h2>
-        <p class="muted" style="margin:0">Times de <b>${d.org.minPerTeam}</b> jogadores. Quem sobra fica na <b>Cerca</b>: aguarda a próxima partida e entra no time que perder. ${how}.</p>
+        <p class="muted" style="margin:0">Times de <b>${d.org.minPerTeam}</b> ${gn(p).players}. Quem sobra fica na <b>Cerca</b>: aguarda a próxima partida e entra no time que perder. ${how}.</p>
         ${owner ? html`<p class="small" style="margin:10px 0 0">${ic('sparkles', { size: 14 })} ${preview}</p>
           <div style="margin-top:16px"><button type="button" class="btn btn-xl btn-gold" data-act="draw" data-fid="draw" ${plan.ok ? '' : 'disabled'}>${ic('shuffle', { size: 22 })} Sortear Times</button></div>`
-          : html`<p class="hint" style="margin-top:10px">${ic('hourglass', { size: 14 })} O organizador faz o sorteio. Assim que ele sortear, os times aparecem aqui.</p>`}
+          : html`<p class="hint" style="margin-top:10px">${ic('hourglass', { size: 14 })} ${cap(gn(p).o)} ${gn(p).owner} faz o sorteio. Assim que ${gn(p).ele} sortear, os times aparecem aqui.</p>`}
       </section>`;
     }
     return html`<section class="card" aria-label="Times sorteados"><div class="row between wrap"><h2 class="card-title" style="margin:0">${ic('shuffle')} Times sorteados</h2>
@@ -160,7 +161,7 @@ export default async function (ctx) {
         ${owner ? html`<button type="button" class="btn btn-primary" data-act="add-match" data-fid="add-match" ${d.draw ? '' : 'disabled'} title="${d.draw ? '' : 'Faça o sorteio primeiro'}">${ic('plus', { size: 18 })} Adicionar partida</button>` : ''}</div>
       ${order.length ? html`<div class="turn-order" aria-label="Ordem de quem joga"><b class="small">Quem joga em seguida:</b><ol>${order.map((o, i) => html`<li><span class="n">${i + 1}º</span> ${o.text} <span class="muted small">${o.tag}</span></li>`)}</ol></div>` : ''}
       ${d.matches.length ? html`<div class="match-list">${d.matches.map((m, i) => matchCard(p, d, m, { isOwner: owner, now, index: i, fixOpen: ui.fixOpen, flash: ui.flash }))}</div>`
-        : html`<div class="empty">${ic('swords')}<strong>Nenhuma partida ainda</strong><span>${owner ? 'Toque em "Adicionar partida", escolha os dois times e inicie o cronômetro. Ao encerrar, a próxima partida é criada sozinha.' : 'O organizador ainda não criou as partidas.'}</span></div>`}</section>`;
+        : html`<div class="empty">${ic('swords')}<strong>Nenhuma partida ainda</strong><span>${owner ? 'Toque em "Adicionar partida", escolha os dois times e inicie o cronômetro. Ao encerrar, a próxima partida é criada sozinha.' : `${cap(gn(p).o)} ${gn(p).owner} ainda não criou as partidas.`}</span></div>`}</section>`;
   }
 
   const podiumSec = () => podiumPanel(pel(), { scope: ui.podScope, dayId });
@@ -346,9 +347,9 @@ export default async function (ctx) {
     return new Promise(resolve => {
       let chosen;
       const dlg = openDialog({
-        title: `Jogador de fora para o ${team.label}`,
-        body: list.length ? html`<p class="muted small" style="margin:0">O jogador escolhido atua só nesta partida e pode marcar gols para o ${team.label}.</p>${list.map(g => html`<div><h4 class="list-title" style="margin:8px 0 6px">${g.title}</h4><div class="pick-list">${g.pids.map(pid => html`<button type="button" class="pick" data-pick="${pid}">${avatar(p.people[pid], pid, { size: 30 })}<span class="grow" style="text-align:left">${p.people[pid]?.name || '?'}</span></button>`)}</div></div>`)}`
-          : html`<div class="empty">${ic('users')}<span>Não há jogadores de fora disponíveis agora.</span></div>`,
+        title: `${cap(gn(p).player)} de fora para o ${team.label}`,
+        body: list.length ? html`<p class="muted small" style="margin:0">${cap(gn(p).o)} ${gn(p).player} ${gn(p).selected} atua só nesta partida e pode marcar gols para o ${team.label}.</p>${list.map(g => html`<div><h4 class="list-title" style="margin:8px 0 6px">${g.title}</h4><div class="pick-list">${g.pids.map(pid => html`<button type="button" class="pick" data-pick="${pid}">${avatar(p.people[pid], pid, { size: 30 })}<span class="grow" style="text-align:left">${p.people[pid]?.name || '?'}</span></button>`)}</div></div>`)}`
+          : html`<div class="empty">${ic('users')}<span>Não há ${gn(p).players} de fora disponíveis agora.</span></div>`,
         foot: html`<button class="btn" data-close>Fechar</button>`,
       });
       dlg.el.addEventListener('click', e => { const b = e.target.closest('[data-pick]'); if (b) { chosen = b.dataset.pick; dlg.close('ok'); } });
@@ -473,7 +474,7 @@ export default async function (ctx) {
     if (!e.target.matches('[data-guest-form]')) return;
     e.preventDefault();
     const f = e.target, name = f.name.value.trim();
-    if (name.length < 2) { toast('Digite o nome do convidado.', { type: 'warn' }); f.name.focus(); return; }
+    if (name.length < 2) { toast(`Digite o nome ${gn(pel()).do} ${gn(pel()).guest}.`, { type: 'warn' }); f.name.focus(); return; }
     const r = await enqueue(() => post('/guests', { name, teamId: f.teamId?.value }));
     if (r) { toast(`${name} foi adicionado${day().draw ? '' : ' à lista e entra no sorteio'}.`, { type: 'success' }); const n = $('#g-name', ctx.root); if (n) { n.value = ''; n.focus(); } }
   });
