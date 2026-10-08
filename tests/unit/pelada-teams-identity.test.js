@@ -55,7 +55,7 @@ test('emblema: SVG válido, com forma, símbolo e cores; sem script', () => {
 
 const nameOf = pid => pid;
 function day(count, { gender = 'masculino', auto = true } = {}) {
-  const p = newPelada({ id: 'PL-IDENT2', owner: { id: 'o' }, input: { name: 'Time FC', gender, minPerTeam: 5, autoDraw: auto, autoEvery: 1, days: [{ date: '2026-10-07' }] } }, NOW);
+  const p = newPelada({ id: 'PL-IDENT2', owner: { id: 'o' }, input: { name: 'Time FC', gender, minPerTeam: 5, autoDraw: auto, days: [{ date: '2026-10-07' }] } }, NOW);
   const d = p.days[0];
   for (let i = 1; i <= count; i++) setPresence(p, d, `u${i}`, true, NOW);
   performDraw(p, d, d.attendance.map(a => ({ pid: a.pid, name: a.pid })), { by: 'o', now: NOW, rnd: mulberry32(8) });

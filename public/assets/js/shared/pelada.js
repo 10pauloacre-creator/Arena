@@ -96,7 +96,7 @@ export function planTeams(n, m) {
 }
 
 /** Capitão: sorteado entre os "integrantes principais" do time (`core`), de preferência quem tem conta; senão entre todos. */
-function pickCaptain(list, core, rnd) {
+export function pickCaptain(list, core, rnd) {
   const real = p => !p.guest;
   const pools = [list.filter(p => core.has(p.pid) && real(p)), list.filter(real), core.size ? list.filter(p => core.has(p.pid)) : [], list];
   const pool = pools.find(x => x.length) || list;
@@ -169,11 +169,19 @@ export { teamLabel } from './team-catalog.js';
 // ---------------------------------------------------------------- partidas
 export const DEFAULT_MATCH_MIN = 10;
 
-/** Sorteio automático de jogadores: de quantas em quantas partidas (0 = nunca). */
-export const AUTO_EVERY_OPTIONS = [[1, 'A cada 1 partida'], [2, 'A cada 2 partidas'], [3, 'A cada 3 partidas'], [0, 'Nunca']];
-export const DEFAULT_AUTO_EVERY = 1;
-export const autoDrawLabel = org => !org?.autoDraw ? 'Sorteio automático desligado'
-  : org.autoEvery > 0 ? `Sorteio automático a cada ${org.autoEvery} ${org.autoEvery === 1 ? 'partida' : 'partidas'}` : 'Sorteio automático: nunca (só manual)';
+/** Sorteio automático geral: de quantas em quantas partidas todos os times são refeitos (1 a 10). */
+export const GENERAL_EVERY_OPTIONS = Array.from({ length: 10 }, (_, i) => [i + 1, i === 0 ? 'A cada partida' : `A cada ${i + 1} partidas`]);
+export const DEFAULT_GENERAL_EVERY = 3;
+export const FENCE_DRAW_TITLE = 'Sorteio automático da Cerca';
+export const FENCE_DRAW_TEXT = 'Ao ativar esse modo os jogadores que estão na cerca, serão embaralhados com os jogadores do time que perdeu, e já jogaram na próxima partida, os jogadores que sairam farão a próxima cerca.';
+export const GENERAL_DRAW_TITLE = 'Sorteio automático geral';
+export const GENERAL_DRAW_TEXT = 'Refaz todos os times de tempos em tempos, repetindo o mínimo possível as mesmas duplas. A Cerca tem prioridade: quem sai é quem mais jogou e mais fez gols no dia.';
+export const autoDrawLabel = org => {
+  const parts = [];
+  if (org?.autoDraw) parts.push('Sorteio da Cerca automático');
+  if (org?.generalDraw) parts.push(`Sorteio geral ${org.generalEvery === 1 ? 'a cada partida' : `a cada ${org.generalEvery} partidas`}`);
+  return parts.length ? parts.join(' · ') : 'Sorteios automáticos desligados';
+};
 
 /** Placar a partir dos gols da partida: { [teamId]: n }. */
 export function matchScore(match) {

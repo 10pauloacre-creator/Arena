@@ -131,9 +131,14 @@ export function describe(ev, { viewerId, today, gender } = {}) {
     case 'draw': {
       const mine = viewerId && d.slot ? d.slot[viewerId] : null;
       const teams = Number.isInteger(d.teams) ? `: ${plural(d.teams, 'time', 'times')}` : '';
+      const where = d.later ? '' : mine === 'Cerca' ? ' Você ficou na Cerca: aguarda a próxima partida e entra no time que perder.' : mine ? ` Você está no ${mine}.` : '';
+      if (d.kind === 'fence') return { title: 'Sorteio da Cerca', text: `${who} sorteou a Cerca do ${jogo}${teams}.${where}` };
+      if (d.kind === 'general') return d.later
+        ? { title: 'Sorteio geral combinado', text: `${who} combinou o sorteio geral do ${jogo}: os times novos valem quando a partida terminar.` }
+        : { title: 'Sorteio geral', text: `${who} refez todos os times do ${jogo}${teams}.${where}` };
       return {
         title: d.redo ? 'Sorteio refeito' : 'Times sorteados',
-        text: `${who} ${d.redo ? 'refez o sorteio' : 'sorteou os times'} do ${jogo}${teams}.${mine === 'Cerca' ? ' Você ficou na Cerca: aguarda a próxima partida e entra no time que perder.' : mine ? ` Você está no ${mine}.` : ''}`,
+        text: `${who} ${d.redo ? 'refez o sorteio' : 'sorteou os times'} do ${jogo}${teams}.${where}`,
       };
     }
     case 'match': {

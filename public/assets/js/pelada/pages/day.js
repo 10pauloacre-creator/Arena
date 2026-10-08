@@ -15,8 +15,10 @@ import { playShuffle } from '../ui/shuffle.js';
 import { fetchPelada } from '../data.js';
 import { armSound, playWhistle } from '../ui/sound.js';
 import { poll } from '../ui/poll.js';
-import { fmtClock, timerRemaining, planTeams, autoDrawLabel, GENDERS } from '../../shared/pelada.js';
+import { fmtClock, timerRemaining, planTeams, autoDrawLabel, firstName, GENDERS } from '../../shared/pelada.js';
+import { gx } from '../../shared/gender.js';
 
+const firstOf = (p, pid) => firstName(p.people[pid]?.name || '?');
 const NO_TEAMS_TEXT = 'Esta opção desativa o sorteio automático de equipes. O sistema gerará apenas a lista de presença e permitirá a anotação individual de gols para o ranking de artilharia';
 
 /** Atualiza o conteúdo de `el` só se mudou, preservando o foco e o que o usuário está digitando (data-keep / data-fid). */
@@ -119,21 +121,41 @@ export default async function (ctx) {
       </section>`;
     }
     return html`<section class="card" aria-label="Times sorteados"><div class="row between wrap"><h2 class="card-title" style="margin:0">${ic('shuffle')} Times sorteados</h2>
-        ${owner ? html`<button type="button" class="btn btn-gold" data-act="draw" data-fid="draw">${ic('shuffle', { size: 18 })} Sortear Times</button>` : ''}</div>
+        ${owner ? html`<button type="button" class="btn btn-gold" data-act="draw" data-fid="draw">${ic('shuffle', { size: 18 })} Sortear times</button>` : ''}</div>
       <p class="muted small" style="margin:6px 0 ${owner ? '4px' : '14px'}">Toque no nome do time para ver ${GENDERS[p.gender].players === 'jogadoras' ? 'as jogadoras' : 'os jogadores'}. ${how}.</p>
-      ${owner ? html`<p class="muted small" style="margin:0 0 14px">${started ? 'O sorteio fica sempre ativo: com a partida em andamento, os times em quadra se mantêm e os demais jogadores e a Cerca são sorteados para a próxima partida.' : 'Dá para refazer o sorteio enquanto nenhuma partida começou.'}</p>` : ''}
+      ${owner ? html`<p class="muted small" style="margin:0 0 14px">O sorteio fica sempre ativo: escolha entre sortear a Cerca com o time derrotado ou refazer todos os times${started ? '. Com a partida em andamento, o sorteio geral fica combinado e vale quando ela terminar' : ''}.</p>` : ''}
+      ${pendingBlock(p, d, owner)}
       ${teamsHTML(p, d, { expanded: ui.expanded, isOwner: owner, fresh: ui.fresh === d.draw.id })}</section>`;
+  }
+
+  /** Sorteio geral combinado durante a partida: os times que valem quando ela terminar. */
+  function pendingBlock(p, d, owner) {
+    const pd = d.pending;
+    if (!pd) return '';
+    return html`<div class="pending-draw" role="note"><div class="row between wrap" style="gap:8px"><strong>${ic('hourglass', { size: 16 })} Sorteio geral combinado: vale quando a partida terminar</strong>
+      ${owner ? html`<button type="button" class="btn btn-sm btn-ghost" data-act="draw-cancel">Cancelar</button>` : ''}</div>
+      <ol class="pending-list">${pd.teams.map((t, i) => html`<li><b>${i < 2 ? `${i + 1}º a entrar` : `${i + 1}º`} · ${t.label}:</b> ${t.players.map(pid => firstOf(p, pid)).join(', ')}</li>`)}</ol>
+      ${pd.fence.length ? html`<p class="small muted" style="margin:6px 0 0">Cerca: ${pd.fence.map(pid => firstOf(p, pid)).join(', ')}.</p>` : ''}</div>`;
+  }
+
+  /** Quem joga em seguida: a próxima partida, os times de fora na ordem e a Cerca. */
+  function turnOrder(d) {
+    const out = [];
+    for (const m of d.matches) if (m.status !== 'finished' && m.a && m.b) out.push({ text: `${teamOf(d, m.a)?.label} × ${teamOf(d, m.b)?.label}`, tag: m.status === 'live' ? 'em quadra' : 'próxima partida' });
+    for (const tid of d.queue || []) { const t = teamOf(d, tid); if (t) out.push({ text: t.label, tag: tid === d.lastLeaver ? 'time derrotado' : 'aguardando' }); }
+    if (d.fence.length) out.push({ text: `Cerca (${d.fence.length})`, tag: d.org.autoDraw ? 'entra no time que perder' : 'aguardando' });
+    return out;
   }
 
   function matchesSec() {
     const p = pel(), d = day(), owner = isOwner();
     if (d.org.noTeams) return '';
     if (!d.draw && !d.matches.length) return '';
-    const queue = (d.queue || []).map(tid => teamOf(d, tid)?.label).filter(Boolean);
+    const order = d.draw ? turnOrder(d) : [];
     const now = serverNow();
     return html`<section class="card matches" aria-label="Partidas"><div class="row between wrap"><h2 class="card-title" style="margin:0">${ic('swords')} Partidas</h2>
         ${owner ? html`<button type="button" class="btn btn-primary" data-act="add-match" data-fid="add-match" ${d.draw ? '' : 'disabled'} title="${d.draw ? '' : 'Faça o sorteio primeiro'}">${ic('plus', { size: 18 })} Adicionar partida</button>` : ''}</div>
-      ${d.draw && queue.length ? html`<p class="queue small"><b>Fila (de fora):</b> ${queue.join(' → ')}</p>` : ''}
+      ${order.length ? html`<div class="turn-order" aria-label="Ordem de quem joga"><b class="small">Quem joga em seguida:</b><ol>${order.map((o, i) => html`<li><span class="n">${i + 1}º</span> ${o.text} <span class="muted small">${o.tag}</span></li>`)}</ol></div>` : ''}
       ${d.matches.length ? html`<div class="match-list">${d.matches.map((m, i) => matchCard(p, d, m, { isOwner: owner, now, index: i, fixOpen: ui.fixOpen, flash: ui.flash }))}</div>`
         : html`<div class="empty">${ic('swords')}<strong>Nenhuma partida ainda</strong><span>${owner ? 'Toque em "Adicionar partida", escolha os dois times e inicie o cronômetro. Ao encerrar, a próxima partida é criada sozinha.' : 'O organizador ainda não criou as partidas.'}</span></div>`}</section>`;
   }
@@ -206,14 +228,48 @@ export default async function (ctx) {
     if (want) toast('Presença confirmada! Seu nome já está na lista.', { type: 'success', ms: 2500 });
   }
 
-  async function doDraw() {
+  /** Janela do sorteio manual: Cerca + time derrotado, ou geral. Sem times ainda, sorteia direto. */
+  function chooseDraw() {
+    const p = pel(), d = day(), G = gx(p.gender), min = d.org.minPerTeam;
+    const live = d.matches.some(m => m.status === 'live');
+    const fenceN = d.fence.length;
+    const hasLeaver = d.matches.some(m => m.status === 'finished') && d.lastLeaver && d.draw.teams.some(t => t.id === d.lastLeaver);
+    let fenceWhy = '';
+    if (live && fenceN < min) fenceWhy = `Durante a partida precisa de ao menos ${min} ${G.players} na Cerca para formar o próximo time (há ${fenceN}).`;
+    else if (!live && !fenceN) fenceWhy = 'A Cerca está vazia.';
+    else if (!live && fenceN < min && !hasLeaver) fenceWhy = 'Ainda não há time derrotado para receber a Cerca.';
+    const genWhy = d.attendance.length < 2 * min ? `São necessários ao menos ${2 * min} ${G.players} (há ${d.attendance.length}).` : '';
+    const fixedWhy = d.fixed ? 'Os times estão fixos: libere os times para sortear.' : '';
+    const opt = (mode, title, text, why, ico) => html`<button type="button" class="draw-opt" data-mode="${mode}" ${why ? 'disabled' : ''}>
+      <span class="t-ico" aria-hidden="true">${ic(ico, { size: 22 })}</span><span><b>${title}</b><span class="muted small" style="display:block">${text}</span>${why ? html`<span class="hint warn" style="display:block">${why}</span>` : ''}</span></button>`;
+    return new Promise(resolve => {
+      let chosen = null;
+      const dlg = openDialog({
+        title: 'Sortear times',
+        body: html`<p class="muted small" style="margin:0 0 10px">${live ? 'Há uma partida em andamento.' : 'Nenhuma partida em andamento.'} Escolha o tipo de sorteio.</p>
+          <div class="draw-opts">
+            ${opt('fence', 'Sorteio de cerca + time derrotado',
+              live ? `Forma já o próximo time com a Cerca (grupos de ${min}); quem sobrar entra no time que perder quando a partida acabar.` : `A Cerca é embaralhada com ${G.os} ${G.players} do último time derrotado: quem está na Cerca sempre entra e saem quem mais jogou e fez gols no dia. Grupos completos viram time novo.`,
+              fixedWhy || fenceWhy, 'users')}
+            ${opt('general', 'Sorteio geral de todos os jogadores',
+              live ? 'Refaz todos os times, repetindo o mínimo possível as mesmas duplas. Vale quando a partida terminar, dando a vez a quem não está em quadra.' : 'Refaz todos os times agora, repetindo o mínimo possível as mesmas duplas. A Cerca tem prioridade e a vez é de quem acabou de descansar.',
+              fixedWhy || genWhy, 'shuffle')}
+          </div>`,
+        foot: html`<button class="btn" data-close>Cancelar</button>`,
+      });
+      dlg.el.addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (b && !b.disabled) { chosen = b.dataset.mode; dlg.close('ok'); } });
+      dlg.closed.then(() => resolve(chosen));
+    });
+  }
+
+  async function doDraw(mode = null) {
     if (ui.drawing) return;
     ui.drawing = true; // a atualização automática espera: a animação é desta pessoa
     try {
       const d = day();
-      const locked = new Set(d.matches.filter(m => m.status === 'live').flatMap(m => [m.a, m.b]).flatMap(id => teamOf(d, id)?.players || []));
-      const names = d.attendance.filter(a => !locked.has(a.pid)).map(a => pel().people[a.pid]?.name || '?');
-      const req = post('/draw').then(r => ({ r }), e => ({ e }));
+      const pool = mode === 'fence' ? d.fence : d.attendance.map(a => a.pid);
+      const names = pool.map(pid => pel().people[pid]?.name || '?');
+      const req = post('/draw', mode ? { mode } : undefined).then(r => ({ r }), e => ({ e }));
       const anim = playShuffle(names, { ms: 5000 });
       const out = await Promise.race([req, anim.then(() => null)]);
       if (out?.e) { anim.cancel(); await onError(out.e); return; } // falhou na hora: não faz o usuário esperar
@@ -224,7 +280,7 @@ export default async function (ctx) {
       ui.fresh = res.r.drawId; ui.expanded.clear();
       apply(res.r);
       setTimeout(() => { ui.fresh = null; }, 2500);
-      toast('Times sorteados!', { type: 'success' });
+      toast(!mode ? 'Times sorteados!' : res.r.later ? 'Sorteio geral combinado: vale quando a partida terminar.' : mode === 'fence' ? 'Sorteio da Cerca feito!' : 'Todos os times foram sorteados de novo!', { type: 'success' });
     } finally { ui.drawing = false; }
   }
 
@@ -272,17 +328,12 @@ export default async function (ctx) {
     const act = t.closest('[data-act]')?.dataset.act;
     if (act === 'presence') return togglePresence();
     if (act === 'draw' && day().draw) {
-      const started = day().matches.some(m => m.status !== 'scheduled');
-      const auto = day().org.autoDraw;
-      if (!(await confirmDialog({
-        title: started ? 'Sortear a próxima composição?' : 'Refazer o sorteio?',
-        text: started
-          ? `Os times que estão em quadra e o vencedor que continua se mantêm. Os outros jogadores e a Cerca serão sorteados para a próxima partida${auto ? ' (quem está na Cerca entra obrigatoriamente)' : ''}.`
-          : 'Os times atuais serão descartados e um novo sorteio será feito com a lista de presença de agora.',
-        ok: 'Sortear Times' }))) return;
-      return doDraw();
+      const mode = await chooseDraw();
+      if (mode) await doDraw(mode);
+      return;
     }
     if (act === 'draw') return doDraw();
+    if (act === 'draw-cancel') { await enqueue(() => post('/draw', { mode: 'cancel' })); return; }
     if (act === 'add-match') { await enqueue(() => post('/matches')); return; }
     const tg = t.closest('[data-team-toggle]');
     if (tg) { const k = tg.dataset.teamToggle; ui.expanded.has(k) ? ui.expanded.delete(k) : ui.expanded.add(k); patch(sec('draw'), drawSec().s); return; }
@@ -342,7 +393,7 @@ export default async function (ctx) {
     if (fin) {
       const m = day().matches.find(x => x.id === fin.dataset.finish);
       const r = await enqueue(() => post(`/matches/${m.id}/finish`));
-      if (r) toast(r.next ? (r.info?.rotation ? 'Partida encerrada! Sorteio automático feito e a próxima partida já foi criada.' : 'Partida encerrada! A próxima partida já foi criada.') : 'Partida encerrada.', { type: 'success' });
+      if (r) toast(r.next ? (r.info?.rotation ? `Partida encerrada! ${r.info.rotation.kind === 'general' ? 'Sorteio geral feito' : 'Sorteio da Cerca feito'} e a próxima partida já foi criada.` : 'Partida encerrada! A próxima partida já foi criada.') : 'Partida encerrada.', { type: 'success' });
       return;
     }
     const dm = t.closest('[data-del-match]');
@@ -396,7 +447,7 @@ export default async function (ctx) {
         ui.ended.add(m.id); timeUp(m.id);
         if (isOwner()) {
           enqueue(() => post(`/matches/${m.id}/finish`, { auto: true }), { quiet: ['TIMER_RUNNING', 'MATCH_FINISHED'] }).then(r => {
-            if (r) toast(r.next ? (r.info?.rotation ? 'Tempo esgotado! Partida encerrada, sorteio automático feito e a próxima já foi criada.' : 'Tempo esgotado! Partida encerrada e a próxima já foi criada.') : 'Tempo esgotado! Partida encerrada.', { type: 'success', ms: 5000 });
+            if (r) toast(r.next ? (r.info?.rotation ? `Tempo esgotado! Partida encerrada, ${r.info.rotation.kind === 'general' ? 'sorteio geral' : 'sorteio da Cerca'} feito e a próxima já foi criada.` : 'Tempo esgotado! Partida encerrada e a próxima já foi criada.') : 'Tempo esgotado! Partida encerrada.', { type: 'success', ms: 5000 });
             else setTimeout(() => ui.ended.delete(m.id), 1200);
           });
         } else paint();

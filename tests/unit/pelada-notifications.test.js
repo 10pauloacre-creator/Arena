@@ -143,9 +143,9 @@ test('organizador: convidado, remoção da lista, sorteio com o time de cada um,
   assert.equal(drawA.title, 'Times sorteados');
   assert.ok(drawA.text.endsWith(`Você está no ${teamOfAna.label}.`), drawA.text);
   // refazer logo em seguida substitui o aviso (não acumula)
-  assert.equal((await owner.post(`${base}/draw`)).status, 200);
+  assert.equal((await owner.post(`${base}/draw`, { mode: 'general' })).status, 200);
   const draws = (await inbox(ana)).items.filter(i => i.type === 'draw');
-  assert.equal(draws.length, 1); assert.equal(draws[0].title, 'Sorteio refeito');
+  assert.equal(draws.length, 1); assert.equal(draws[0].title, 'Sorteio geral');
   // encaixe manual muda o time: o aviso passa a dizer o time novo
   const d2 = (await owner.get(`/pelada/peladas/${id}`)).data.pelada.days[0];
   const other = d2.draw.teams.find(t => !t.players.includes(`u:${ana.player.id}`));
@@ -295,7 +295,7 @@ test('Cerca e sorteio automático nos avisos: quem sobra é avisado, o resultado
   const { owner, players, id, base } = s;
   const [ana, bia, carla, dani, eva] = players;
   const dayId = s.dayId;
-  assert.equal((await owner.patch(`/pelada/peladas/${id}`, { autoDraw: true, autoEvery: 1 })).status, 200);
+  assert.equal((await owner.patch(`/pelada/peladas/${id}`, { autoDraw: true })).status, 200);
   for (const c of [ana, bia, carla, dani, eva]) assert.equal((await c.post(`${base}/presence`, { present: true })).status, 200);
 
   // 5 presentes (o organizador não joga), mínimo 2: dois times de 2 e 1 jogador na Cerca, que é avisado
@@ -315,7 +315,7 @@ test('Cerca e sorteio automático nos avisos: quem sobra é avisado, o resultado
   await owner.post(`${base}/matches/${mid}/goals`, { teamId: t1.id });
   const fin = await owner.post(`${base}/matches/${mid}/finish`);
   assert.equal(fin.status, 200);
-  assert.ok(fin.data.info.rotation, 'sorteio automático a cada 1 partida');
+  assert.ok(fin.data.info.rotation, 'sorteio da Cerca ao encerrar');
   const res = (await inbox(ana)).items.find(i => i.type === 'result');
   assert.ok(res.text.startsWith(`${t1.label} 1 × 0 ${t2.label}.`), res.text);
   // a Cerca entrou no time que perdeu: o aviso do sorteio acompanha ("você está no Time X")

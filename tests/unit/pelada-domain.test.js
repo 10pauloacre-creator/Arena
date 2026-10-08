@@ -3,8 +3,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   newPelada, addDay, setPresence, addGuest, performDraw, createMatch, timerAction, addGoal, removeGoal, finishMatch, deleteMatch,
-  assignPlayer, normalizeQueue, MAX_ATTENDANCE, MAX_MEMBERS, orgOf, freePids, removeMember, setLoan,
+  assignPlayer, normalizeQueue, MAX_ATTENDANCE, MAX_MEMBERS, orgOf, freePids, removeMember, setLoan, manualDraw, settleArrivals,
 } from '../../lib/domain/pelada.js';
+import { dayStats, pairHistory } from '../../lib/domain/pelada-engine.js';
 import { mulberry32 } from '../../public/assets/js/shared/pelada.js';
 
 const NOW = Date.parse('2026-10-07T15:00:00Z');
@@ -38,23 +39,25 @@ test('limites: lista de presença, participantes e convidados', () => {
 
 test('data personalizada herda ou sobrescreve a organização padrão', () => {
   const p = newPelada({ id: 'PL-TESTE4', owner, input: { name: 'Org FC', gender: 'masculino', minPerTeam: 7, matchMinutes: 12, days: [{ date: '2026-10-07' }, { date: '2026-10-14', org: { minPerTeam: 4, noTeams: true } }] } }, NOW);
-  assert.deepEqual(orgOf(p, p.days[0]), { minPerTeam: 7, noTeams: false, matchMinutes: 12, autoDraw: false, autoEvery: 1 });
-  assert.deepEqual(orgOf(p, p.days[1]), { minPerTeam: 4, noTeams: true, matchMinutes: 12, autoDraw: false, autoEvery: 1 });
+  assert.deepEqual(orgOf(p, p.days[0]), { minPerTeam: 7, noTeams: false, matchMinutes: 12, autoDraw: false, generalDraw: false, generalEvery: 3 });
+  assert.deepEqual(orgOf(p, p.days[1]), { minPerTeam: 4, noTeams: true, matchMinutes: 12, autoDraw: false, generalDraw: false, generalEvery: 3 });
   assert.throws(() => addDay(p, { date: '2026-10-14' }, NOW), /Já existe/);
   assert.throws(() => addDay(p, { date: 'lixo' }, NOW), /inválida/);
   assert.throws(() => addDay(p, { date: '2026-10-21', org: { minPerTeam: 99 } }, NOW), /entre 2 e 15/);
 });
 
-test('sorteio automático na configuração: padrão da pelada, personalizado por data e validação (1, 2, 3 ou nunca)', () => {
-  const p = newPelada({ id: 'PL-TESTE5', owner, input: { name: 'Auto FC', gender: 'masculino', minPerTeam: 5, autoDraw: true, autoEvery: 2, days: [{ date: '2026-10-07' }, { date: '2026-10-14', org: { autoEvery: 0 } }, { date: '2026-10-21', org: { autoDraw: false } }] } }, NOW);
-  assert.equal(p.autoDraw, true); assert.equal(p.autoEvery, 2);
-  assert.deepEqual([orgOf(p, p.days[0]).autoDraw, orgOf(p, p.days[0]).autoEvery], [true, 2]);
-  assert.deepEqual([orgOf(p, p.days[1]).autoDraw, orgOf(p, p.days[1]).autoEvery], [true, 0]); // nunca sortear
-  assert.deepEqual([orgOf(p, p.days[2]).autoDraw, orgOf(p, p.days[2]).autoEvery], [false, 2]);
-  assert.throws(() => newPelada({ id: 'PL-TESTE6', owner, input: { name: 'Auto FC', gender: 'masculino', minPerTeam: 5, autoEvery: 4 } }, NOW), /entre 0 e 3/);
-  // pelada antiga (sem os campos) segue valendo: desligado, a cada 1
-  const old = { ...p, autoDraw: undefined, autoEvery: undefined };
-  assert.deepEqual([orgOf(old, { org: null }).autoDraw, orgOf(old, { org: null }).autoEvery], [false, 1]);
+test('sorteios automáticos na configuração: padrão da pelada, personalizado por data e validação (geral a cada 1 a 10 partidas)', () => {
+  const p = newPelada({ id: 'PL-TESTE5', owner, input: { name: 'Auto FC', gender: 'masculino', minPerTeam: 5, autoDraw: true, generalDraw: true, generalEvery: 2, days: [{ date: '2026-10-07' }, { date: '2026-10-14', org: { generalEvery: 5 } }, { date: '2026-10-21', org: { autoDraw: false, generalDraw: false } }] } }, NOW);
+  assert.deepEqual([p.autoDraw, p.generalDraw, p.generalEvery], [true, true, 2]);
+  const org = i => orgOf(p, p.days[i]);
+  assert.deepEqual([org(0).autoDraw, org(0).generalDraw, org(0).generalEvery], [true, true, 2]);
+  assert.deepEqual([org(1).autoDraw, org(1).generalDraw, org(1).generalEvery], [true, true, 5]);
+  assert.deepEqual([org(2).autoDraw, org(2).generalDraw, org(2).generalEvery], [false, false, 2]);
+  assert.throws(() => newPelada({ id: 'PL-TESTE6', owner, input: { name: 'Auto FC', gender: 'masculino', minPerTeam: 5, generalEvery: 11 } }, NOW), /entre 1 e 10/);
+  assert.throws(() => newPelada({ id: 'PL-TESTE6', owner, input: { name: 'Auto FC', gender: 'masculino', minPerTeam: 5, generalEvery: 0 } }, NOW), /entre 1 e 10/);
+  // pelada antiga (sem os campos) segue valendo: tudo desligado, geral a cada 3
+  const old = { ...p, autoDraw: undefined, generalDraw: undefined, generalEvery: undefined };
+  assert.deepEqual([orgOf(old, { org: null }).autoDraw, orgOf(old, { org: null }).generalDraw, orgOf(old, { org: null }).generalEvery], [false, false, 3]);
 });
 
 test('sorteio forma times completos e a sobra é a Cerca (convidados e retardatários entram nela)', () => {
@@ -72,137 +75,195 @@ test('sorteio forma times completos e a sobra é a Cerca (convidados e retardat�
 const allPids = day => [...day.draw.teams.flatMap(t => t.players), ...freePids(day)].sort();
 const nameOf = pid => `Jogador ${pid}`;
 
-test('rotação da Cerca com 2 times: vencedor fica; a Cerca entra no time que perdeu e os substituídos viram a nova Cerca', () => {
-  const { p, day } = setup(12, 5, { autoDraw: true, autoEvery: 1 });
+const play = (p, day, m, ga = 1, gb = 0, now = NOW, rnd = mulberry32(3)) => { timerAction(m, { action: 'start' }, now); score(day, m, ga, gb, now); return finishMatch(p, day, m, { now: now + 1000, rnd, nameOf }); };
+
+test('sorteio da Cerca com 2 times: vencedor fica; a Cerca entra no time que perdeu no lugar de quem mais fez gols e os substituídos viram a nova Cerca', () => {
+  const { p, day } = setup(12, 5, { autoDraw: true });
   const [t1, t2] = day.draw.teams;
   const before = allPids(day), fence = freePids(day), loserPlayers = [...t2.players], winnerPlayers = [...t1.players];
   const m = createMatch(p, day, { a: t1.id, b: t2.id }, NOW);
   timerAction(m, { action: 'start' }, NOW);
-  score(day, m, 2, 0, NOW);
+  score(day, m, 3, 0, NOW);
+  addGoal(day, m, { teamId: t2.id, pid: loserPlayers[0] }, NOW); // o perdedor também fez um gol: quem faz gols sai primeiro
+  addGoal(day, m, { teamId: t2.id, pid: loserPlayers[1] }, NOW);
   const r = finishMatch(p, day, m, { now: NOW + 1000, rnd: mulberry32(5), nameOf });
   assert.equal(r.info.reason, 'venceu');
-  assert.ok(r.info.rotation);
+  assert.equal(r.info.rotation.kind, 'fence');
   assert.deepEqual(day.draw.teams.find(t => t.id === t1.id).players, winnerPlayers, 'o vencedor mantém os jogadores');
-  const lead = day.draw.teams.find(t => t.id === t2.id); // o time novo tem o número do que perdeu
+  const lead = day.draw.teams.find(t => t.id === t2.id); // o time perdedor mantém a identidade (id, número, nome) com novos integrantes
   assert.ok(fence.every(pid => lead.players.includes(pid)), 'a Cerca entra obrigatoriamente');
   assert.equal(lead.players.length, 5);
   const newFence = freePids(day);
   assert.equal(newFence.length, 2);
-  assert.ok(newFence.every(pid => loserPlayers.includes(pid)), 'os substituídos do time que perdeu viram a nova Cerca');
+  assert.deepEqual([...newFence].sort(), [loserPlayers[0], loserPlayers[1]].sort(), 'saem os que mais fizeram gols');
   assert.deepEqual(allPids(day), before, 'ninguém some nem se repete');
   assert.deepEqual([r.next.a, r.next.b], [t1.id, t2.id]);
-  assert.equal(day.sinceDraw, 0);
+  assert.equal(r.next.stay, t1.id);
   assert.ok(day.draw.log.at(-1).includes('Nova Cerca'));
-  assert.ok(lead.players.includes(lead.captain) && fence.includes(lead.captain), 'o capitão é um dos integrantes principais (quem veio da Cerca)');
-  // a partida encerrada guarda os elencos de quem jogou
-  assert.deepEqual(m.rosters[t2.id].players, loserPlayers);
+  assert.deepEqual(m.rosters[t2.id].players, loserPlayers); // a súmula guarda quem jogou
   assert.deepEqual(m.rosters[t1.id].players, winnerPlayers);
+  assert.deepEqual(r.info.rotation.fenceIn.sort(), [...fence].sort());
+  assert.deepEqual(r.info.rotation.fenceOut.sort(), [...newFence].sort());
 });
 
-test('rotação da Cerca com mais de 2 times: a Cerca vira um time completado por sorteio, com número e capitão', () => {
-  const { p, day } = setup(17, 5, { autoDraw: true, autoEvery: 1 }); // 3 times + Cerca de 2
+test('sorteio da Cerca com mais de 2 times: o time que esperava joga e o perdedor (com a Cerca) entra depois', () => {
+  const { p, day } = setup(17, 5, { autoDraw: true }); // 3 times + Cerca de 2
   const [t1, t2, t3] = day.draw.teams;
-  const before = allPids(day), fence = freePids(day), winnerPlayers = [...t1.players];
-  const m = createMatch(p, day, { a: t1.id, b: t2.id }, NOW);
-  timerAction(m, { action: 'start' }, NOW);
-  score(day, m, 1, 0, NOW);
-  const r = finishMatch(p, day, m, { now: NOW + 1000, rnd: mulberry32(9), nameOf });
-  assert.ok(r.info.rotation);
-  assert.deepEqual(day.draw.teams.map(t => t.number), [1, 2, 3]);
+  const before = allPids(day), fence = freePids(day), winnerPlayers = [...t1.players], waiting = [...t3.players], loserPlayers = [...t2.players];
+  const r = play(p, day, createMatch(p, day, { a: t1.id, b: t2.id }, NOW), 1, 0, NOW, mulberry32(9));
+  assert.equal(r.info.rotation.kind, 'fence');
+  assert.deepEqual([r.next.a, r.next.b], [t1.id, t3.id], 'o time que esperava enfrenta o vencedor');
+  assert.deepEqual(day.draw.teams.find(t => t.id === t3.id).players, waiting, 'quem esperava não muda');
   assert.deepEqual(day.draw.teams.find(t => t.id === t1.id).players, winnerPlayers);
-  const lead = day.draw.teams.find(t => t.id === r.next.b);
-  assert.equal(lead.id, t2.id); // ganha o número do time que perdeu
-  assert.ok(fence.every(pid => lead.players.includes(pid)));
-  assert.equal(lead.players.length, 5);
-  assert.ok(lead.captain && lead.players.includes(lead.captain));
-  assert.deepEqual(day.draw.teams.map(t => t.players.length), [5, 5, 5]);
+  const loser = day.draw.teams.find(t => t.id === t2.id);
+  assert.ok(fence.every(pid => loser.players.includes(pid)), 'a Cerca entrou no time derrotado');
+  assert.deepEqual(day.queue, [t2.id], 'o time derrotado (com a Cerca) joga depois');
   assert.equal(freePids(day).length, 2);
-  // a nova Cerca sai dos times que estavam fora (o que perdeu e o que esperava), nunca do vencedor
-  const outBefore = new Set([...t2.players, ...t3.players]);
-  assert.ok(freePids(day).every(pid => outBefore.has(pid)));
+  assert.ok(freePids(day).every(pid => loserPlayers.includes(pid)), 'os substituídos vêm do time derrotado');
   assert.deepEqual(allPids(day), before);
-  // o time que esperava foi sorteado de novo: a fila tem o outro time novo
-  assert.deepEqual(day.queue, [t3.id]);
-  assert.equal(day.streaks[t1.id], 1);
   assert.equal(day.streaks[t2.id], 0);
 });
 
-test('sorteio automático a cada N partidas; desligado ou "nunca" mantém a fila clássica e a Cerca espera', () => {
-  const play = (day, p, m, goalsA = 1) => { timerAction(m, { action: 'start' }, NOW); score(day, m, goalsA, 0, NOW); return finishMatch(p, day, m, { now: NOW + 1000, rnd: mulberry32(3), nameOf }); };
-  // a cada 2 partidas
-  let { p, day } = setup(17, 5, { autoDraw: true, autoEvery: 2 });
-  const fence0 = freePids(day), [t1, t2, t3] = day.draw.teams.map(t => t.id);
-  const m1 = createMatch(p, day, { a: t1, b: t2 }, NOW);
-  const r1 = play(day, p, m1);
-  assert.equal(r1.info.rotation, null);           // 1ª partida: fila clássica
+test('Cerca completa vira um time novo (com identidade nova) que enfrenta o vencedor; o incompleto entra no derrotado', () => {
+  const { p, day } = setup(16, 5, { autoDraw: true }); // 3 times de 5? 16/5 = 3 -> 3 times + Cerca de 1
+  assert.equal(day.draw.teams.length, 3);
+  // 4 chegadas: Cerca de 5 = um time completo
+  for (const u of ['x1', 'x2', 'x3', 'x4']) { setPresence(p, day, u, true, NOW); settleArrivals(p, day, { rnd: mulberry32(1), nameOf }); }
+  assert.equal(day.draw.teams.length, 4, 'a Cerca de 5 virou o time 4');
+  const t4 = day.draw.teams.at(-1);
+  assert.equal(t4.number, 4);
+  assert.ok(t4.name && t4.emb);
+  assert.deepEqual(day.draw.teams.slice(0, 3).map(t => t.name).includes(t4.name), false, 'nome novo do catálogo');
+  assert.deepEqual(freePids(day), []);
+  assert.deepEqual(day.queue, [day.draw.teams[0].id, day.draw.teams[1].id, day.draw.teams[2].id, t4.id]);
+  // Cerca incompleta (3) + um time completo na espera: entram em lugares diferentes
+  for (const u of ['y1', 'y2', 'y3', 'y4', 'y5', 'y6', 'y7']) setPresence(p, day, u, true, NOW);
+  const [a, b, c] = day.draw.teams.map(t => t.id);
+  const r = play(p, day, createMatch(p, day, { a, b }, NOW));
+  // a Cerca (7) formou o time 5 e o incompleto (2) entrou no derrotado
+  assert.equal(day.draw.teams.length, 5);
+  assert.deepEqual([r.next.a, r.next.b], [a, c], 'o time que esperava joga primeiro');
+  assert.deepEqual(day.queue.at(-1), b, 'o derrotado vai por último');
+  assert.equal(freePids(day).length, 2);
+  assert.ok(day.draw.teams.every(t => t.players.length === 5));
+});
+
+test('sorteio automático geral a cada N partidas refaz todos os times, a Cerca tem prioridade e quem descansou joga primeiro', () => {
+  const { p, day } = setup(17, 5, { generalDraw: true, generalEvery: 2 });
+  const [t1, t2, t3] = day.draw.teams.map(t => t.id);
+  const fence0 = freePids(day);
+  const r1 = play(p, day, createMatch(p, day, { a: t1, b: t2 }, NOW));
+  assert.equal(r1.info.rotation, null);                // 1ª partida: fila clássica
   assert.deepEqual([r1.next.a, r1.next.b], [t1, t3]);
-  assert.deepEqual(freePids(day), fence0);          // a Cerca continua esperando
+  assert.deepEqual(freePids(day), fence0);               // sem o sorteio da Cerca, ela segue esperando
   assert.equal(day.sinceDraw, 1);
-  const r2 = play(day, p, r1.next);
-  assert.ok(r2.info.rotation);                      // 2ª partida: sorteio automático
+  const played = new Set([...day.draw.teams.find(t => t.id === t1).players, ...day.draw.teams.find(t => t.id === t3).players]);
+  const r2 = play(p, day, r1.next);
+  assert.equal(r2.info.rotation.kind, 'general');       // 2ª partida: sorteio geral
   assert.equal(day.sinceDraw, 0);
-  assert.ok(fence0.every(pid => day.draw.teams.find(t => t.id === r2.next.b).players.includes(pid)));
-  // desligado
-  ({ p, day } = setup(17, 5, { autoDraw: false, autoEvery: 1 }));
-  const fence1 = freePids(day);
-  const [a1, b1] = day.draw.teams.map(t => t.id);
-  const off = play(day, p, createMatch(p, day, { a: a1, b: b1 }, NOW));
-  assert.equal(off.info.rotation, null); assert.deepEqual(freePids(day), fence1);
-  // ligado, mas "nunca"
-  ({ p, day } = setup(17, 5, { autoDraw: true, autoEvery: 0 }));
-  const never = play(day, p, createMatch(p, day, { a: day.draw.teams[0].id, b: day.draw.teams[1].id }, NOW));
-  assert.equal(never.info.rotation, null);
-});
-
-test('sorteio manual segue ativo com partida em andamento: times em quadra se mantêm e a Cerca é obrigatória na próxima composição', () => {
-  const { p, day } = setup(17, 5, { autoDraw: true, autoEvery: 0 });
-  const [t1, t2, t3] = day.draw.teams;
-  const m = createMatch(p, day, { a: t1.id, b: t2.id }, NOW);
-  timerAction(m, { action: 'start' }, NOW);
-  const playing = [...t1.players, ...t2.players], fence = freePids(day), idsBefore = day.draw.id;
-  const players = day.attendance.map(a => ({ pid: a.pid, name: nameOf(a.pid), guest: false }));
-  const draw = performDraw(p, day, players, { by: 'owner', now: NOW + 5000, rnd: mulberry32(21) });
-  assert.notEqual(draw.id, idsBefore);
-  assert.deepEqual(day.draw.teams.find(t => t.id === t1.id).players, t1.players);
-  assert.deepEqual(day.draw.teams.find(t => t.id === t2.id).players, t2.players);
-  const next = day.draw.teams.find(t => t.id === t3.id); // o time de fora foi sorteado de novo (mesmo número)
-  assert.ok(fence.every(pid => next.players.includes(pid)), 'a Cerca entra na próxima composição (sorteio automático marcado)');
-  assert.equal(next.players.length, 5);
-  assert.ok(freePids(day).every(pid => !playing.includes(pid)), 'quem está em quadra não vai para a Cerca');
-  assert.deepEqual(day.queue, [t3.id]);
+  assert.equal(day.draw.teams.length, 3);
+  assert.ok(day.draw.teams.every(t => t.players.length === 5));
   assert.equal(allPids(day).length, 17);
-  // sem o sorteio automático marcado, a Cerca não tem entrada garantida
-  const free = setup(17, 5, { autoDraw: false });
-  const mm = createMatch(free.p, free.day, { a: free.day.draw.teams[0].id, b: free.day.draw.teams[1].id }, NOW);
-  timerAction(mm, { action: 'start' }, NOW);
-  let leftOut = 0;
-  for (let seed = 1; seed <= 30; seed++) {
-    const f = setup(17, 5, { autoDraw: false });
-    const x = createMatch(f.p, f.day, { a: f.day.draw.teams[0].id, b: f.day.draw.teams[1].id }, NOW);
-    timerAction(x, { action: 'start' }, NOW);
-    const fence2 = freePids(f.day);
-    performDraw(f.p, f.day, f.day.attendance.map(a => ({ pid: a.pid, name: nameOf(a.pid) })), { by: 'owner', now: NOW, rnd: mulberry32(seed) });
-    if (freePids(f.day).some(pid => fence2.includes(pid))) leftOut++;
-  }
-  assert.ok(leftOut > 0, 'sem a opção marcada, quem estava na Cerca pode ficar de fora de novo');
+  assert.ok(fence0.every(pid => !freePids(day).includes(pid)), 'quem estava na Cerca entrou');
+  const next = [r2.next.a, r2.next.b].flatMap(id => day.draw.teams.find(t => t.id === id).players);
+  const rested = day.attendance.map(a => a.pid).filter(pid => !played.has(pid) && !freePids(day).includes(pid));
+  assert.ok(next.filter(pid => !played.has(pid)).length >= Math.min(rested.length, next.length), 'a vez é de quem não jogou a última partida');
+  assert.equal(r2.next.stay, null);
 });
 
-test('sorteio entre partidas: o vencedor que continua na próxima partida se mantém e a partida ganha o novo desafiante', () => {
-  const { p, day } = setup(17, 5, { autoDraw: false });
+test('sorteio geral mantém os ids e números dos times e evita repetir duplas', () => {
+  const { p, day } = setup(20, 5);
+  const ids = day.draw.teams.map(t => t.id), names = day.draw.teams.map(t => t.name);
+  const key = (a, b) => [a, b].sort().join('|');
+  // sem partidas: 4 times de 5 podem ser refeitos repetindo só 1 dupla por time (mínimo possível)
+  const old = pairHistory(day);
+  manualDraw(p, day, 'general', { rnd: mulberry32(40), nameOf, by: 'owner', now: NOW });
+  assert.deepEqual(day.draw.teams.map(t => t.id), ids, 'os times seguem os mesmos');
+  assert.deepEqual(day.draw.teams.map(t => t.name), names);
+  let rep = 0;
+  for (const t of day.draw.teams) for (let x = 0; x < t.players.length; x++) for (let y = x + 1; y < t.players.length; y++) if (old.get(key(t.players[x], t.players[y]))) rep++;
+  assert.ok(rep <= 8, `duplas repetidas: ${rep}`);
+  assert.equal(allPids(day).length, 20);
+  // com partida encerrada: quem descansou ocupa os dois primeiros times
+  const m = createMatch(p, day, { a: ids[0], b: ids[1] }, NOW);
+  const r = play(p, day, m);
+  const onCourt = new Set([...m.rosters[ids[0]].players, ...m.rosters[ids[1]].players]);
+  const g = manualDraw(p, day, 'general', { rnd: mulberry32(41), nameOf, by: 'owner', now: NOW + 5000 });
+  assert.equal(g.kind, 'general');
+  const first = [r.next.a, r.next.b].map(id => day.draw.teams.find(t => t.id === id).players);
+  assert.ok(first.flat().every(pid => !onCourt.has(pid)), 'a vez é de quem não estava em quadra');
+});
+
+test('sorteio manual com partida em andamento: o da Cerca define o próximo time agora; o geral fica combinado e vale no fim da partida', () => {
+  const { p, day } = setup(22, 5); // 4 times + Cerca de 2
   const [t1, t2] = day.draw.teams.map(t => t.id);
   const m = createMatch(p, day, { a: t1, b: t2 }, NOW);
   timerAction(m, { action: 'start' }, NOW);
-  score(day, m, 1, 0, NOW);
-  const r = finishMatch(p, day, m, { now: NOW + 1000, nameOf });
-  const winner = [...day.draw.teams.find(t => t.id === t1).players];
-  performDraw(p, day, day.attendance.map(a => ({ pid: a.pid, name: nameOf(a.pid) })), { by: 'owner', now: NOW + 2000, rnd: mulberry32(2) });
-  assert.deepEqual(day.draw.teams.find(t => t.id === t1).players, winner);
-  assert.equal(r.next.a, t1); assert.ok(r.next.b && r.next.b !== t1);
+  // Cerca pequena: não dá para formar o próximo time
+  assert.throws(() => manualDraw(p, day, 'fence', { rnd: mulberry32(1), nameOf, by: 'owner', now: NOW }), /ao menos 5/);
+  for (const g of ['Ana1', 'Ana2', 'Ana3', 'Ana4', 'Ana5']) addGuest(p, day, g + 'x', 'free', NOW, nameOf);
+  assert.equal(freePids(day).length, 7);
+  const r = manualDraw(p, day, 'fence', { rnd: mulberry32(2), nameOf, by: 'owner', now: NOW + 1 });
+  assert.equal(r.kind, 'fence');
+  assert.equal(day.draw.teams.length, 5, 'um time novo nasceu da Cerca');
+  assert.equal(freePids(day).length, 2, 'a Cerca incompleta fica para o time derrotado');
+  assert.deepEqual(day.draw.teams.find(t => t.id === t1).players.length, 5);
+  assert.ok(day.queue.includes(day.draw.teams.at(-1).id));
+  // geral combinado: nada muda agora
+  const teamsBefore = JSON.stringify(day.draw.teams);
+  const g = manualDraw(p, day, 'general', { rnd: mulberry32(3), nameOf, by: 'owner', now: NOW + 2 });
+  assert.equal(g.later, true);
+  assert.equal(JSON.stringify(day.draw.teams), teamsBefore);
+  assert.ok(day.pending && day.pending.teams.length >= 2);
+  const onCourt = new Set([...day.draw.teams.find(t => t.id === t1).players, ...day.draw.teams.find(t => t.id === t2).players]);
+  const firstTwo = day.pending.teams.slice(0, 2).flatMap(t => t.players);
+  assert.ok(firstTwo.every(pid => !onCourt.has(pid)), 'quem está em quadra não está nos dois primeiros times do geral');
+  const before = day.pending.teams.map(t => t.players);
+  const r2 = play(p, day, m, 1, 0, NOW + 3);
+  assert.equal(r2.info.rotation.kind, 'general');
+  assert.equal(day.pending, null);
+  assert.deepEqual([r2.next.a, r2.next.b].map(id => day.draw.teams.find(t => t.id === id).players), before.slice(0, 2));
+  assert.equal(allPids(day).length, 27);
+});
+
+test('sorteio manual sem partida em quadra vale na hora; com times fixos não sorteia', () => {
+  const { p, day } = setup(17, 5);
+  const [t1, t2] = day.draw.teams.map(t => t.id);
+  const r1 = play(p, day, createMatch(p, day, { a: t1, b: t2 }, NOW));
+  // Cerca + time derrotado: a Cerca (2) entra no derrotado
+  const fence = freePids(day), loser = r1.info.leaver;
+  const r = manualDraw(p, day, 'fence', { rnd: mulberry32(8), nameOf, by: 'owner', now: NOW + 5000 });
+  assert.equal(r.leaver, loser);
+  assert.ok(fence.every(pid => day.draw.teams.find(t => t.id === loser).players.includes(pid)));
   assert.equal(allPids(day).length, 17);
+  // geral na hora
+  const g = manualDraw(p, day, 'general', { rnd: mulberry32(9), nameOf, by: 'owner', now: NOW + 6000 });
+  assert.equal(g.kind, 'general'); assert.equal(day.pending, null);
+  assert.equal(day.sinceDraw, 0);
+  assert.equal(allPids(day).length, 17);
+  day.fixed = { at: NOW };
+  assert.throws(() => manualDraw(p, day, 'general', { rnd: mulberry32(9), nameOf, by: 'owner', now: NOW }), /fixos/);
+  assert.throws(() => manualDraw(p, day, 'xyz', { rnd: mulberry32(9), nameOf, by: 'owner', now: NOW }), /fixos/);
+});
+
+test('contadores do dia: partidas por jogador (incluindo emprestados) vêm das partidas encerradas', () => {
+  const { p, day } = setup(12, 5);
+  const [t1, t2] = day.draw.teams;
+  const outsider = freePids(day)[0];
+  const m = createMatch(p, day, { a: t1.id, b: t2.id }, NOW);
+  timerAction(m, { action: 'start' }, NOW);
+  setLoan(day, m, { teamId: t1.id, pid: outsider });
+  score(day, m, 1, 0, NOW);
+  finishMatch(p, day, m, { now: NOW + 1000, rnd: mulberry32(1), nameOf });
+  const { games, goals } = dayStats(day);
+  assert.equal(games[t1.players[0]], 1); assert.equal(games[t2.players[0]], 1); assert.equal(games[outsider], 1);
+  assert.equal(goals[t1.players[0]], 1);
+  const idle = freePids(day).find(pid => pid !== outsider);
+  assert.equal(games[idle] || 0, 0);
 });
 
 test('partida encerrada pode ser corrigida: gols de quem jogou (elenco da época) e placar recalculado', () => {
-  const { p, day } = setup(12, 5, { autoDraw: true, autoEvery: 1 });
+  const { p, day } = setup(12, 5, { autoDraw: true });
   const [t1, t2] = day.draw.teams;
   const outsider = freePids(day)[0]; // estava na Cerca durante a partida
   const m = createMatch(p, day, { a: t1.id, b: t2.id }, NOW);

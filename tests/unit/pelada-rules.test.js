@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   parseBirth, parseDateParts, normalizeSecret, maskDate, nameKey, normalizePeladaId, PELADA_ID_RE, planTeams, drawTeams, minPlayersForDraw,
   nextPairing, rankGoals, matchScore, timerRemaining, fmtClock, mulberry32, teamLabel, rangeLabel, sharePeriod,
-  formTeams, AUTO_EVERY_OPTIONS, autoDrawLabel,
+  formTeams, GENERAL_EVERY_OPTIONS, autoDrawLabel, FENCE_DRAW_TITLE, GENERAL_DRAW_TITLE,
 } from '../../public/assets/js/shared/pelada.js';
 
 const people = n => Array.from({ length: n }, (_, i) => ({ pid: `u:${i + 1}`, name: `Jogadora ${i + 1}`, guest: i % 7 === 6 }));
@@ -123,12 +123,14 @@ test('sorteio — as notas explicam a Cerca', () => {
   assert.ok(drawTeams(people(12), 5, mulberry32(1), { must: ['u:1'] }).notes.some(n => /Cerca anterior/.test(n)));
 });
 
-test('sorteio automático: rótulos e opções (1, 2, 3 partidas ou nunca)', () => {
-  assert.deepEqual(AUTO_EVERY_OPTIONS.map(o => o[0]), [1, 2, 3, 0]);
-  assert.equal(autoDrawLabel({ autoDraw: false, autoEvery: 1 }), 'Sorteio automático desligado');
-  assert.equal(autoDrawLabel({ autoDraw: true, autoEvery: 1 }), 'Sorteio automático a cada 1 partida');
-  assert.equal(autoDrawLabel({ autoDraw: true, autoEvery: 3 }), 'Sorteio automático a cada 3 partidas');
-  assert.match(autoDrawLabel({ autoDraw: true, autoEvery: 0 }), /nunca/);
+test('sorteios automáticos: títulos, rótulos e opções (geral a cada 1 a 10 partidas)', () => {
+  assert.equal(FENCE_DRAW_TITLE, 'Sorteio automático da Cerca');
+  assert.equal(GENERAL_DRAW_TITLE, 'Sorteio automático geral');
+  assert.deepEqual(GENERAL_EVERY_OPTIONS.map(o => o[0]), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  assert.equal(autoDrawLabel({ autoDraw: false, generalDraw: false, generalEvery: 3 }), 'Sorteios automáticos desligados');
+  assert.equal(autoDrawLabel({ autoDraw: true, generalDraw: false, generalEvery: 3 }), 'Sorteio da Cerca automático');
+  assert.equal(autoDrawLabel({ autoDraw: false, generalDraw: true, generalEvery: 1 }), 'Sorteio geral a cada partida');
+  assert.equal(autoDrawLabel({ autoDraw: true, generalDraw: true, generalEvery: 3 }), 'Sorteio da Cerca automático · Sorteio geral a cada 3 partidas');
 });
 
 test('fila de partidas: quem ganha fica; perdedor vai para o fim; empate tira quem está há mais tempo', () => {

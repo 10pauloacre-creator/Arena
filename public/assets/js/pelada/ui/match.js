@@ -59,8 +59,11 @@ export function nextInfoText(pel, day, m) {
   const nameOf = pid => firstName(pel.people[pid]?.name || '?');
   const r = nx.rotation;
   if (r) {
-    const lead = teamOf(day, r.teamId);
-    return `${st.label} ${nx.reason === 'venceu' ? 'venceu e continua' : 'continua (empate)'}. Sorteio automático: ${r.fenceIn.length ? `${joinNames(r.fenceIn, nameOf)} da Cerca ${r.fenceIn.length === 1 ? 'entrou' : 'entraram'} no ${lead?.label || 'novo time'}` : `${lead?.label || 'um novo time'} foi sorteado`}. ${r.fenceOut.length ? `Nova Cerca: ${joinNames(r.fenceOut, nameOf)}.` : 'A Cerca ficou vazia.'}`;
+    const lab = id => teamOf(day, id)?.label || 'time';
+    const fence = r.fenceOut.length ? `Nova Cerca: ${joinNames(r.fenceOut, nameOf)}.` : 'A Cerca ficou vazia.';
+    if (r.kind === 'general') return `Sorteio geral: todos os times foram refeitos (${r.fenceIn.length ? `${joinNames(r.fenceIn, nameOf)} da Cerca ${r.fenceIn.length === 1 ? 'entrou' : 'entraram'}; ` : ''}os mais ativos do dia dão a vez). ${fence}`;
+    const parts = (r.changes || []).filter(c => c.in.length || c.out.length).map(c => `${lab(c.teamId)}${c.isNew ? ' (novo)' : ''}: ${[c.in.length && `entram ${joinNames(c.in, nameOf)}`, c.out.length && `saem ${joinNames(c.out, nameOf)}`].filter(Boolean).join('; ')}`);
+    return `${st.label} ${nx.reason === 'venceu' ? 'venceu e continua' : 'continua (empate)'}. Sorteio da Cerca: ${parts.join(' · ')}. ${fence}`;
   }
   return nx.reason === 'venceu'
     ? `${st.label} venceu e continua; ${lv.label} vai para o fim da fila.`

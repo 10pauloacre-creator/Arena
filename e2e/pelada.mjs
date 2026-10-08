@@ -467,55 +467,62 @@ await test('criação: "Criar pelada demo" monta o jogo de hoje com 17 jogadores
 });
 
 // ------------------------------------------------------------------ Cerca, sorteio automático e correções
-await test('configuração: "Sorteio automático de jogadores" com frequência (1, 2, 3 partidas ou nunca), no padrão e por data', async () => {
+await test('configuração: "Sorteio automático da Cerca" e "Sorteio automático geral" (a cada 1 a 10 partidas), no padrão e por data', async () => {
   const o = await apiPlayer(`Config ${stamp}`);
   const ctx = await playerContext(o, MOBILE); const p = await ctx.newPage(); watch(p, 'config');
   await guard(p, async () => {
     await p.goto(app.base + '/pelada/nova');
     await p.fill('#pf-name', 'Pelada Automática');
     await p.locator('label[for=pf-g-feminino]').click();
-    assert(await p.locator('input[name=autoDraw]').count() === 1 && !(await p.locator('input[name=autoDraw]').isChecked()), 'opção desligada por padrão');
-    assert(await p.locator('[data-auto-every]').count() === 0, 'frequência só aparece com a opção ligada');
-    await p.locator('input[name=autoDraw]').evaluate(el => el.click());
-    const opts = await p.locator('.auto-draw [data-auto-every]').allTextContents();
-    assert(opts.join('|') === 'A cada 1 partida|A cada 2 partidas|A cada 3 partidas|Nunca', 'opções: ' + opts.join('|'));
-    await p.locator('.auto-draw [data-auto-every="2"]').click();
-    await p.locator('.auto-draw [data-auto-every="2"][aria-pressed=true]').waitFor(T);
+    const auto = p.locator('.auto-draw').first();
+    assert(await auto.getByText('Sorteio automático da Cerca').count() === 1, 'título da opção da Cerca');
+    assert(await auto.getByText('Sorteio automático geral').count() === 1, 'título da opção geral');
+    assert((await auto.textContent()).includes('serão embaralhados com os jogadores do time que perdeu'), 'descrição da Cerca');
+    assert(!(await p.locator('input[data-auto-opt=autoDraw]').first().isChecked()) && !(await p.locator('input[data-auto-opt=generalDraw]').first().isChecked()), 'opções desligadas por padrão');
+    assert(await p.locator('[data-general-every]').count() === 0, 'frequência só aparece com o sorteio geral ligado');
+    await p.locator('input[data-auto-opt=autoDraw]').first().evaluate(el => el.click());
+    await p.locator('input[data-auto-opt=generalDraw]').first().evaluate(el => el.click());
+    const opts = await p.locator('.auto-draw [data-general-every][data-date=""] option').allTextContents();
+    assert(opts.length === 10 && opts[0] === 'A cada partida' && opts[1] === 'A cada 2 partidas' && opts[9] === 'A cada 10 partidas', 'opções: ' + opts.join('|'));
+    await p.locator('.auto-draw [data-general-every][data-date=""]').selectOption('2');
     await p.locator(`[data-iso="${todayIso}"]`).click();
     await p.locator(`[data-org=custom][data-date="${todayIso}"]`).click();
-    await p.locator(`.day-card[data-day="${todayIso}"] [data-auto-every="3"]`).waitFor(T); // a data herda e pode personalizar
-    assert(await p.locator(`.day-card[data-day="${todayIso}"] [data-auto-every="3"]`).isVisible(), 'frequência por data');
-    await p.locator(`.day-card[data-day="${todayIso}"] [data-auto-every="3"]`).click();
+    const dsel = p.locator(`.day-card[data-day="${todayIso}"] [data-general-every]`);
+    await dsel.waitFor(T); // a data herda e pode personalizar
+    assert(await dsel.inputValue() === '2', 'a data herda o padrão');
+    await dsel.selectOption('3');
     await shot(p, '18-config-auto');
-    await noOverflow(p, 'form com sorteio automático');
+    await noOverflow(p, 'form com sorteios automáticos');
     await p.click('#pf-go');
     await p.waitForURL(/\/pelada\/p\/PL-[A-Z2-9]{6}/);
     const id = p.url().match(/PL-[A-Z2-9]{6}/)[0];
     const view = (await (await fetch(`${app.base}/api/pelada/peladas/${id}`)).json()).pelada;
-    assert(view.autoDraw === true && view.autoEvery === 2, 'padrão salvo: ' + view.autoDraw + '/' + view.autoEvery);
-    assert(view.days[0].custom && view.days[0].org.autoDraw && view.days[0].org.autoEvery === 3, 'data personalizada salva');
+    assert(view.autoDraw === true && view.generalDraw === true && view.generalEvery === 2, 'padrão salvo: ' + [view.autoDraw, view.generalDraw, view.generalEvery]);
+    assert(view.days[0].custom && view.days[0].org.autoDraw && view.days[0].org.generalDraw && view.days[0].org.generalEvery === 3, 'data personalizada salva');
     await p.goto(`${app.base}/pelada/p/${id}/editar`); // ao editar, os valores voltam preenchidos
-    await p.locator('.auto-draw [data-auto-every="2"][aria-pressed=true]').first().waitFor(T);
+    await p.locator('.auto-draw [data-general-every][data-date=""]').first().waitFor(T);
+    assert(await p.locator('.auto-draw [data-general-every][data-date=""]').first().inputValue() === '2', 'frequência volta preenchida');
   });
   await ctx.close();
 });
 
-await test('Cerca + sorteio automático (demo de 17): Cerca no rodapé, sorteio ativo com partida em andamento, rotação ao encerrar e correção do placar', async () => {
+await test('Cerca + sorteios (demo de 17): Cerca no rodapé, modal com duas opções, sorteio da Cerca ao encerrar, geral combinado durante a partida e correção do placar', async () => {
   const o = await apiPlayer(`Auto ${stamp}`);
   const ctx = await playerContext(o, MOBILE); const p = await ctx.newPage(); watch(p, 'auto');
   const call = async (method, path, body) => (await fetch(app.base + '/api' + path, { method, headers: { 'Content-Type': 'application/json', Cookie: o.cookie }, body: body ? JSON.stringify(body) : undefined })).json();
   await guard(p, async () => {
     const demo = await call('POST', '/pelada/peladas/demo');
     const pid = demo.pelada.id, dayId = demo.dayId;
-    await call('PATCH', `/pelada/peladas/${pid}`, { autoDraw: true, autoEvery: 1 });
+    await call('PATCH', `/pelada/peladas/${pid}`, { autoDraw: true });
     await p.goto(`${app.base}/pelada/p/${pid}/d/${dayId}`);
-    await seen(p, 'Auto a cada 1 partida');
+    await seen(p, 'Sorteio da Cerca automático');
     await p.getByRole('button', { name: 'Sortear Times' }).click();
     await p.locator('[data-team-toggle]').first().waitFor({ timeout: 15000 });
     assert(await p.locator('[data-team-toggle]').count() === 3, '3 times de 5');
     await seen(p, 'Cerca (2)');
     const fenceNames = await p.locator('.fence-box li .grow').allTextContents();
     assert(fenceNames.length === 2, 'Cerca com 2 jogadores');
+    assert(await p.locator('.games-tag').count() >= 17, 'contador de partidas ao lado de cada jogador');
     // partida: escolhe os times e inicia
     await p.getByRole('button', { name: 'Adicionar partida' }).click();
     await p.locator('.match').first().waitFor(T);
@@ -526,23 +533,21 @@ await test('Cerca + sorteio automático (demo de 17): Cerca no rodapé, sorteio 
     await p.locator('.match').first().getByRole('button', { name: 'Iniciar' }).click();
     await p.locator('.match.running').waitFor(T);
     assert(await p.locator('.match.running .match-fence li').count() === 2, 'Cerca no rodapé da partida em andamento');
-    // o sorteio continua ativo mesmo com a partida em andamento (define a próxima composição)
-    const playing = await p.locator('.match.running .slot-name').allTextContents();
-    await p.getByRole('button', { name: 'Sortear Times' }).click();
-    await seen(p, 'Sortear a próxima composição?');
-    await p.locator('dialog [data-close=ok]').click();
-    await p.locator('.shuffle').waitFor(T);
-    await p.locator('.shuffle').waitFor({ state: 'detached', timeout: 9000 });
-    await seen(p, 'se mantêm');
-    assert((await p.locator('.match.running .slot-name').allTextContents()).join() === playing.join(), 'os times em quadra continuam os mesmos');
-    assert(await p.locator('.match.running').count() === 1, 'a partida segue em andamento');
-    await shot(p, '19-sorteio-com-partida');
+    await seen(p, 'Quem joga em seguida');
+    // o sorteio continua ativo mesmo com a partida em andamento: duas opções (a da Cerca precisa de um grupo completo)
+    await p.getByRole('button', { name: 'Sortear times' }).click();
+    await seen(p, 'Sorteio de cerca + time derrotado');
+    await seen(p, 'Sorteio geral de todos os jogadores');
+    assert(await p.locator('dialog .draw-opt[data-mode=fence]').isDisabled(), 'Cerca pequena: sorteio da Cerca indisponível durante a partida');
+    assert(await p.locator('dialog .draw-opt[data-mode=general]').isEnabled(), 'sorteio geral disponível');
+    await shot(p, '19-sorteio-modal');
+    await p.locator('dialog [data-close]').first().click();
     // gol, encerra: o vencedor fica, a Cerca entra no time que perdeu e há nova Cerca
     await p.locator('.match.running .sum-col').nth(0).locator('.chip-main').first().click();
     await p.waitForTimeout(400);
     await p.getByRole('button', { name: 'Encerrar partida' }).click();
     await p.locator('.match.finished').waitFor(T);
-    await seen(p, 'Sorteio automático:');
+    await seen(p, 'Sorteio da Cerca:');
     await seen(p, 'Nova Cerca');
     assert(await p.locator('.match').nth(1).locator('.match-fence li').count() === 2, 'a próxima partida mostra a nova Cerca');
     await shot(p, '20-rotacao');
@@ -555,11 +560,26 @@ await test('Cerca + sorteio automático (demo de 17): Cerca no rodapé, sorteio 
     await p.waitForTimeout(4200); // a atualização automática não fecha nem desfaz a correção
     assert((await p.locator('.match.finished .big-score').allTextContents()).join('x') === '1x1', 'placar corrigido 1x1');
     await noOverflow(p, 'dia com Cerca');
+    // segunda partida: o sorteio geral combinado durante a partida só vale quando ela termina
+    await p.locator('.match').nth(1).getByRole('button', { name: 'Iniciar' }).click();
+    await p.locator('.match.running').waitFor(T);
+    const playing = await p.locator('.match.running .slot-name').allTextContents();
+    await p.getByRole('button', { name: 'Sortear times' }).click();
+    await p.locator('dialog .draw-opt[data-mode=general]').click();
+    await p.locator('.shuffle').waitFor(T);
+    await p.locator('.shuffle').waitFor({ state: 'detached', timeout: 9000 });
+    await seen(p, 'Sorteio geral combinado');
+    assert(await p.locator('.pending-draw').count() === 1, 'bloco do sorteio combinado');
+    assert((await p.locator('.match.running .slot-name').allTextContents()).join() === playing.join(), 'os times em quadra continuam os mesmos');
+    await shot(p, '21-sorteio-combinado');
+    await p.getByRole('button', { name: 'Encerrar partida' }).click();
+    await seen(p, 'Sorteio geral: todos os times foram refeitos');
+    assert(await p.locator('.pending-draw').count() === 0, 'combinado aplicado');
     // quem só acompanha vê o resultado, sem botão de sortear nem edição
     const viewer = await browser.newContext(MOBILE); const vp = await viewer.newPage(); watch(vp, 'espectador');
     await vp.goto(`${app.base}/pelada/p/${pid}/d/${dayId}`);
     await vp.locator('.team-card').first().waitFor(T);
-    assert(await vp.getByRole('button', { name: 'Sortear Times' }).count() === 0, 'visitante não vê "Sortear Times"');
+    assert(await vp.getByRole('button', { name: /Sortear times/i }).count() === 0, 'visitante não vê "Sortear times"');
     assert(await vp.locator('details.fix').count() === 0, 'visitante não edita partida encerrada');
     await viewer.close();
   });
