@@ -344,6 +344,12 @@ h1 { line-height: 1.12; }
 .match.running .clock { color: #fff; }
 .match-clock.up .clock { color: #ff8da1; animation: blink 1s steps(2, start) infinite; }
 .match-clock .muted { color: #a9cdb8; }
+/* fim do tempo: o relógio pisca em vermelho por alguns segundos */
+.match-clock.flash { animation: clockFlash .5s steps(1, end) 12; }
+.match-clock.flash .clock { color: #fff; animation: clockNum .5s steps(1, end) 12; }
+@keyframes clockFlash { 0%, 100% { background: #c81e3a; } 50% { background: var(--pl-950); } }
+@keyframes clockNum { 0%, 100% { color: #fff; } 50% { color: #ff8da1; } }
+@media (prefers-reduced-motion: reduce) { .match-clock.flash, .match-clock.flash .clock { animation: none; } .match-clock.flash { background: #c81e3a; } }
 .clock-ctl { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center; margin-top: 4px; }
 .clock-ctl .btn { background: rgb(255 255 255 / .1); color: #fff; border-color: rgb(255 255 255 / .22); }
 .clock-ctl .btn:hover { background: rgb(255 255 255 / .2); }

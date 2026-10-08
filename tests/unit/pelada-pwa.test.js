@@ -80,6 +80,14 @@ test('atualização na primeira abertura: arquivos sempre revalidados e service 
   assert.match(pwa, /updateViaCache: 'none'/); assert.match(pwa, /controllerchange/); assert.match(pwa, /reg\.update\(\)/);
 });
 
+test('apito do fim da partida: arquivos de áudio existem (AAC + MP3), service worker pré-carrega e não intercepta pedidos parciais', () => {
+  for (const f of ['pelada/sounds/apito.m4a', 'pelada/sounds/apito.mp3']) assert.ok(statSync(join(PUBLIC, f)).size > 20_000, f);
+  assert.ok(shellList().includes('/pelada/sounds/apito.m4a'));
+  assert.match(read('pelada/sw.js'), /request\.headers\.has\('range'\)/);
+  const snd = read('assets/js/pelada/ui/sound.js');
+  assert.match(snd, /apito\.m4a/); assert.match(snd, /apito\.mp3/); assert.match(snd, /DynamicsCompressor/);
+});
+
 test('todos os arquivos JS da interface do app estão sob assets/js/pelada', () => {
   const dir = join(PUBLIC, 'assets/js/pelada');
   const count = d => readdirSync(d).reduce((n, f) => n + (statSync(join(d, f)).isDirectory() ? count(join(d, f)) : f.endsWith('.js') ? 1 : 0), 0);

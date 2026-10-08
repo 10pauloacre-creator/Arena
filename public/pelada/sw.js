@@ -15,6 +15,7 @@ const SHELL = [
   '/pelada/share/modelo-compartilhamento.webp',
   '/pelada/icons/icon.svg',
   '/pelada/icons/icon-192.png',
+  '/pelada/sounds/apito.m4a',
   '/assets/js/router.js',
   '/assets/js/api.js',
   '/assets/js/icons.js',
@@ -58,6 +59,7 @@ const SHELL = [
   '/assets/js/pelada/ui/profile.js',
   '/assets/js/pelada/ui/share.js',
   '/assets/js/pelada/ui/shell.js',
+  '/assets/js/pelada/ui/sound.js',
   '/assets/js/pelada/ui/shuffle.js',
   '/assets/js/pelada/ui/teams.js',
 ];
@@ -103,7 +105,7 @@ async function staleWhileRevalidate(request) {
 
 self.addEventListener('fetch', event => {
   const { request } = event;
-  if (request.method !== 'GET') return;
+  if (request.method !== 'GET' || request.headers.has('range')) return; // pedidos parciais (áudio/vídeo) vão direto à rede
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return; // dados: sempre da rede

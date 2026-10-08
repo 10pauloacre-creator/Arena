@@ -12,18 +12,11 @@ import { podiumPanel } from '../ui/podium.js';
 import { resultsData, runShare } from '../ui/share.js';
 import { playShuffle } from '../ui/shuffle.js';
 import { fetchPelada } from '../data.js';
+import { armSound, playWhistle } from '../ui/sound.js';
 import { poll } from '../ui/poll.js';
 import { fmtClock, timerRemaining, planTeams, autoDrawLabel, GENDERS } from '../../shared/pelada.js';
 
 const NO_TEAMS_TEXT = 'Esta opção desativa o sorteio automático de equipes. O sistema gerará apenas a lista de presença e permitirá a anotação individual de gols para o ranking de artilharia';
-
-function beep() {
-  try {
-    const ac = new (window.AudioContext || window.webkitAudioContext)();
-    [0, 0.35, 0.7].forEach(t => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = 880; o.connect(g); g.connect(ac.destination); g.gain.setValueAtTime(0.18, ac.currentTime + t); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + t + 0.28); o.start(ac.currentTime + t); o.stop(ac.currentTime + t + 0.3); });
-    setTimeout(() => ac.close(), 1500);
-  } catch { /* sem áudio */ }
-}
 
 /** Atualiza o conteúdo de `el` só se mudou, preservando o foco e o que o usuário está digitando (data-keep / data-fid). */
 function patch(el, markup) {
@@ -42,7 +35,7 @@ function patch(el, markup) {
 export default async function (ctx) {
   const { id, day: dayId } = ctx.params;
   const st = { pel: null, etag: null, offset: 0 };
-  const ui = { expanded: new Set(), fixOpen: new Set(), podScope: 'day', seenDraw: undefined, fresh: null, ended: new Set(), pending: 0, drawing: false, chain: Promise.resolve() };
+  const ui = { expanded: new Set(), fixOpen: new Set(), flash: new Map(), prevStatus: new Map(), podScope: 'day', seenDraw: undefined, fresh: null, ended: new Set(), pending: 0, drawing: false, chain: Promise.resolve() };
   document.title = 'Dia de jogo · Pelada';
   render(ctx.root, page(html`<div class="page-loading"><div class="spinner" role="status" aria-label="Carregando"></div></div>`));
   wireShell(ctx.root, ctx.signal);
@@ -68,6 +61,7 @@ export default async function (ctx) {
   // ------------------------------------------------------------ esqueleto
   render(ctx.root, page(html`<div data-sec="head"></div><div class="day-grid"><div class="stack-lg"><div data-sec="presence"></div><div data-sec="draw"></div><div data-sec="matches"></div></div><div class="stack-lg"><div data-sec="podium"></div></div></div>`, { cls: 'day' }));
   wireShell(ctx.root, ctx.signal);
+  armSound(ctx.signal); // libera o áudio no primeiro toque (o apito só toca depois de uma interação)
   const sec = n => $(`[data-sec=${n}]`, ctx.root);
 
   // ------------------------------------------------------------ seções
@@ -139,13 +133,26 @@ export default async function (ctx) {
     return html`<section class="card matches" aria-label="Partidas"><div class="row between wrap"><h2 class="card-title" style="margin:0">${ic('swords')} Partidas</h2>
         ${owner ? html`<button type="button" class="btn btn-primary" data-act="add-match" data-fid="add-match" ${d.draw ? '' : 'disabled'} title="${d.draw ? '' : 'Faça o sorteio primeiro'}">${ic('plus', { size: 18 })} Adicionar partida</button>` : ''}</div>
       ${d.draw && queue.length ? html`<p class="queue small"><b>Fila (de fora):</b> ${queue.join(' → ')}</p>` : ''}
-      ${d.matches.length ? html`<div class="match-list">${d.matches.map((m, i) => matchCard(p, d, m, { isOwner: owner, now, index: i, fixOpen: ui.fixOpen }))}</div>`
+      ${d.matches.length ? html`<div class="match-list">${d.matches.map((m, i) => matchCard(p, d, m, { isOwner: owner, now, index: i, fixOpen: ui.fixOpen, flash: ui.flash }))}</div>`
         : html`<div class="empty">${ic('swords')}<strong>Nenhuma partida ainda</strong><span>${owner ? 'Toque em "Adicionar partida", escolha os dois times e inicie o cronômetro. Ao encerrar, a próxima partida é criada sozinha.' : 'O organizador ainda não criou as partidas.'}</span></div>`}</section>`;
   }
 
   const podiumSec = () => podiumPanel(pel(), { scope: ui.podScope, dayId });
 
+  /** Fim do tempo: apito de árbitro bem alto, vibração e o relógio pisca em vermelho por alguns segundos (em todos os aparelhos). */
+  function timeUp(mid) {
+    playWhistle();
+    ui.flash.set(mid, serverNow() + 6000);
+    paint();
+    setTimeout(() => { ui.flash.delete(mid); if (ctx.isCurrent()) paint(); }, 6100);
+  }
+
   function paint() {
+    for (const m of day().matches) { // partida que acabou por tempo esgotado (visto por quem só acompanha)
+      const was = ui.prevStatus.get(m.id);
+      ui.prevStatus.set(m.id, m.status);
+      if (was === 'live' && m.status === 'finished' && timerRemaining(m.timer, serverNow()) <= 0 && !ui.ended.has(m.id)) { ui.ended.add(m.id); queueMicrotask(() => timeUp(m.id)); }
+    }
     patch(sec('head'), headSec().s);
     patch(sec('presence'), presenceSec().s);
     patch(sec('draw'), drawSec().s);
@@ -385,7 +392,7 @@ export default async function (ctx) {
       if (el && isRunning(m)) { const txt = fmtClock(rem); if (el.textContent !== txt) el.textContent = txt; } // só o que está rodando muda na tela
       if (rem > 0) { ui.ended.delete(m.id); continue; }
       if (isRunning(m) && !ui.ended.has(m.id)) {
-        ui.ended.add(m.id); beep();
+        ui.ended.add(m.id); timeUp(m.id);
         if (isOwner()) {
           enqueue(() => post(`/matches/${m.id}/finish`, { auto: true }), { quiet: ['TIMER_RUNNING', 'MATCH_FINISHED'] }).then(r => {
             if (r) toast(r.next ? (r.info?.rotation ? 'Tempo esgotado! Partida encerrada, sorteio automático feito e a próxima já foi criada.' : 'Tempo esgotado! Partida encerrada e a próxima já foi criada.') : 'Tempo esgotado! Partida encerrada.', { type: 'success', ms: 5000 });
