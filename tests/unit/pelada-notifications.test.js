@@ -291,19 +291,19 @@ test('o nome atualizado da pelada aparece nas notificações', async () => {
 });
 
 test('Cerca e sorteio automático nos avisos: quem sobra é avisado, o resultado guarda os times da época e quem sai deixa de receber', async () => {
-  const s = await setup(4, { min: 2 });
+  const s = await setup(5, { min: 2 });
   const { owner, players, id, base } = s;
-  const [ana, bia, carla, dani] = players;
+  const [ana, bia, carla, dani, eva] = players;
   const dayId = s.dayId;
   assert.equal((await owner.patch(`/pelada/peladas/${id}`, { autoDraw: true, autoEvery: 1 })).status, 200);
-  for (const c of [owner, ana, bia, carla, dani]) assert.equal((await c.post(`${base}/presence`, { present: true })).status, 200);
+  for (const c of [ana, bia, carla, dani, eva]) assert.equal((await c.post(`${base}/presence`, { present: true })).status, 200);
 
-  // 5 presentes, mínimo 2: dois times de 2 e 1 jogador na Cerca, que é avisado
+  // 5 presentes (o organizador não joga), mínimo 2: dois times de 2 e 1 jogador na Cerca, que é avisado
   assert.equal((await owner.post(`${base}/draw`)).status, 200);
   let day = (await owner.get(`/pelada/peladas/${id}`)).data.pelada.days.find(d => d.id === dayId);
   assert.equal(day.fence.length, 1);
   const fenceUid = day.fence[0].slice(2);
-  const fenceClient = [ana, bia, carla, dani].find(c => c.player.id === fenceUid);
+  const fenceClient = [ana, bia, carla, dani, eva].find(c => c.player.id === fenceUid);
   const fenceMsg = (await inbox(fenceClient)).items.find(i => i.type === 'draw');
   assert.match(fenceMsg.text, /Você ficou na Cerca: aguarda a próxima partida e entra no time que perder\./);
   assert.ok(!/Você está no/.test(fenceMsg.text));

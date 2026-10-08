@@ -68,6 +68,18 @@ test('vercel.json: reescritas do app Pelada vêm antes do catch-all e arquivos d
   assert.ok(h && h.headers.some(x => x.key === 'Cache-Control' && x.value === 'no-cache'));
 });
 
+test('atualização na primeira abertura: arquivos sempre revalidados e service worker confere a rede', () => {
+  const v = JSON.parse(readFileSync(join(PUBLIC, '..', 'vercel.json'), 'utf8'));
+  const assets = v.headers.find(x => x.source === '/assets/(.*)');
+  assert.match(assets.headers.find(h => h.key === 'Cache-Control').value, /max-age=0, must-revalidate/); // antes: 1 hora no aparelho
+  const sw = read('pelada/sw.js');
+  assert.match(sw, /fetch\(request, \{ cache: 'no-cache' \}\)/); // ignora o cache HTTP do navegador
+  assert.match(sw, /new Request\(url, \{ cache: 'reload' \}\)/); // pré-cache busca arquivos novos
+  assert.match(sw, /keys\.filter\(k => k\.startsWith\('pelada-'\) && k !== VERSION\)/); // apaga caches antigos
+  const pwa = read('assets/js/pelada/pwa.js');
+  assert.match(pwa, /updateViaCache: 'none'/); assert.match(pwa, /controllerchange/); assert.match(pwa, /reg\.update\(\)/);
+});
+
 test('todos os arquivos JS da interface do app estão sob assets/js/pelada', () => {
   const dir = join(PUBLIC, 'assets/js/pelada');
   const count = d => readdirSync(d).reduce((n, f) => n + (statSync(join(d, f)).isDirectory() ? count(join(d, f)) : f.endsWith('.js') ? 1 : 0), 0);

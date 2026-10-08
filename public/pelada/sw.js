@@ -1,6 +1,6 @@
 // Service worker do app Pelada (escopo /pelada/): abre o app sem internet e acelera as telas.
 // Dados (/api) nunca são guardados; as telas e os arquivos do app usam "rede primeiro, cache como reserva".
-const VERSION = 'pelada-v6';
+const VERSION = 'pelada-v7';
 const SHELL = [
   '/pelada/',
   '/assets/css/base.css',
@@ -64,7 +64,7 @@ const SHELL = [
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(VERSION)
-      .then(cache => Promise.all(SHELL.map(url => cache.add(url).catch(() => null))))
+      .then(cache => Promise.all(SHELL.map(url => cache.add(new Request(url, { cache: 'reload' })).catch(() => null))))
       .then(() => self.skipWaiting()),
   );
 });
@@ -77,10 +77,13 @@ self.addEventListener('activate', event => {
   );
 });
 
+// Sempre confere com o servidor (ignora o cache HTTP do navegador): quem abre o app depois de uma atualização já recebe a versão nova.
+const fresh = request => (request.mode === 'navigate' ? fetch(request) : fetch(request, { cache: 'no-cache' }));
+
 async function networkFirst(request, fallbackUrl) {
   const cache = await caches.open(VERSION);
   try {
-    const res = await fetch(request);
+    const res = await fresh(request);
     if (res && res.ok) cache.put(fallbackUrl || request, res.clone());
     return res;
   } catch (err) {
@@ -93,7 +96,7 @@ async function networkFirst(request, fallbackUrl) {
 async function staleWhileRevalidate(request) {
   const cache = await caches.open(VERSION);
   const hit = await cache.match(request);
-  const refresh = fetch(request).then(res => { if (res && res.ok) cache.put(request, res.clone()); return res; }).catch(() => hit);
+  const refresh = fetch(request, { cache: 'no-cache' }).then(res => { if (res && res.ok) cache.put(request, res.clone()); return res; }).catch(() => hit);
   return hit || refresh;
 }
 
