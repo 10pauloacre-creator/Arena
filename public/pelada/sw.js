@@ -26,6 +26,7 @@ const SHELL = [
   '/assets/js/ui/qr.js',
   '/assets/js/vendor/qrcode.js',
   '/assets/js/shared/format.js',
+  '/assets/js/shared/gender.js',
   '/assets/js/shared/dates.js',
   '/assets/js/shared/validators.js',
   '/assets/js/shared/pelada.js',

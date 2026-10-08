@@ -3,6 +3,7 @@ import { html, ic } from '../../ui/dom.js';
 import { avatar } from './img.js';
 import { dayShort } from './shell.js';
 import { MEDALS } from '../../shared/pelada.js';
+import { gx } from '../../shared/gender.js';
 
 const GRAD = { gold: ['#ffe27a', '#d89a00'], silver: ['#f4f6fa', '#9aa5b5'], bronze: ['#f0b283', '#9d5a26'] };
 
@@ -19,8 +20,8 @@ export function medalSvg(kind, rank, size = 44) {
 const goalsLabel = n => `${n} ${n === 1 ? 'gol' : 'gols'}`;
 
 /** Conteúdo do pódio para uma lista já ranqueada [{ pid, goals, rank, medal }]. */
-export function podiumList(ranking, people) {
-  if (!ranking.length) return html`<div class="empty">${ic('goal')}<strong>Nenhum gol anotado ainda</strong><span>Quando o organizador marcar os gols, a artilharia aparece aqui automaticamente.</span></div>`;
+export function podiumList(ranking, people, G = gx()) {
+  if (!ranking.length) return html`<div class="empty">${ic('goal')}<strong>Nenhum gol anotado ainda</strong><span>Quando ${G.o} ${G.owner} marcar os gols, a artilharia aparece aqui automaticamente.</span></div>`;
   const top = ranking.filter(r => r.medal), rest = ranking.filter(r => !r.medal);
   return html`<div class="podium" data-n="${Math.min(top.length, 3)}">${top.map(r => {
     const p = people[r.pid] || { name: '?' };
@@ -44,7 +45,7 @@ export function podiumPanel(pel, { scope, dayId, selectDay = false }) {
       <div class="seg" role="group" aria-label="Tipo de artilharia"><button type="button" data-pod-tab="day" aria-pressed="${String(scope === 'day')}">Artilharia do Dia</button><button type="button" data-pod-tab="general" aria-pressed="${String(scope === 'general')}">Artilharia Geral</button></div></div>
     ${scope === 'day' && selectDay ? html`<div class="field" style="max-width:280px;margin-top:12px"><label for="pod-day" class="sr-only">Data</label><select id="pod-day" data-pod-day>${pel.days.map(d => html`<option value="${d.id}" ${d.id === dayId ? 'selected' : ''}>${dayShort(d.date)}</option>`)}</select></div>` : ''}
     <p class="muted small" style="margin:10px 0 14px">${scope === 'general' ? 'Soma de todos os gols de todas as partidas desta pelada.' : day ? `Gols marcados em ${dayShort(day.date)}.` : 'Escolha uma data.'}</p>
-    ${podiumList(ranking, pel.people)}
+    ${podiumList(ranking, pel.people, gx(pel.gender))}
     <div class="share-row"><button type="button" class="btn btn-gold" data-share="copy">${ic('share', { size: 18 })} Compartilhar Resultados</button>
       <button type="button" class="btn" data-share="download">${ic('download', { size: 18 })} Baixar imagem</button>
       <button type="button" class="btn btn-ghost" data-share="text">${ic('copy', { size: 18 })} Copiar texto</button></div>

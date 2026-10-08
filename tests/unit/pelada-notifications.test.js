@@ -84,7 +84,7 @@ test('quem entra na pelada e quem confirma presença: todos são avisados, menos
   assert.equal((await ana.post(`${base}/presence`, { present: true })).status, 200);
   const o = await inbox(owner);
   const pres = o.items.find(i => i.type === 'presence');
-  assert.match(pres.text, /confirmou presença no jogo de hoje \(1 confirmado\)\./);
+  assert.match(pres.text, /confirmou presença no jogo de hoje \(1 confirmada\)\./);
   assert.equal(pres.title, 'Presença confirmada');
   assert.ok(pres.url.endsWith(base.replace('/pelada/peladas/', '/pelada/p/').replace('/days/', '/d/')));
   assert.ok(pres.unread);
@@ -99,7 +99,7 @@ test('quem entra na pelada e quem confirma presença: todos são avisados, menos
   assert.equal((await nova.post(`${base}/presence`, { present: true })).status, 200);
   const t = await texts(owner);
   assert.ok(t.includes('Direto Na Lista Costa entrou na pelada.'));
-  assert.ok(t.includes('Direto Na Lista Costa confirmou presença no jogo de hoje (2 confirmados).'));
+  assert.ok(t.includes('Direto Na Lista Costa confirmou presença no jogo de hoje (2 confirmadas).'));
 });
 
 test('marcar e desmarcar em seguida não avisa; desistência depois de um tempo avisa', async () => {
@@ -118,7 +118,7 @@ test('marcar e desmarcar em seguida não avisa; desistência depois de um tempo 
     await ana.post(`${base}/presence`, { present: false });
     o = await inbox(owner);
     assert.equal(o.items.filter(i => i.type === 'presence').length, 1);
-    assert.match(o.items.find(i => i.type === 'absence').text, /retirou a presença do jogo de hoje \(0 confirmados\)\./);
+    assert.match(o.items.find(i => i.type === 'absence').text, /retirou a presença do jogo de hoje \(0 confirmadas\)\./);
   } finally { setClock(null); }
 });
 
@@ -127,12 +127,12 @@ test('organizador: convidado, remoção da lista, sorteio com o time de cada um,
   const [ana, bia, carla] = players;
   for (const c of [owner, ana, bia, carla]) assert.equal((await c.post(`${base}/presence`, { present: true })).status, 200);
   assert.equal((await owner.post(`${base}/guests`, { name: 'Zeca Convidado' })).status, 200);
-  assert.ok((await texts(ana)).some(t => /adicionou Zeca Convidado \(convidado\) ao jogo de hoje \(5 confirmados\)/.test(t)));
+  assert.ok((await texts(ana)).some(t => /adicionou Zeca Convidado \(convidada\) ao jogo de hoje \(5 confirmadas\)/.test(t)));
 
   // remover alguém da lista
   assert.equal((await owner.del(`${base}/attendance/${encodeURIComponent(`u:${carla.player.id}`)}`)).status, 200);
   assert.ok((await texts(carla)).some(t => /tirou você da lista do jogo de hoje\./.test(t)));
-  assert.ok((await texts(ana)).some(t => new RegExp(`tirou ${carla.player.name} da lista do jogo de hoje \\(4 confirmados\\)`).test(t)));
+  assert.ok((await texts(ana)).some(t => new RegExp(`tirou ${carla.player.name} da lista do jogo de hoje \\(4 confirmadas\\)`).test(t)));
 
   // sorteio: cada um sabe em qual time ficou
   assert.equal((await owner.post(`${base}/draw`)).status, 200);
@@ -328,4 +328,22 @@ test('Cerca e sorteio automático nos avisos: quem sobra é avisado, o resultado
   assert.equal((await dani.post(`/pelada/peladas/${id}/leave`)).status, 200);
   assert.equal((await inbox(dani)).items.filter(i => i.text.includes(`Pelada N`)).length, 0);
   assert.equal((await dani.get('/pelada/mine')).data.joined.length, 0);
+});
+
+test('pelada feminina: avisos e mensagens no feminino; masculina continua no masculino', async () => {
+  const fem = await setup(2, { min: 2 }); // setup cria pelada feminina
+  const [ana] = fem.players;
+  assert.equal((await fem.owner.post(`${fem.base}/guests`, { name: 'Zeca Convidada' })).status, 200);
+  const t = (await texts(ana)).join(' | ');
+  assert.match(t, /\(convidada\)/); assert.ok(!/\(convidado\)|confirmados/.test(t), t);
+  const j = (await inbox(ana)).items.find(i => i.type === 'presence');
+  assert.match(j.title, /^Convidada na lista$/);
+  // textos puros
+  const ev = { t: 'join', who: 'Ana' };
+  assert.equal(describeEvent(ev, { gender: 'feminino' }).title, 'Nova participante');
+  assert.equal(describeEvent(ev, { gender: 'masculino' }).title, 'Novo participante');
+  assert.equal(describeEvent({ t: 'presence', who: 'A', day: { id: 'd', date: '2026-10-07' }, d: { n: 3, guest: 'Bia' } }, { gender: 'masculino', today: '2026-10-07' }).text, 'A adicionou Bia (convidado) ao jogo de hoje (3 confirmados).');
+  // erros do servidor também no feminino
+  const dup = await fem.owner.post(`${fem.base}/guests`, { name: 'zeca convidada' });
+  assert.equal(dup.status, 409);
 });
