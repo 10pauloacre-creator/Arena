@@ -31,11 +31,18 @@ Este arquivo existe para que uma sessão interrompida possa continuar de onde pa
   Link de convite com pré-visualização: `GET /pelada/page/:id` (`pelada-share.js`) + imagem `preview` montada em `ui/preview.js`. Bug do botão de perfil: `wireShell` agora é idempotente por container.
   Testes novos em `tests/unit/pelada-*.test.js` e cenários em `e2e/pelada.mjs` (25).
 
+## Motor de sorteio v2 + Jarvis + push + pontos corridos — adicionado
+- Motor em `lib/domain/pelada.js` (`fenceDraw`, `manualDraw`, `finishMatch`, `settleArrivals`, `fixTeams`/`inheritFixed`) e funções puras em `lib/domain/pelada-engine.js` (`dayStats`, `pairHistory`, `planGeneral`). Config: `autoDraw` (Cerca), `generalDraw`/`generalEvery`; dia: `lastLeaver`, `pending` (geral combinado), `fixed`. `autoEvery` foi removido.
+- Contadores do dia (jogos por jogador) são calculados das partidas encerradas (`m.rosters` + empréstimos): corrigir uma partida corrige tudo.
+- Jarvis: `lib/ai.js` (provedores por variável de ambiente), `lib/domain/pelada-jarvis.js`, `lib/domain/tournament-jarvis.js`. Push: `lib/push.js` (`pp:vapid`, `pp:users`, `pps:UID`), SW com `push`/`notificationclick`, `ui` em Configurações.
+- Pontos corridos: `lib/domain/league.js`, `t.format` (`knockout`|`league`), `t.leagueMax`, `t.league`; telas `ui/league.js` e `pages/admin/league.js`.
+- Testes: `pelada-domain` (motor), `pelada-push`, `pelada-jarvis`, `league`; simulação aleatória de dias usada na auditoria do motor (10 mil partidas, regras: toda a Cerca entra, ninguém duplicado, prioridade por jogos/gols, vez de quem descansou).
+
 ## Notificações no app — adicionado
 - Sininho com contador, painel, página `/pelada/notificacoes` e configurações `/pelada/configuracoes` (por tipo, por pelada, aviso na tela).
 - Feed de eventos por pelada (`plf:ID`) gravado em `act()` → `withPelada(..., { after })`; caixa montada na leitura (`lib/notifications.js`).
 - Testes: `tests/unit/pelada-notifications.test.js` (10) e `e2e/pelada-notificacoes.mjs` (7 cenários); telas novas na auditoria `e2e/pelada-a11y.mjs`.
-- Próximo passo possível: Web Push (avisar com o app fechado).
+- Web Push (aviso com o app fechado) já está implementado (`lib/push.js`).
 
 ## Pendências / ideias
 - Categoria de time (masculino/feminino) com chaves separadas: hoje a premiação por gênero é só informativa.
