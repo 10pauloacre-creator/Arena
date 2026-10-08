@@ -4,7 +4,7 @@ import { setFieldError, bindPhoneMask, imageToDataUrl } from './forms.js';
 import { toast } from './toast.js';
 import { validEmail, validPhone, maskPhone } from '../shared/validators.js';
 
-export function teamFieldsHTML({ withCaptain = true, values = {} } = {}) {
+export function teamFieldsHTML({ withCaptain = true, values = {}, emblemRequired = false } = {}) {
   const v = values;
   return html`
   <div class="stack" data-teamfields>
@@ -12,7 +12,7 @@ export function teamFieldsHTML({ withCaptain = true, values = {} } = {}) {
       <div class="field" data-f="name"><label for="tf-name">Nome do time <span class="req">*</span></label><input id="tf-name" name="name" maxlength="32" autocomplete="off" value="${v.name || ''}" placeholder="Ex.: Tigres do Bairro"><span class="field-error"></span></div>
       <div class="field" data-f="origin"><label for="tf-origin">Clube / bairro de origem</label><input id="tf-origin" name="origin" maxlength="32" autocomplete="off" value="${v.origin || ''}" placeholder="Opcional"><span class="hint">O sorteio evita colocar times do mesmo bairro frente a frente na 1ª fase.</span><span class="field-error"></span></div>
     </div>
-    <div class="field" data-f="emblem"><span class="label">Emblema do time <span class="muted" style="font-weight:500">(opcional)</span></span>
+    <div class="field" data-f="emblem"><span class="label">Emblema do time ${emblemRequired ? html`<span class="req">*</span>` : html`<span class="muted" style="font-weight:500">(opcional)</span>`}</span>
       <label class="drop" data-drop><span class="prev" data-emblemprev>${ic('shield-check', { size: 24 })}</span><span class="grow"><strong data-emblemtxt style="display:block">Enviar emblema</strong><span class="hint">PNG, JPG ou WEBP · será reduzido automaticamente</span></span><input type="file" name="emblemFile" accept="image/png,image/jpeg,image/webp"></label><span class="field-error"></span></div>
     ${withCaptain ? html`
     <div class="cols-3">
@@ -24,7 +24,7 @@ export function teamFieldsHTML({ withCaptain = true, values = {} } = {}) {
 }
 
 /** Liga o upload de emblema e máscaras. Retorna { read(), validate(), setServerError(err) }. */
-export function wireTeamFields(root, { withCaptain = true } = {}) {
+export function wireTeamFields(root, { withCaptain = true, emblemRequired = false } = {}) {
   const q = s => $(s, root);
   let emblem = null;
   const field = n => root.querySelector(`[data-f="${n}"]`);
@@ -62,6 +62,7 @@ export function wireTeamFields(root, { withCaptain = true } = {}) {
       const bad = (n, m, sel) => { setFieldError(field(n), m); ok = false; first = first || q(sel); };
       ['name', 'origin', 'emblem', 'captain.name', 'captain.phone', 'captain.email'].forEach(n => field(n) && setFieldError(field(n), ''));
       if (v.name.length < 3) bad('name', 'Informe o nome do time (mínimo 3 letras).', '[name=name]');
+      if (emblemRequired && !v.emblem) bad('emblem', 'Este torneio exige o emblema do time. Envie uma imagem.', '[name=emblemFile]');
       if (withCaptain) {
         if (v.captain.name.length < 3) bad('captain.name', 'Informe o nome do responsável.', '[name=captainName]');
         if (!validPhone(v.captain.phone)) bad('captain.phone', 'Informe o WhatsApp com DDD.', '[name=captainPhone]');

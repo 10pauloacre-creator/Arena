@@ -54,6 +54,10 @@
 [data-theme="dark"] .btn-light { background: var(--surface-2); border-color: var(--line-strong); color: var(--ink); }
 [data-theme="dark"] .pl-brand, [data-theme="dark"] .pl-brand b, [data-theme="dark"] .pl-brand span { color: var(--ink); }
 [data-theme="dark"] .install-btn { color: var(--pl-700); }
+/* regras e premiação (criação de torneio / página do visitante) */
+[data-theme="dark"] .rule-tag.ack { color: #f0c46a; }
+[data-theme="dark"] .prize-view li:first-child .place { color: #e9b13a; }
+
 /* notificações */
 [data-theme="dark"] .ntf-item.unread { background: var(--pl-50); }
 [data-theme="dark"] .ntf-item.unread:hover { background: var(--pl-100); }

@@ -64,7 +64,7 @@ export default function (app) {
   function exportAthletes() {
     const t = app.t, official = t.type === 'oficial';
     downloadCsv(`atletas-${slug()}.csv`, ['Time', 'Camisa', 'Atleta', ...(official ? ['CPF', 'RG', 'Documento (PDF)'] : [])],
-      t.teams.filter(x => x.status === 'confirmed').flatMap(x => x.players.map(p => [x.name, p.number, p.name, ...(official ? [p.cpf, p.rg, p.doc?.name || ''] : [])])));
+      t.teams.filter(x => x.status === 'confirmed').flatMap(x => x.players.map(p => [x.name, p.number ?? '', p.name, ...(official ? [p.cpf, p.rg, p.doc?.name || ''] : [])])));
     toast('Lista de atletas exportada (CSV).', { type: 'success', ms: 2200 });
   }
 
@@ -79,8 +79,8 @@ export default function (app) {
           <div class="muted small" style="margin-top:6px">Inscrito em ${fmtDateTime(x.createdAt)}${x.confirmedAt ? ` · confirmado em ${fmtDateTime(x.confirmedAt)}` : ''}${x.paidVia ? ` · ${PAY_METHOD[x.paidVia] || x.paidVia}` : ''}</div></div></div>
         <div class="cols-2"><div class="card" style="box-shadow:none;padding:14px"><div class="label">Responsável</div><div>${x.captain.name}</div>
             <a class="small ilink" href="https://wa.me/55${x.captain.phone}" target="_blank" rel="noopener" data-external>${ic('message-circle', { size: 14 })} WhatsApp ${x.captain.phone}</a><br><a class="small" href="mailto:${x.captain.email}">${x.captain.email}</a></div>
-          <div class="card" style="box-shadow:none;padding:14px"><div class="label">Clube / bairro</div><div>${x.origin || '—'}</div><div class="label" style="margin-top:8px">Código do capitão</div><div class="strong num">${x.accessCode}</div></div></div>
-        <div><div class="label" style="margin-bottom:8px">Elenco (${x.players.length})</div><ul class="player-grid">${x.players.map(p => html`<li class="player"><span class="jersey">${p.number}</span><div class="grow" style="min-width:0"><div class="p-n ellipsis">${p.name}</div>${official ? html`<div class="p-s">CPF ${p.cpf} · RG ${p.rg}${p.doc ? ` · ${p.doc.name}` : ''}</div>` : ''}</div></li>`)}</ul></div>`,
+          <div class="card" style="box-shadow:none;padding:14px"><div class="label">Clube / bairro</div><div>${x.origin || '—'}</div><div class="label" style="margin-top:8px">Código do capitão</div><div class="strong num">${x.accessCode}</div>${x.rulesAcceptedAt ? html`<div class="label" style="margin-top:8px">Regras aceitas em</div><div class="num">${fmtDateTime(x.rulesAcceptedAt)}</div>` : ''}</div></div>
+        <div><div class="label" style="margin-bottom:8px">Elenco (${x.players.length})</div><ul class="player-grid">${x.players.map(p => html`<li class="player"><span class="jersey">${p.number ?? '–'}</span><div class="grow" style="min-width:0"><div class="p-n ellipsis">${p.name}</div>${official ? html`<div class="p-s">CPF ${p.cpf} · RG ${p.rg}${p.doc ? ` · ${p.doc.name}` : ''}</div>` : ''}</div></li>`)}</ul></div>`,
       foot: html`${t.bracket ? '' : html`<button class="btn btn-outline-danger" data-act="remove">${ic('trash', { size: 16 })} Remover</button>`}<span class="grow"></span><button class="btn" data-act="edit">${ic('pencil', { size: 16 })} Editar</button>${x.status === 'pending_payment' ? html`<button class="btn btn-primary" data-act="confirm">${ic('check', { size: 16 })} Confirmar pagamento</button>` : ''}`,
     });
     d.el.addEventListener('click', async e => {
@@ -116,7 +116,7 @@ export default function (app) {
       foot: html`<button class="btn" data-close>Cancelar</button><button class="btn btn-primary" type="submit" form="editTeam" id="etGo">${ic('save', { size: 16 })} Salvar</button>`,
     });
     const form = $('#editTeam', d.el);
-    const roster = t.bracket ? null : createRosterEditor($('#rosterBox', d.el), { sport: t.sport, official: t.type === 'oficial', players: x.players });
+    const roster = t.bracket ? null : createRosterEditor($('#rosterBox', d.el), { sport: t.sport, official: t.type === 'oficial', players: x.players, min: t.rosterRules.min, numberRequired: t.rules.shirtNumbers });
     form.addEventListener('submit', async e => {
       e.preventDefault();
       const body = { name: form.name.value.trim(), origin: form.origin.value.trim(), rating: Number(form.rating.value) };
@@ -140,7 +140,7 @@ export default function (app) {
     });
     const form = $('#addTeam', d.el);
     const fields = wireTeamFields(form);
-    const roster = createRosterEditor($('#rosterBox', d.el), { sport: t.sport, official: t.type === 'oficial' });
+    const roster = createRosterEditor($('#rosterBox', d.el), { sport: t.sport, official: t.type === 'oficial', min: t.rosterRules.min, numberRequired: t.rules.shirtNumbers });
     form.addEventListener('submit', async e => {
       e.preventDefault();
       const okF = fields.validate(), okR = roster.validate();

@@ -1,6 +1,7 @@
 // Gerador de flyer em canvas (feed, stories, quadrado, capa) com QR Code do link do torneio.
 import { drawQr } from './qr.js';
 import { initials, fmtBRL, fmtDay, parseDay } from '../shared/format.js';
+import { PRIZE_CATEGORIES, PRIZE_CATEGORY_KEYS } from '../shared/rules.js';
 
 export const FORMATS = {
   feed: { w: 1080, h: 1350, label: 'Feed 4:5', hint: 'Instagram / Facebook' },
@@ -48,6 +49,8 @@ export function flyerData(t, url) {
     dateText: dateShort(t.finalDate), finalDay: fmtDay(t.finalDate),
     open, deadline: t.regDeadline ? deadlineText(t.regDeadline) : '', fee: t.fee, slotsLeft: t.registration?.slotsLeft ?? 0, maxTeams: t.maxTeams,
     confirmed: t.teamsConfirmed, fin, venue: t.venue,
+    // prêmio do 1º lugar de cada categoria (valor em dinheiro, ou o texto quando não há valor)
+    prizes: PRIZE_CATEGORY_KEYS.filter(k => t.prizes?.[k]?.length).map(k => ({ cat: PRIZE_CATEGORIES[k], geral: k === 'geral', what: t.prizes[k][0].amount ? fmtBRL(t.prizes[k][0].amount) : t.prizes[k][0].description })),
   };
 }
 
@@ -165,6 +168,7 @@ export function captionText(d) {
   if (d.fin?.mode === 'champion') lines.push(`👑 Campeão: ${d.fin.teams[0].name}`);
   else if (d.fin?.mode === 'final') lines.push(`🔥 Grande final: ${d.fin.teams[0].name} x ${d.fin.teams[1].name}`);
   else if (d.open) lines.push(`📝 Inscrições até ${d.deadline || 'as vagas acabarem'} · ${d.fee ? fmtBRL(d.fee) + ' por time' : 'gratuitas'} · ${d.slotsLeft} vagas`);
+  if (d.prizes.length) lines.push(`🥇 1º lugar: ${d.prizes.map(p => (d.prizes.length === 1 && p.geral) ? p.what : `${p.cat} ${p.what}`).join(' · ')}`);
   if (d.venue) lines.push(`📍 ${d.venue}`);
   lines.push('', `🔗 ${d.url}`, `ID do torneio: #${d.id}`, '', `#ArenaMasterAI #Torneio #${d.sportLabel.replace(/\s/g, '')}`);
   return lines.join('\n');

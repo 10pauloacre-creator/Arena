@@ -2,6 +2,7 @@
 import { html, ic, $ } from '../../ui/dom.js';
 import { emblem, streamEmbedHTML } from '../../ui/util.js';
 import { scoreboardHTML, teamMap, minuteOf, scoreValues } from '../../ui/match.js';
+import { tourneyExtras } from '../../ui/tourneyinfo.js';
 import { SPORTS, TOURNAMENT_TYPES } from '../../shared/sports.js';
 import { fmtBRL, fmtDay, fmtDateTime } from '../../shared/format.js';
 
@@ -50,7 +51,7 @@ export function homeTab(v) {
     ${next.length ? section('Próximos jogos', html`<div class="stack-sm">${next.map(m => matchRow(t, m, now))}</div>`, html`<a class="small" href="/t/${t.id}/jogos">Ver todos</a>`) : ''}
     ${done.length ? section('Resultados recentes', html`<div class="stack-sm">${done.map(m => matchRow(t, m, now))}</div>`) : ''}
     ${!t.bracket ? html`<div class="card"><h3 class="card-title">${ic('users')} Times confirmados (${t.teamsConfirmed})</h3>${t.teams.length ? html`<div class="row wrap" style="gap:10px">${t.teams.map(x => html`<span class="row" style="gap:8px;padding:6px 12px 6px 6px;border:1px solid var(--line);border-radius:99px;background:#fff">${emblem(x, 'sm')}<b class="small">${x.name}</b></span>`)}</div>` : html`<div class="empty">${ic('users')}<span>Nenhum time confirmado ainda. Seja o primeiro!</span></div>`}<p class="hint" style="margin-top:10px">O chaveamento é publicado depois do sorteio, quando as inscrições terminam.</p></div>` : ''}
-    ${infoCard(t)}</div>`;
+    ${infoCard(t)}${tourneyExtras(t)}</div>`;
 }
 
 export function matchesTab(v) {
@@ -69,7 +70,7 @@ export function teamsTab(v) {
   const t = v.t;
   if (!t.teams.length) return html`<div class="empty" style="padding:48px 16px">${ic('users', { size: 34 })}<strong style="font-size:18px">Nenhum time confirmado</strong><span>Os times aparecem aqui assim que a inscrição (e o pagamento) for confirmada.</span>${t.registration.open ? html`<a class="btn btn-primary" href="/t/${t.id}/inscricao">Inscrever meu time</a>` : ''}</div>`;
   return html`<div class="t-grid">${t.teams.map(x => html`<div class="card team-card"><div class="tc-head">${emblem(x, 'md')}<div class="grow" style="min-width:0"><b class="ellipsis" style="display:block">${x.name}</b><span class="muted small">${x.origin || 'Sem bairro/clube'}</span></div>${x.repescada ? html`<span class="tag-benef">${ic('heart', { size: 11 })}</span>` : ''}${x.eliminated ? html`<span class="badge">Eliminado</span>` : ''}</div>
-    <details><summary>Elenco (${x.players.length})</summary><ul class="player-grid">${x.players.map(p => html`<li class="player"><span class="jersey">${p.number}</span><div class="p-n ellipsis">${p.name}</div></li>`)}</ul></details></div>`)}</div>`;
+    <details><summary>Elenco (${x.players.length})</summary><ul class="player-grid">${x.players.map(p => html`<li class="player"><span class="jersey">${p.number ?? '–'}</span><div class="p-n ellipsis">${p.name}</div></li>`)}</ul></details></div>`)}</div>`;
 }
 
 export function bracketTab(v) {

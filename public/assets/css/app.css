@@ -467,6 +467,52 @@
 p a:not(.btn), .hint a, .form-note a, .center a { text-decoration: underline; text-underline-offset: 2px; }
 .empty .ico, .drop .prev { color: var(--muted); }
 
+/* ================= Regras, detalhes e premiação ================= */
+.create-page > * { width: 100%; max-width: 880px; margin-inline: auto; }
+
+.rules-editor { display: grid; }
+.rule-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--line); align-items: center; }
+.rule-row .rule-param { margin-left: 30px; }
+.rule-row .rule-param input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]) { width: 96px; min-height: 40px; } /* precisa vencer a regra .field input da base */
+@media (min-width: 640px) {
+  .rule-row:has(.rule-param) { grid-template-columns: minmax(0, 1fr) 170px; }
+  .rule-row .rule-param { margin-left: 0; }
+}
+.rules-editor > .field { padding-top: 14px; }
+.rule-tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; vertical-align: 1px; }
+.rule-tag.enforced { background: var(--blue-50); color: var(--blue-700); }
+.rule-tag.ack { background: var(--amber-50); color: #7a4f06; }
+
+.prize-block { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: var(--surface-2); }
+.prize-block h4 { font-size: 15px; }
+.prize-rows { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 12px; }
+.prize-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; align-items: center; }
+.prize-row .place { grid-column: 1 / -1; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; color: var(--ink-2); }
+.prize-row .field:first-of-type { grid-column: 1 / -1; }
+@media (min-width: 720px) {
+  .prize-row { grid-template-columns: 112px minmax(0, 1fr) 180px auto; }
+  .prize-row .place { grid-column: auto; }
+  .prize-row .field:first-of-type { grid-column: auto; }
+}
+
+.rule-check { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.rule-check li { display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; }
+.rule-check .ico { color: var(--green); flex: none; margin-top: 2px; }
+.rules-peek { border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; background: var(--surface-2); }
+.rules-peek summary { cursor: pointer; font-weight: 700; display: flex; gap: 8px; align-items: center; }
+.rules-peek .rule-check { margin-top: 12px; }
+.rules-accept { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--surface-2); display: grid; gap: 10px; }
+.details-text { white-space: pre-line; overflow-wrap: anywhere; line-height: 1.55; }
+
+.prize-view { display: grid; gap: 18px; }
+@media (min-width: 640px) { .prize-view.multi { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); } }
+.prize-view h4 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 8px; }
+.prize-view ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.prize-view li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.prize-view .place { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
+.prize-view li:first-child .place { color: #7a5200; }
+.prize-view .what { overflow-wrap: anywhere; }
+
 /* ================= destaque do app Pelada (home) ================= */
 .btn-pelada { font-weight: 800; box-shadow: 0 8px 22px rgb(246 178 27 / .38); }
 .btn-pelada:hover { transform: translateY(-1px); }
