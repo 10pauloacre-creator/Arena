@@ -1,5 +1,7 @@
 # ArenaMaster AI
 
+> **Endereço oficial:** ArenaMaster em **https://partidafacil.click** e Pelada em **https://partidafacil.click/pelada**. As regras de endereço ficam em [`CLAUDE.md`](CLAUDE.md).
+
 Plataforma de torneios com **painel do organizador** e **página do visitante**:
 inscrição de times com pagamento (PIX ou cartão), sorteio de chaveamento, jogos ao vivo,
 repescagem beneficente e divulgação (flyer + QR Code).
@@ -90,7 +92,7 @@ Opcional: defina `AUTH_SECRET` (qualquer texto longo e aleatório). Se não defi
 | Modo | Como ativar | O que acontece |
 | --- | --- | --- |
 | **Teste** (padrão) | nada a fazer | Nenhum valor é cobrado. O PIX mostra um QR/copia-e-cola de teste e um botão **"Simular pagamento aprovado"**. Cartões de teste: `4242 4242 4242 4242` aprova · `4000 0000 0000 0002` recusa · `4000 0000 0000 9995` sem saldo. Dados de cartão **nunca** são guardados. |
-| **Mercado Pago** | `PAYMENT_PROVIDER=mercadopago`, `MP_ACCESS_TOKEN`, (opcional, para cartão) `MP_PUBLIC_KEY`, e `PUBLIC_BASE_URL=https://seu-site.vercel.app` | PIX real (QR + copia-e-cola) e cartão tokenizado no navegador pelo SDK do Mercado Pago. Os pagamentos chegam por **webhook** (`/api/webhooks/mercadopago`) e a página do capitão também consulta o status. |
+| **Mercado Pago** | `PAYMENT_PROVIDER=mercadopago`, `MP_ACCESS_TOKEN`, (opcional, para cartão) `MP_PUBLIC_KEY`, e `PUBLIC_BASE_URL=https://partidafacil.click` | PIX real (QR + copia-e-cola) e cartão tokenizado no navegador pelo SDK do Mercado Pago. Os pagamentos chegam por **webhook** (`/api/webhooks/mercadopago`) e a página do capitão também consulta o status. |
 
 Como o time entra na lista: a inscrição **reserva a vaga por 30 minutos** (estendida ao iniciar o pagamento, máx. 60 min).
 Quando o provedor confirma o pagamento, o time é confirmado automaticamente. Se o pagamento chegar sem vaga
