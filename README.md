@@ -200,7 +200,11 @@ A interface é pré-carregada pelo service worker e abre sem internet; os dados 
   Groq → Gemini → OpenRouter, configurados **só por variáveis de ambiente** (`GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, na Vercel);
   sem chaves (ou se falharem) o app mostra os textos prontos. Nunca coloque chaves no repositório (`*.env` está no `.gitignore`).
 - **Avisos push** (barra de notificações do celular, mesmo com o app fechado): Web Push sem dependências (VAPID + aes128gcm, `lib/push.js`);
-  chaves geradas na primeira vez e guardadas no banco. Ative em *Configurações → Avisos no celular* (no iPhone, instale o app antes).
+  chaves geradas na primeira vez e guardadas no banco. Ative em *Configurações → Avisos no celular* e toque em *Enviar teste*.
+  **Android (Chrome/Edge/Samsung)**: funciona no navegador ou no app instalado, mesmo fechado. **iPhone**: exige iOS 16.4+ e o app **instalado na
+  Tela de Início** (Compartilhar › Adicionar à Tela de Início), aberto por lá ao ativar. Se o teste falhar, a mensagem mostra o código devolvido
+  pelo serviço do aparelho (ex.: 403/404/410): desative e ative de novo. A inscrição acompanha a conta logada (troca de conta e sair desligam
+  o aparelho da conta anterior). O remetente VAPID é o endereço https do site (ou `PUSH_SUBJECT`).
 - **Apito e relógio**: no fim do tempo toca o apito (`public/pelada/sounds/apito.m4a`) e o relógio pisca em vermelho por alguns segundos.
 - **Pelada feminina**: todos os textos (avisos, telas e mensagens) usam o feminino (`shared/gender.js`).
 - **Partidas e súmula**: botão "Adicionar partida", escolha dos dois times, cronômetro configurável, gols por jogador (lista de presentes,

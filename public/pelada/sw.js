@@ -141,3 +141,15 @@ self.addEventListener('notificationclick', event => {
     return self.clients.openWindow(url);
   }));
 });
+
+// O navegador renovou (ou invalidou) a inscrição: refaz e avisa o servidor, para os avisos não pararem.
+self.addEventListener('pushsubscriptionchange', event => {
+  event.waitUntil((async () => {
+    try {
+      const old = event.oldSubscription;
+      const sub = event.newSubscription || (old ? await self.registration.pushManager.subscribe(old.options) : null);
+      if (!sub) return;
+      await fetch('/api/pelada/push/subscribe', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: sub.toJSON() }) });
+    } catch { /* o app registra de novo na próxima abertura (syncPush) */ }
+  })());
+});
