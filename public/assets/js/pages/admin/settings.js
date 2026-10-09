@@ -8,6 +8,7 @@ import { session } from '../../session.js';
 import { navigate } from '../../router.js';
 import { BRACKET_SIZES, TOURNAMENT_TYPES } from '../../shared/sports.js';
 import { fmtDateTime } from '../../shared/format.js';
+import { publicUrl } from '../../shared/site.js';
 import {
   feeDraft, feeFieldsHTML, readFeeDraft, feeFromDraft,
   rulesDraft, rulesFieldsHTML, readRulesDraft, rulesFromDraft,
@@ -34,7 +35,7 @@ export default function (app) {
   const dirty = () => JSON.stringify(draft) !== JSON.stringify(fromTournament(app.t));
 
   const visitorLink = () => app.visitorUrl();
-  const inviteUrl = code => `${location.origin}/convite/${code}`;
+  const inviteUrl = code => publicUrl(`/convite/${code}`);
 
   function view() {
     const t = app.t, d = draft, me = t.me;

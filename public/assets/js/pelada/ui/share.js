@@ -6,6 +6,7 @@ import { openDialog } from '../../ui/dialog.js';
 import { toast } from '../../ui/toast.js';
 import { initials } from '../../shared/format.js';
 import { isoDay } from '../../shared/dates.js';
+import { publicOrigin } from '../../shared/site.js';
 import { sharePeriod } from '../../shared/pelada.js';
 import { dayFull } from './shell.js';
 import { userImg } from './img.js';
@@ -39,7 +40,7 @@ const SX = { cond: 0.955, cond700: 0.99, round: 0.87, rank: 1.06 };
 const pn = n => `${n} ${n === 1 ? 'gol' : 'gols'}`;
 
 /** Dados do compartilhamento. scope: 'day' | 'general'. `today` = dia da emissão (padrão: hoje). */
-export function resultsData(pel, { scope, dayId }, { origin = location.origin, today = isoDay(new Date()) } = {}) {
+export function resultsData(pel, { scope, dayId }, { origin = publicOrigin(), today = isoDay(new Date()) } = {}) {
   const day = pel.days.find(d => d.id === dayId) || null;
   const general = scope === 'general' || !day;
   const nameOf = pid => pel.people[pid]?.name || '?';

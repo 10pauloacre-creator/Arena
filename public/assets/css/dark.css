@@ -16,6 +16,14 @@
   --pink-50: #3a1527;
 }
 
+/* O Pelada (body.pl) redefine a paleta com valores claros e vencia os tokens do tema: sem isto, fundos e textos verdes ficavam claros
+   sobre claro (ex.: a linha "eu" da lista de confirmados, nome do organizador, botões). */
+:root[data-theme="dark"] body.pl {
+  --pl: #17a757; --pl-600: #13904a; --pl-700: #4fd88b; --pl-900: #0b3d24; --pl-950: #052e1a; --pl-50: #0e2a1b; --pl-100: #14442a;
+  --pink: #ff6fa3; --pink-50: #3a1527; --blue: #4d8dff;
+}
+[data-theme="dark"] .turn-order .n { background: var(--pl-600); }
+
 /* superfícies com #fff fixo */
 [data-theme="dark"] .btn-outline-danger,
 [data-theme="dark"] .field input, [data-theme="dark"] .field select, [data-theme="dark"] .field textarea,
@@ -66,3 +74,6 @@
 [data-theme="dark"] .ntf-ico.t-draw, [data-theme="dark"] .ntf-ico.t-result { color: var(--gold); }
 [data-theme="dark"] .ntf-ico.t-match { background: #241d4d; color: #a993ff; }
 [data-theme="dark"] .bell { color: var(--ink-2); }
+
+/* nome do organizador no cabeçalho da pelada: mais claro que o texto de apoio, para não se perder no verde */
+[data-theme="dark"] .muted-on-dark b { color: #fff; }

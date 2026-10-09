@@ -7,6 +7,7 @@ import { relTime } from '../../ui/util.js';
 import { api, ApiError } from '../../api.js';
 import { session } from '../../session.js';
 import { navigate } from '../../router.js';
+import { publicUrl } from '../../shared/site.js';
 
 const SECTIONS = [
   { key: 'painel', path: '', label: 'Painel', title: 'Visão geral', icon: 'home', load: () => import('./overview.js') },
@@ -40,7 +41,7 @@ export default async function (ctx) {
     get t() { return state.t; },
     get now() { return Date.now() + state.offset; },
     get main() { return $('#adminMain', ctx.root); },
-    visitorUrl: () => `${location.origin}/t/${state.t.id}`,
+    visitorUrl: () => publicUrl(`/t/${state.t.id}`),
     set(next, { fromPoll = false } = {}) {
       if (!next) return;
       if (next.serverNow) state.offset = next.serverNow - Date.now();

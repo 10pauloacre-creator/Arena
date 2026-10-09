@@ -2,11 +2,12 @@
 import { html, ic, copyText } from './dom.js';
 import { openDialog } from './dialog.js';
 import { toast } from './toast.js';
+import { publicUrl } from '../shared/site.js';
 
 const enc = encodeURIComponent;
 
-/** Endereço completo (com o domínio de quem está usando) a partir de um caminho como "/AM-2026-9843/a-x-b". */
-export const absUrl = path => new URL(path, location.origin).href;
+/** Endereço completo no domínio oficial (partidafacil.click) a partir de um caminho como "/AM-2026-9843/a-x-b". */
+export const absUrl = path => publicUrl(path);
 
 /** Botão do ícone de compartilhar; o clique é tratado por `wireShare`. */
 export const shareButton = (label = 'Compartilhar', { cls = 'btn btn-sm' } = {}) =>
