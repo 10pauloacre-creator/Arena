@@ -66,6 +66,10 @@ body.no-scroll { overflow: hidden; }
 @media (min-width: 720px) { .id-form { display: flex; } .install-btn span { display: inline; } .user-chip .name { display: inline; } .pl-brand small { display: block; } }
 .pl-main { max-width: 1120px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 20px; align-content: start; min-height: 70dvh; }
 .pl-foot { text-align: center; padding: 18px 16px calc(24px + env(safe-area-inset-bottom)); color: var(--muted); font-size: 13px; }
+.pl-foot span { display: block; }
+.pl-foot a { text-decoration: underline; text-underline-offset: 2px; font-weight: 700; }
+.pl-credit { margin: 6px auto 0; max-width: 520px; font-size: 12px; line-height: 1.45; }
+.pl-credit b { color: var(--ink-2); font-weight: 700; }
 
 /* ================= avatares ================= */
 .pl-av { --h: 215; display: inline-grid; place-items: center; border-radius: 50%; flex: none; overflow: hidden; font-weight: 800; color: #fff; background: linear-gradient(135deg, hsl(var(--h) 70% 52%), hsl(var(--h) 65% 32%)); line-height: 1; }
@@ -191,10 +195,23 @@ h1 { line-height: 1.12; }
 .pel-head.feminino { background: linear-gradient(125deg, #3a0b22, #7a1544 60%, #b02363); }
 .pel-cover { height: 120px; position: relative; }
 .pel-cover img { width: 100%; height: 100%; object-fit: cover; }
-.pel-head.has-cover .pel-cover { height: 170px; }
 .pel-cover::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgb(0 0 0 / 0) 35%, rgb(0 0 0 / .55)); }
 .pel-head:not(.has-cover) .pel-cover { background: repeating-linear-gradient(90deg, rgb(255 255 255 / .05) 0 64px, transparent 64px 128px); }
 .pel-id { display: flex; gap: 16px; align-items: flex-end; padding: 0 20px 20px; margin-top: -46px; position: relative; z-index: 1; flex-wrap: wrap; }
+/* Com capa: a foto (salva em 16:7) preenche o cabeçalho inteiro e o texto fica por cima dela. A altura segue a proporção da foto,
+   então ela aparece inteira; só cresce (e corta um pouco as laterais) se o texto precisar de mais espaço. */
+.pel-head.has-cover { display: grid; background: #0b1410; }
+.pel-head.has-cover::before { content: ""; grid-area: 1 / 1; width: 100%; aspect-ratio: 16 / 7; }
+.pel-head.has-cover .pel-cover { position: absolute; inset: 0; height: auto; }
+.pel-head.has-cover .pel-cover img { position: absolute; inset: 0; display: block; }
+.pel-head.has-cover .pel-cover::after { background: linear-gradient(180deg, rgb(0 0 0 / .08) 0%, rgb(0 0 0 / .18) 40%, rgb(0 0 0 / .78) 100%); }
+.pel-head.has-cover .pel-id { grid-area: 1 / 1; align-self: end; margin-top: 0; }
+.pel-head.has-cover .pel-id h1 { text-shadow: 0 2px 12px rgb(0 0 0 / .6); }
+.pel-head.has-cover .muted-on-dark { color: #fff; text-shadow: 0 1px 6px rgb(0 0 0 / .6); }
+/* no celular, com capa, avatar e texto ficam lado a lado: em coluna o cabeçalho cresceria e cortaria as laterais da foto */
+@media (max-width: 719px) { .pel-head.has-cover .pel-id { flex-direction: row; align-items: flex-end; gap: 12px; padding: 0 14px 14px; } .pel-head.has-cover .pel-id .grow { width: auto; } }
+/* telas bem estreitas: avatar e selos menores (o tamanho do avatar e o espaço dos selos vêm inline, por isso !important) */
+@media (max-width: 400px) { .pel-head.has-cover .pel-id .pl-pav { width: 56px !important; height: 56px !important; } .pel-head.has-cover .pel-id .row { gap: 5px !important; margin-top: 6px !important; } .pel-head.has-cover .badge { font-size: 11px; padding: 2px 8px; } .pel-head.has-cover .pel-id p { margin-top: 6px !important; } }
 .pel-id h1 { font-size: clamp(24px, 5vw, 36px); font-weight: 800; letter-spacing: -.025em; overflow-wrap: anywhere; }
 .pel-id .pl-pav { border: 3px solid rgb(255 255 255 / .9); width: 84px; height: 84px; }
 .pel-head .badge { background: rgb(255 255 255 / .16); color: #fff; backdrop-filter: blur(4px); }
@@ -274,12 +291,14 @@ h1 { line-height: 1.12; }
 .team-head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border: 0; background: transparent; text-align: left; cursor: pointer; }
 .team-head:hover { background: var(--surface-2); }
 .team-num { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; background: var(--pl); color: #fff; font-weight: 800; flex: none; }
+.team-emb { display: inline-grid; place-items: center; flex: none; line-height: 0; filter: drop-shadow(0 1px 2px rgb(0 0 0 / .25)); }
 .team-num.sm { width: 26px; height: 26px; border-radius: 8px; font-size: 13px; }
 .team-title { font-weight: 800; flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 15.5px; }
 .team-count { font-size: 12.5px; color: var(--muted); font-weight: 600; white-space: nowrap; }
 .team-body { padding: 4px 14px 12px; border-top: 1px solid var(--line); }
 .team-players { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.team-players li { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.team-players li { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 6px 0; }
+.team-players li > .grow { flex: 1 1 90px; min-width: 0; }
 .team-players select { min-height: 34px; padding: 2px 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: #fff; font-size: 13px; max-width: 170px; }
 .fence-box { margin-top: 14px; padding: 14px; border-radius: var(--r-md); background: var(--surface-2); border: 1px dashed var(--line-strong); }
 .fence-box h4 { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
@@ -305,6 +324,31 @@ h1 { line-height: 1.12; }
 .icon-btn.plus { background: var(--pl); color: #fff; }
 .icon-btn.plus:hover { background: var(--pl-600); }
 .icon-btn[disabled] { opacity: .35; cursor: not-allowed; }
+.turn-order { margin: 10px 0 0; padding: 10px 12px; background: var(--surface-2); border-radius: 12px; color: var(--ink-2); }
+.turn-order ol { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.turn-order li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-weight: 700; color: var(--ink); }
+.turn-order .n { display: inline-grid; place-items: center; min-width: 28px; height: 22px; padding: 0 6px; border-radius: 99px; background: var(--pl-700); color: #fff; font-size: 12px; }
+.games-tag { font-size: 11px; font-weight: 700; color: var(--ink-3, #6b7280); background: var(--surface-2); border-radius: 99px; padding: 2px 8px; white-space: nowrap; }
+.draw-opts { display: grid; gap: 10px; }
+.draw-opt { display: flex; align-items: flex-start; gap: 12px; width: 100%; text-align: left; padding: 14px; border-radius: 14px; border: 1.5px solid var(--line-strong); background: var(--surface); color: var(--ink); cursor: pointer; }
+.draw-opt:hover:not(:disabled), .draw-opt:focus-visible { border-color: var(--pl-700); background: var(--surface-2); }
+.draw-opt:disabled { opacity: .6; cursor: not-allowed; }
+.draw-opt .t-ico { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--surface-2); color: var(--pl-700); }
+.pending-draw { margin: 0 0 14px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px dashed var(--pl-700); }
+.pending-list { margin: 8px 0 0; padding-left: 0; list-style: none; display: grid; gap: 4px; font-size: 13px; }
+.fixed-banner { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1.5px solid var(--pl-700); color: var(--ink); font-size: 14px; }
+.fixed-banner svg { flex: none; margin-top: 2px; color: var(--pl-700); }
+.change-row { padding: 10px 0; border-top: 1px solid var(--line); display: grid; gap: 4px; font-size: 14px; }
+.change-row:first-of-type { border-top: 0; }
+.change-row .in { color: var(--ok, #15803d); }
+.change-row .out { color: var(--ink-2); }
+.jarvis-tip { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); font-size: 14px; color: var(--ink-2); }
+.jarvis-tip svg { flex: none; margin-top: 2px; color: var(--pl-700); }
+.push-ask { display: grid; gap: 12px; justify-items: start; }
+.push-ico { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; background: var(--surface-2); color: var(--pl-700); }
+.push-benefits { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 14px; }
+.push-benefits li { display: flex; gap: 8px; align-items: flex-start; }
+.push-benefits svg { flex: none; margin-top: 2px; color: var(--pl-700); }
 .queue { margin: 10px 0 0; padding: 8px 12px; background: var(--surface-2); border-radius: 10px; color: var(--ink-2); }
 .match-list { display: grid; gap: 16px; margin-top: 14px; }
 .match { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); padding: 16px; display: grid; gap: 14px; box-shadow: var(--shadow-sm); }
@@ -328,6 +372,12 @@ h1 { line-height: 1.12; }
 .match.running .clock { color: #fff; }
 .match-clock.up .clock { color: #ff8da1; animation: blink 1s steps(2, start) infinite; }
 .match-clock .muted { color: #a9cdb8; }
+/* fim do tempo: o relógio pisca em vermelho por alguns segundos */
+.match-clock.flash { animation: clockFlash .5s steps(1, end) 12; }
+.match-clock.flash .clock { color: #fff; animation: clockNum .5s steps(1, end) 12; }
+@keyframes clockFlash { 0%, 100% { background: #c81e3a; } 50% { background: var(--pl-950); } }
+@keyframes clockNum { 0%, 100% { color: #fff; } 50% { color: #ff8da1; } }
+@media (prefers-reduced-motion: reduce) { .match-clock.flash, .match-clock.flash .clock { animation: none; } .match-clock.flash { background: #c81e3a; } }
 .clock-ctl { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center; margin-top: 4px; }
 .clock-ctl .btn { background: rgb(255 255 255 / .1); color: #fff; border-color: rgb(255 255 255 / .22); }
 .clock-ctl .btn:hover { background: rgb(255 255 255 / .2); }
@@ -483,8 +533,10 @@ body.pl:has([data-theme-btn]) #theme-toggle { display: none; }
   .pl-bnav .ico { flex: none; }
   .pl-bnav a[aria-current="page"], .pl .pl-bnav a[aria-current="page"] { color: var(--pl-700); background: var(--pl-50); }
   .pl-bnav a:active, .pl-bnav button:active { background: var(--surface-2); }
-  .pl-main.has-bnav { padding-bottom: calc(var(--bnav-h) + 28px + env(safe-area-inset-bottom)); }
-  .pl-main.has-bnav ~ .pl-foot { display: none; }
+  .pl-main.has-bnav { padding-bottom: 20px; }
+  /* com a barra inferior o rodapé fica só com o crédito, e reserva o espaço da barra para ela não cobrir o texto */
+  .pl-main.has-bnav ~ .pl-foot { padding-top: 4px; padding-bottom: calc(var(--bnav-h) + 20px + env(safe-area-inset-bottom)); }
+  .pl-main.has-bnav ~ .pl-foot > span:first-child { display: none; }
   .pl-foot { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 
   /* formulário: botões de ação sempre à mão */

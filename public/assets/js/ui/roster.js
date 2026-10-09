@@ -19,11 +19,13 @@ function genCpf() {
 
 /**
  * Cria o editor dentro de `root`.
- * opts: { sport, official, players, onChange }
+ * opts: { sport, official, players, onChange, min, numberRequired }
+ *   min: mínimo de atletas do torneio (regra do organizador); nunca abaixo do mínimo da modalidade
+ *   numberRequired: se false, o número da camisa é opcional (regra "cada jogador com seu número" desligada)
  * Retorna { getPlayers(), validate(), setPlayers(list) }
  */
-export function createRosterEditor(root, { sport: sportKey, official = false, players = [], onChange = () => {} }) {
-  const sport = SPORTS[sportKey];
+export function createRosterEditor(root, { sport: sportKey, official = false, players = [], onChange = () => {}, min: minOpt = 0, numberRequired = true }) {
+  const sport = SPORTS[sportKey], min = Math.max(sport.min, minOpt || 0);
   let list = players.map((p, i) => ({ ...p, _id: i + 1 }));
   let seq = list.length;
   let editing = null, doc = null;
@@ -33,7 +35,7 @@ export function createRosterEditor(root, { sport: sportKey, official = false, pl
     <div class="card" style="padding:14px;background:var(--surface-2);box-shadow:none" role="group" aria-label="Adicionar atleta">
       <div class="add-row ${official ? 'official' : ''}">
         <div class="field" data-f="name"><label for="r-name-${seq}">Nome do atleta</label><input id="r-name-${seq}" data-in="name" maxlength="40" autocomplete="off" placeholder="Nome completo"><span class="field-error"></span></div>
-        <div class="field" data-f="number"><label for="r-num-${seq}">Camisa</label><input id="r-num-${seq}" data-in="number" type="number" min="0" max="99" inputmode="numeric" placeholder="10"><span class="field-error"></span></div>
+        <div class="field" data-f="number"><label for="r-num-${seq}">Camisa${numberRequired ? '' : ' (opcional)'}</label><input id="r-num-${seq}" data-in="number" type="number" min="0" max="99" inputmode="numeric" placeholder="10"><span class="field-error"></span></div>
         ${official ? html`
           <div class="field" data-f="cpf"><label>CPF</label><input data-in="cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00" autocomplete="off"><span class="field-error"></span></div>
           <div class="field" data-f="rg"><label>RG</label><input data-in="rg" maxlength="16" autocomplete="off" placeholder="Número do RG"><span class="field-error"></span></div>
@@ -52,11 +54,11 @@ export function createRosterEditor(root, { sport: sportKey, official = false, pl
   const field = n => $(`[data-f=${n}]`, root);
 
   function paint() {
-    $('[data-count]', root).textContent = `${list.length}/${sport.min}${list.length > sport.min ? ` (máx. ${sport.max})` : ''}`;
-    $('[data-bar]', root).style.width = Math.min(100, list.length / sport.min * 100) + '%';
+    $('[data-count]', root).textContent = `${list.length}/${min}${list.length > min ? ` (máx. ${sport.max})` : ''}`;
+    $('[data-bar]', root).style.width = Math.min(100, list.length / min * 100) + '%';
     const ul = q('[data-list]');
-    ul.innerHTML = list.length ? list.slice().sort((a, b) => a.number - b.number).map(p => `
-      <li class="player" data-pid="${p._id}"><span class="jersey">${p.number}</span>
+    ul.innerHTML = list.length ? list.slice().sort((a, b) => (a.number ?? 1e9) - (b.number ?? 1e9)).map(p => `
+      <li class="player" data-pid="${p._id}"><span class="jersey">${p.number ?? '–'}</span>
         <div class="grow" style="min-width:0"><div class="p-n ellipsis">${esc(p.name)}</div>${official ? `<div class="p-s ellipsis">${esc(p.cpf || '')} ${p.doc ? '· PDF anexado' : ''}</div>` : ''}</div>
         <button type="button" class="icon-btn" data-act="edit" aria-label="Editar ${esc(p.name)}">${ic('pencil', { size: 16 }).s}</button>
         <button type="button" class="icon-btn" data-act="del" aria-label="Remover ${esc(p.name)}">${ic('trash', { size: 16 }).s}</button></li>`).join('')
@@ -74,10 +76,15 @@ export function createRosterEditor(root, { sport: sportKey, official = false, pl
     let ok = true, first = null;
     const bad = (n, m) => { setFieldError(field(n), m); ok = false; first = first || inp(n); };
     ['name', 'number', 'cpf', 'rg', 'doc'].forEach(n => field(n) && setFieldError(field(n), ''));
-    const name = inp('name').value.trim().replace(/\s+/g, ' '), numRaw = inp('number').value.trim(), num = Number(numRaw);
+    const name = inp('name').value.trim().replace(/\s+/g, ' '), numRaw = inp('number').value.trim();
+    let num = null;
     if (name.length < 3) bad('name', 'Informe o nome completo (mín. 3 letras).');
-    if (numRaw === '' || !Number.isInteger(num) || num < 0 || num > 99) bad('number', '0 a 99.');
-    else if (list.some(p => p.number === num && p._id !== editing)) bad('number', `A camisa ${num} já está em uso.`);
+    if (numRaw === '') { if (numberRequired) bad('number', '0 a 99.'); }
+    else {
+      num = Number(numRaw);
+      if (!Number.isInteger(num) || num < 0 || num > 99) bad('number', '0 a 99.');
+      else if (list.some(p => p.number === num && p._id !== editing)) bad('number', `A camisa ${num} já está em uso.`);
+    }
     let cpf = '', rg = '';
     if (official) {
       cpf = inp('cpf').value.trim(); rg = inp('rg').value.trim();
@@ -101,13 +108,13 @@ export function createRosterEditor(root, { sport: sportKey, official = false, pl
     if (act === 'del') { const p = list.find(x => x._id === pid); list = list.filter(x => x._id !== pid); paint(); toast(`${p.name} removido.`, { type: 'info', ms: 5000, action: { label: 'Desfazer', fn: () => { list.push(p); paint(); } } }); }
     if (act === 'edit') {
       const p = list.find(x => x._id === pid); editing = pid;
-      inp('name').value = p.name; inp('number').value = p.number;
+      inp('name').value = p.name; inp('number').value = p.number ?? '';
       if (official) { inp('cpf').value = p.cpf || ''; inp('rg').value = p.rg || ''; doc = p.doc || null; $('[data-docname]', root).textContent = doc ? doc.name : 'Selecionar PDF · até 5 MB'; }
       $('[data-addlbl]', root).textContent = 'Salvar atleta'; $('[data-act=cancel-edit]', root).hidden = false; inp('name').focus(); inp('name').scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
     if (act === 'demo') {
       const used = new Set(list.map(p => p.number)), cpfs = new Set(list.map(p => p.cpf));
-      while (list.length < sport.min) {
+      while (list.length < min) {
         let n; do { n = 1 + rnd(30); } while (used.has(n)); used.add(n);
         let c = genCpf(); while (cpfs.has(c)) c = genCpf(); cpfs.add(c);
         list.push({ _id: ++seq, name: `${FIRST[rnd(FIRST.length)]} ${LAST[rnd(LAST.length)]}`, number: n, ...(official ? { cpf: c, rg: `${10 + rnd(89)}${100 + rnd(899)}${100 + rnd(899)}`, doc: { name: `identidade-${seq}.pdf`, size: 80_000 } } : {}) });
@@ -134,7 +141,7 @@ export function createRosterEditor(root, { sport: sportKey, official = false, pl
     validate() {
       const err = $('[data-listerr]', root);
       let msg = '';
-      if (list.length < sport.min) msg = `O elenco precisa de ao menos ${sport.min} atletas (faltam ${sport.min - list.length}).`;
+      if (list.length < min) msg = `O elenco precisa de ao menos ${min} atletas (faltam ${min - list.length}).`;
       else if (list.length > sport.max) msg = `O elenco pode ter no máximo ${sport.max} atletas.`;
       err.style.display = msg ? 'block' : 'none'; err.textContent = msg;
       return !msg;

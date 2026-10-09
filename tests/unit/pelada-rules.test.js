@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   parseBirth, parseDateParts, normalizeSecret, maskDate, nameKey, normalizePeladaId, PELADA_ID_RE, planTeams, drawTeams, minPlayersForDraw,
   nextPairing, rankGoals, matchScore, timerRemaining, fmtClock, mulberry32, teamLabel, rangeLabel, sharePeriod,
-  formTeams, AUTO_EVERY_OPTIONS, autoDrawLabel,
+  formTeams, GENERAL_EVERY_OPTIONS, autoDrawLabel, FENCE_DRAW_TITLE, GENERAL_DRAW_TITLE,
 } from '../../public/assets/js/shared/pelada.js';
 
 const people = n => Array.from({ length: n }, (_, i) => ({ pid: `u:${i + 1}`, name: `Jogadora ${i + 1}`, guest: i % 7 === 6 }));
@@ -109,8 +109,9 @@ test('sorteio — capitão evita convidados quando há jogadores com conta e a s
   assert.notDeepEqual(a.teams.map(t => t.players), c.teams.map(t => t.players));
   const guests = new Set(list.filter(p => p.guest).map(p => p.pid));
   for (const t of a.teams) { const hasReal = t.players.some(pid => !guests.has(pid)); if (hasReal) assert.ok(!guests.has(t.captain)); }
-  assert.equal(teamLabel({ number: 2, captain: 'u:9' }, () => 'Valéria Souza'), 'Time 2 - Valéria');
-  assert.match(teamLabel(a.teams[0], pid => list.find(p => p.pid === pid).name), /^Time 1 - Jogadora$/);
+  // o nome do time vem do catálogo (não leva mais o capitão, que pode sair numa derrota)
+  assert.equal(teamLabel({ number: 2, name: 'Leões', emb: { g: 'crown', p: 0, s: 0 } }), 'Time 2 - Leões');
+  assert.match(teamLabel(a.teams[0], 'dia1', 'masculino'), /^Time 1 - \S+/);
 });
 
 test('sorteio — as notas explicam a Cerca', () => {
@@ -122,12 +123,14 @@ test('sorteio — as notas explicam a Cerca', () => {
   assert.ok(drawTeams(people(12), 5, mulberry32(1), { must: ['u:1'] }).notes.some(n => /Cerca anterior/.test(n)));
 });
 
-test('sorteio automático: rótulos e opções (1, 2, 3 partidas ou nunca)', () => {
-  assert.deepEqual(AUTO_EVERY_OPTIONS.map(o => o[0]), [1, 2, 3, 0]);
-  assert.equal(autoDrawLabel({ autoDraw: false, autoEvery: 1 }), 'Sorteio automático desligado');
-  assert.equal(autoDrawLabel({ autoDraw: true, autoEvery: 1 }), 'Sorteio automático a cada 1 partida');
-  assert.equal(autoDrawLabel({ autoDraw: true, autoEvery: 3 }), 'Sorteio automático a cada 3 partidas');
-  assert.match(autoDrawLabel({ autoDraw: true, autoEvery: 0 }), /nunca/);
+test('sorteios automáticos: títulos, rótulos e opções (geral a cada 1 a 10 partidas)', () => {
+  assert.equal(FENCE_DRAW_TITLE, 'Sorteio automático da Cerca');
+  assert.equal(GENERAL_DRAW_TITLE, 'Sorteio automático geral');
+  assert.deepEqual(GENERAL_EVERY_OPTIONS.map(o => o[0]), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  assert.equal(autoDrawLabel({ autoDraw: false, generalDraw: false, generalEvery: 3 }), 'Sorteios automáticos desligados');
+  assert.equal(autoDrawLabel({ autoDraw: true, generalDraw: false, generalEvery: 3 }), 'Sorteio da Cerca automático');
+  assert.equal(autoDrawLabel({ autoDraw: false, generalDraw: true, generalEvery: 1 }), 'Sorteio geral a cada partida');
+  assert.equal(autoDrawLabel({ autoDraw: true, generalDraw: true, generalEvery: 3 }), 'Sorteio da Cerca automático · Sorteio geral a cada 3 partidas');
 });
 
 test('fila de partidas: quem ganha fica; perdedor vai para o fim; empate tira quem está há mais tempo', () => {

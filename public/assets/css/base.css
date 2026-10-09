@@ -199,7 +199,7 @@ button { cursor: pointer; }
 .tile .t-title { font-weight: 700; display: block; line-height: 1.2; }
 .tile .t-sub { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
 .tile input:checked + label { background: var(--blue); border-color: var(--blue); color: #fff; box-shadow: 0 10px 24px rgb(27 109 255 / .3); }
-.tile input:checked + label .t-sub { color: rgb(255 255 255 / .8); }
+.tile input:checked + label .t-sub { color: rgb(255 255 255 / .95); }
 .tile input:checked + label .t-ico { background: #fff; color: var(--blue); }
 .tile input:focus-visible + label { outline: 2px solid var(--blue); outline-offset: 3px; }
 .tile input:disabled + label { opacity: .55; cursor: not-allowed; }

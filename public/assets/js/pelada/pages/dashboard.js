@@ -6,13 +6,14 @@ import { navigate } from '../../router.js';
 import { page, wireShell, dayShort } from '../ui/shell.js';
 import { peladaAvatar } from '../ui/img.js';
 import { GENDERS, firstName } from '../../shared/pelada.js';
+import { gx, cap } from '../../shared/gender.js';
 
 function card(p) {
   return html`<a class="pel-card" href="/pelada/p/${p.id}">
     ${peladaAvatar(p, 56)}
     <div class="grow" style="min-width:0"><strong class="ellipsis" style="display:block;font-size:16px">${p.name}</strong>
       <span class="muted small">${p.nextDate ? html`${ic('calendar', { size: 13 })} Próximo jogo: <b>${dayShort(p.nextDate)}</b>` : p.lastDate ? html`Último jogo: ${dayShort(p.lastDate)}` : 'Sem datas ainda'}</span>
-      <div class="row wrap" style="gap:6px;margin-top:6px"><span class="badge ${p.gender === 'feminino' ? 'pink' : 'info'}">${GENDERS[p.gender].label}</span><span class="badge">${ic('users', { size: 13 })} ${p.members}</span>${p.role === 'owner' ? html`<span class="badge gold">Organizador</span>` : p.owner ? html`<span class="badge">de ${firstName(p.owner)}</span>` : ''}${p.demo ? html`<span class="badge warn">Demonstração</span>` : ''}</div></div>
+      <div class="row wrap" style="gap:6px;margin-top:6px"><span class="badge ${p.gender === 'feminino' ? 'pink' : 'info'}">${GENDERS[p.gender].label}</span><span class="badge">${ic('users', { size: 13 })} ${p.members}</span>${p.role === 'owner' ? html`<span class="badge gold">${cap(gx(p.gender).owner)}</span>` : p.owner ? html`<span class="badge">de ${firstName(p.owner)}</span>` : ''}${p.demo ? html`<span class="badge warn">Demonstração</span>` : ''}</div></div>
     ${ic('chevron-right', { size: 20 })}</a>`;
 }
 

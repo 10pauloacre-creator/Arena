@@ -15,8 +15,13 @@ try {
   const v = (await call('POST', `/tournaments/${t.id}/draw`)).data.tournament;
   await call('POST', `/tournaments/${t.id}/matches/${v.bracket.rounds[0].matches[0].key}`, { action: 'start' });
   const open = (await call('POST', '/tournaments', { name: 'Copa Aberta', sport: 'futebol' })).data.tournament;
-  const pages = [['/', 'anon'], ['/entrar', 'anon'], ['/cadastro', 'anon'], [`/t/${t.id}`, 'anon'], [`/t/${t.id}/jogos`, 'anon'], [`/t/${t.id}/chaveamento`, 'anon'], [`/t/${t.id}/times`, 'anon'], [`/t/${open.id}/inscricao`, 'anon'], [`/t/${open.id}/meu-time`, 'anon'],
-    ['/', 'auth'], [`/admin/${t.id}`, 'auth'], [`/admin/${t.id}/times`, 'auth'], [`/admin/${t.id}/ao-vivo`, 'auth'], [`/admin/${t.id}/chaveamento`, 'auth'], [`/admin/${t.id}/marketing`, 'auth'], [`/admin/${t.id}/configuracoes`, 'auth']];
+  const rich = (await call('POST', '/tournaments', {
+    name: 'Copa Rica em Regras', sport: 'futsal', freeRegistration: true, details: 'Portões abrem às 8h.\nSem som alto.',
+    rules: { minPlayers: 6, uniform: true, emblemRequired: true, custom: ['Levar bola própria'] },
+    prizes: { masculino: [{ description: 'Troféu + medalhas', amount: 100000 }], feminino: [{ description: 'Troféu', amount: 80000 }, { description: 'Medalhas' }] },
+  })).data.tournament;
+  const pages = [[`/t/${rich.id}`, 'anon'], [`/t/${rich.id}/inscricao`, 'anon'], ['/', 'anon'], ['/entrar', 'anon'], ['/cadastro', 'anon'], [`/t/${t.id}`, 'anon'], [`/t/${t.id}/jogos`, 'anon'], [`/t/${t.id}/chaveamento`, 'anon'], [`/t/${t.id}/times`, 'anon'], [`/t/${open.id}/inscricao`, 'anon'], [`/t/${open.id}/meu-time`, 'anon'],
+    ['/novo-torneio', 'auth'], [`/admin/${rich.id}/configuracoes`, 'auth'], ['/', 'auth'], [`/admin/${t.id}`, 'auth'], [`/admin/${t.id}/times`, 'auth'], [`/admin/${t.id}/ao-vivo`, 'auth'], [`/admin/${t.id}/chaveamento`, 'auth'], [`/admin/${t.id}/marketing`, 'auth'], [`/admin/${t.id}/configuracoes`, 'auth']];
   for (const [mode, opts] of [['desktop', DESKTOP], ['mobile', MOBILE]]) {
     for (const [path, auth] of pages) {
       const ctx = auth === 'auth' ? await loginContext(browser, app.base, acc, opts) : await browser.newContext(opts);

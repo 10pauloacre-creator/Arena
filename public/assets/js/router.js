@@ -29,6 +29,9 @@ async function resolve() {
   }
   leaveFns.forEach(fn => { try { fn(); } catch { /* ignora */ } });
   leaveFns = [];
+  // modais ficam no <body>, fora do container da rota: fecham (e saem do DOM na hora) junto com a navegação.
+  // O evento "close" ainda dispara, então quem aguarda `closed` é liberado normalmente.
+  document.querySelectorAll('dialog').forEach(d => { try { d.close(); } catch { /* já fechado */ } d.remove(); });
   abort?.abort();
   abort = new AbortController();
   if (!hit) hit = { r: routes.find(r => r.pattern === '*'), params: {} };

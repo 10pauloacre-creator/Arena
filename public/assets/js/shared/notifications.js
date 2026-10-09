@@ -1,5 +1,6 @@
 // Notificações do app Pelada (servidor + navegador): tipos, preferências e textos de cada aviso.
 // O servidor guarda os eventos de cada pelada; o texto é montado na leitura, já personalizado para quem lê.
+import { gx, cap } from './gender.js';
 
 /** Tipos que o usuário liga/desliga em Configurações. `on` = padrão para quem nunca mexeu. */
 export const NOTIF_TYPES = [
@@ -103,35 +104,41 @@ export function timeAgo(at, now) {
 
 // ---------------------------------------------------------------- textos
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-const count = n => (Number.isInteger(n) ? ` (${plural(n, 'confirmado', 'confirmados')})` : '');
+const count = (n, G) => (Number.isInteger(n) ? ` (${plural(n, G.confirmed, G.confirmeds)})` : '');
 
 /**
  * Título e texto de um evento, personalizado para quem lê.
  * `ev` = { t, by, who, day?: { id, date }, d?: {...} }; `viewerId` = id da conta de quem lê; `today` = YYYY-MM-DD.
  */
-export function describe(ev, { viewerId, today } = {}) {
+export function describe(ev, { viewerId, today, gender } = {}) {
+  const G = gx(gender);
   const d = ev.d || {};
   const who = ev.who || 'Alguém';
   const day = ev.day ? dayName(ev.day.date, today) : '';
   const jogo = day ? `jogo de ${day}` : 'jogo';
   switch (ev.t) {
     case 'join':
-      return { title: 'Novo participante', text: `${who} entrou na pelada.` };
+      return { title: `${cap(G.newOne)} participante`, text: `${who} entrou na pelada.` };
     case 'presence':
-      if (d.guest) return { title: 'Convidado na lista', text: `${who} adicionou ${d.guest} (convidado) ao ${jogo}${count(d.n)}.` };
-      return { title: 'Presença confirmada', text: `${who} confirmou presença no ${jogo}${count(d.n)}.` };
+      if (d.guest) return { title: `${cap(G.guest)} na lista`, text: `${who} adicionou ${d.guest} (${G.guest}) ao ${jogo}${count(d.n, G)}.` };
+      return { title: 'Presença confirmada', text: `${who} confirmou presença no ${jogo}${count(d.n, G)}.` };
     case 'absence':
       if (d.removed) {
         if (d.uid && d.uid === viewerId) return { title: 'Você saiu da lista', text: `${who} tirou você da lista do ${jogo}.` };
-        return { title: 'Saiu da lista', text: `${who} tirou ${d.removed} da lista do ${jogo}${count(d.n)}.` };
+        return { title: 'Saiu da lista', text: `${who} tirou ${d.removed} da lista do ${jogo}${count(d.n, G)}.` };
       }
-      return { title: 'Desistência', text: `${who} retirou a presença do ${jogo}${count(d.n)}.` };
+      return { title: 'Desistência', text: `${who} retirou a presença do ${jogo}${count(d.n, G)}.` };
     case 'draw': {
       const mine = viewerId && d.slot ? d.slot[viewerId] : null;
       const teams = Number.isInteger(d.teams) ? `: ${plural(d.teams, 'time', 'times')}` : '';
+      const where = d.later ? '' : mine === 'Cerca' ? ' Você ficou na Cerca: aguarda a próxima partida e entra no time que perder.' : mine ? ` Você está no ${mine}.` : '';
+      if (d.kind === 'fence') return { title: 'Sorteio da Cerca', text: `${who} sorteou a Cerca do ${jogo}${teams}.${where}` };
+      if (d.kind === 'general') return d.later
+        ? { title: 'Sorteio geral combinado', text: `${who} combinou o sorteio geral do ${jogo}: os times novos valem quando a partida terminar.` }
+        : { title: 'Sorteio geral', text: `${who} refez todos os times do ${jogo}${teams}.${where}` };
       return {
         title: d.redo ? 'Sorteio refeito' : 'Times sorteados',
-        text: `${who} ${d.redo ? 'refez o sorteio' : 'sorteou os times'} do ${jogo}${teams}.${mine === 'Cerca' ? ' Você ficou na Cerca: aguarda a próxima partida e entra no time que perder.' : mine ? ` Você está no ${mine}.` : ''}`,
+        text: `${who} ${d.redo ? 'refez o sorteio' : 'sorteou os times'} do ${jogo}${teams}.${where}`,
       };
     }
     case 'match': {

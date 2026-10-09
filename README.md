@@ -1,5 +1,7 @@
 # ArenaMaster AI
 
+> **Endereço oficial:** ArenaMaster em **https://partidafacil.click** e Pelada em **https://partidafacil.click/pelada**. As regras de endereço ficam em [`CLAUDE.md`](CLAUDE.md).
+
 Plataforma de torneios com **painel do organizador** e **página do visitante**:
 inscrição de times com pagamento (PIX ou cartão), sorteio de chaveamento, jogos ao vivo,
 repescagem beneficente e divulgação (flyer + QR Code).
@@ -45,10 +47,10 @@ Os dados locais ficam em `.data/arena.json` (ignorado pelo git). Apague a pasta 
 ### Testes
 
 ```powershell
-npm test                         # 152 testes unitários e de API (node:test, sem dependências)
+npm test                         # 187 testes unitários e de API (node:test, sem dependências)
 npm run lint                     # verifica imports não utilizados
 cd e2e; node a11y.mjs            # auditoria de acessibilidade (axe-core) nas principais telas
-cd e2e; npm install; node run.mjs   # 28 cenários E2E do ArenaMaster com Playwright (usa o Chromium instalado)
+cd e2e; npm install; node run.mjs   # 32 cenários E2E do ArenaMaster com Playwright (usa o Chromium instalado)
 cd e2e; node pelada.mjs          # 20 cenários E2E do app Pelada (conta, criação, pelada demo, sorteio, súmula, pódio, PWA offline)
 cd e2e; node pelada-notificacoes.mjs  # 7 cenários E2E das notificações no app (sininho, painel, avisos, configurações)
 cd e2e; node pelada-a11y.mjs     # auditoria de acessibilidade (axe-core) nas telas do app Pelada
@@ -90,7 +92,7 @@ Opcional: defina `AUTH_SECRET` (qualquer texto longo e aleatório). Se não defi
 | Modo | Como ativar | O que acontece |
 | --- | --- | --- |
 | **Teste** (padrão) | nada a fazer | Nenhum valor é cobrado. O PIX mostra um QR/copia-e-cola de teste e um botão **"Simular pagamento aprovado"**. Cartões de teste: `4242 4242 4242 4242` aprova · `4000 0000 0000 0002` recusa · `4000 0000 0000 9995` sem saldo. Dados de cartão **nunca** são guardados. |
-| **Mercado Pago** | `PAYMENT_PROVIDER=mercadopago`, `MP_ACCESS_TOKEN`, (opcional, para cartão) `MP_PUBLIC_KEY`, e `PUBLIC_BASE_URL=https://seu-site.vercel.app` | PIX real (QR + copia-e-cola) e cartão tokenizado no navegador pelo SDK do Mercado Pago. Os pagamentos chegam por **webhook** (`/api/webhooks/mercadopago`) e a página do capitão também consulta o status. |
+| **Mercado Pago** | `PAYMENT_PROVIDER=mercadopago`, `MP_ACCESS_TOKEN`, (opcional, para cartão) `MP_PUBLIC_KEY`, e `PUBLIC_BASE_URL=https://partidafacil.click` | PIX real (QR + copia-e-cola) e cartão tokenizado no navegador pelo SDK do Mercado Pago. Os pagamentos chegam por **webhook** (`/api/webhooks/mercadopago`) e a página do capitão também consulta o status. |
 
 Como o time entra na lista: a inscrição **reserva a vaga por 30 minutos** (estendida ao iniciar o pagamento, máx. 60 min).
 Quando o provedor confirma o pagamento, o time é confirmado automaticamente. Se o pagamento chegar sem vaga
@@ -104,7 +106,7 @@ Quando o provedor confirma o pagamento, o time é confirmado automaticamente. Se
 
 ## Como usar (resumo)
 
-1. **Criar conta** → na home, **Novo torneio** (nome, modalidade, data da final). O ID (`AM-2026-XXXX`) é gerado.
+1. **Criar conta** → na home, **Novo torneio**. A página de criação reúne: nome, modalidade e data da final; **inscrição gratuita** (ou o valor por time); **regras** (checklist); **detalhes** e **premiação**. O ID (`AM-2026-XXXX`) é gerado.
 2. No **Painel**, edite nome/data/modalidade e clique em **Salvar alterações**.
 3. Em **Configurações**: prazo (data e hora), valor da inscrição, vagas (4/8/16/32), tipo (amador/oficial), repescagem e
    **convites de administrador** (link de uso único, válido por 7 dias).
@@ -116,6 +118,25 @@ Quando o provedor confirma o pagamento, o time é confirmado automaticamente. Se
 8. **Repescagem beneficente**: time eliminado doa (PIX/cartão) e disputa uma revanche contra quem o eliminou.
 
 Dica: marque **"Torneio de demonstração"** ao criar para ganhar 8 times de exemplo e testar tudo sem inscrições reais.
+
+### Inscrição gratuita, regras, detalhes e premiação
+
+Tudo isso é definido na criação do torneio e pode ser alterado depois em **Configurações** (botão *Salvar alterações*).
+
+- **Inscrição gratuita**: ativada, o time se inscreve sem pagar e já entra na lista. Desativada, é preciso informar o valor
+  (mínimo R$ 5,00) e o time só entra depois de pagar por PIX ou cartão. Ao ativar a gratuidade em um torneio que já tinha
+  reservas aguardando pagamento, quem ainda não iniciou nenhum pagamento é confirmado na hora.
+- **Regras do torneio (checklist)**: o organizador marca o que vale.
+  - *Conferidas pelo sistema* (barram a inscrição): quantidade mínima de jogadores, cada jogador com seu número de camisa
+    (desligada, o número vira opcional) e emblema do time obrigatório.
+  - *Aceite do capitão* (o capitão marca "li e aceito" no último passo; a data do aceite aparece para o organizador):
+    uniforme padronizado, documento oficial com foto, idade mínima, chegar 15 minutos antes e capitão presente — além de
+    até 8 regras livres escritas pelo organizador.
+  - A inscrição manual feita pelo organizador respeita o mínimo de jogadores e o número da camisa, mas não exige emblema nem aceite.
+  - Mudar uma regra vale para novas inscrições; times já inscritos não são afetados.
+- **Detalhes**: texto livre (até 4.000 caracteres, com quebras de linha) para avisos e regras gerais, exibido na página do visitante.
+- **Premiação**: colocações 1º, 2º, 3º… (até 10) em três categorias — *Geral*, *Masculino* e *Feminino* — cada uma com
+  texto, valor em dinheiro ou os dois. O visitante vê tudo na aba Início e o texto de divulgação cita o prêmio do 1º lugar.
 
 ---
 
@@ -157,24 +178,38 @@ A interface é pré-carregada pelo service worker e abre sem internet; os dados 
   sem arquivos nem rede; ao mudar o desenho, suba `DEMO_ART_VERSION` (as imagens ficam 1 ano em cache). A pelada recebe o selo
   "Demonstração" e pode ser excluída normalmente (limite de 10 por hora por pessoa).
 - **Presença**: qualquer jogador logado marca/retira a presença no dia; o nome e a foto aparecem na hora (o criador também marca).
-- **Configuração do sorteio** (padrão da pelada e, se quiser, por data): *Sorteio automático de jogadores* (liga/desliga) e *de quantas em
-  quantas partidas* sortear — **a cada 1, 2 ou 3 partidas, ou nunca** (`autoDraw` / `autoEvery`, `0` = nunca).
-- **Sorteio** (botão "Sortear Times", animação de 5 s, **só o organizador**; os demais veem apenas o resultado): divide os confirmados em
-  times **completos** de exatamente o mínimo por time (precisa de 2 times: 2 × mínimo presentes). **Quem sobra é a Cerca** (antes: "time
-  incompleto"/jogadores distribuídos): fica aguardando a próxima partida e entra no time que perder. Quem chega depois do sorteio e os
-  convidados também entram na Cerca (o organizador pode encaixá-los num time). Cada time é "Time 2 - Valéria" (capitão sorteado); clicar
-  no nome mostra as jogadoras. A Cerca aparece na lista dos times e **no rodapé de toda partida que ainda não terminou**.
-- **O sorteio fica sempre ativo**, inclusive com partida em andamento: é a parte *manual* do sorteio automático. Os times em quadra (e o
-  vencedor que continua na próxima partida) se mantêm; os demais jogadores e a Cerca são sorteados para a próxima partida. Antes de
-  qualquer partida começar, o sorteio simplesmente é refeito do zero.
-- **Sorteio automático** (quando marcado): ao encerrar a partida de ordem N, N-ésima desde o último sorteio (1, 2 ou 3), **o time vencedor
-  se mantém com seus jogadores** e o resto é sorteado de novo: o **time que perdeu é sorteado adicionando quem estava na Cerca**, e **quem
-  estava jogando e foi substituído vira a nova Cerca** da próxima partida. Com o sorteio automático marcado, **quem está na Cerca entra
-  obrigatoriamente na próxima partida** (tanto no automático quanto no manual). Com **mais de dois times**, a Cerca entra como um time
-  formado e é completada com jogadores sorteados dos times que estão fora (o que perdeu e os que esperavam); o time completado ganha o
-  número (o do time que perdeu) e o nome do capitão — sorteado entre os integrantes principais (quem veio da Cerca) —, e quem sobra do sorteio
-  é a nova Cerca. Fora dos momentos de sorteio vale a fila clássica (quem ganha fica; o perdedor vai para o fim da fila; no empate sai
-  quem está há mais partidas seguidas). O "Assistente do sorteio" e a lista "Últimas rotações da Cerca" explicam cada decisão.
+- **Configuração dos sorteios** (padrão da pelada e, se quiser, por data): **Sorteio automático da Cerca** (`autoDraw`) e **Sorteio automático
+  geral** (`generalDraw`, a cada 1 a 10 partidas: `generalEvery`).
+- **Primeiro sorteio**: times **completos** de exatamente o mínimo por time (precisa de 2 times). **Quem sobra é a Cerca**: aguarda a próxima
+  partida. Convidados e quem chega depois entram na Cerca (o organizador pode encaixá-los num time). Cada time é "Time 2 - Leões" (nome e emblema
+  do catálogo masculino/feminino, sem capitão no rótulo); clicar no nome mostra os jogadores e quantas partidas cada um jogou no dia.
+- **Sorteio automático da Cerca** (ao encerrar cada partida): o vencedor continua com os mesmos jogadores; **toda a Cerca entra** (regra principal):
+  grupos completos viram **time novo** (nome/emblema novos) que entra na fila; o resto (Cerca incompleta) entra no **time derrotado**, no lugar de
+  quem **mais jogou e depois mais fez gols no dia**, que forma a nova Cerca. Com 3 ou mais times, joga primeiro o time que esperava e o derrotado
+  (com a Cerca) depois. "Quem joga em seguida" mostra a ordem (próxima partida, fila e Cerca).
+- **Sorteio automático geral** (a cada N partidas): refaz **todos** os times repetindo o mínimo possível as mesmas duplas (busca local sobre o
+  histórico do dia, `lib/domain/pelada-engine.js`); a Cerca tem prioridade e saem os que mais jogaram/fizeram gols; os dois primeiros times são
+  de quem **não estava em quadra** (a vez é de quem descansou). Os times mantêm id, número, nome e emblema.
+- **Sortear times (manual, só o organizador)**: janela com duas opções — *Sorteio de cerca + time derrotado* e *Sorteio geral de todos os
+  jogadores*. Durante a partida, o da Cerca já forma o próximo time (precisa de um grupo completo na Cerca) e o geral fica **combinado** para
+  valer quando a partida terminar (cancelável). Sem uso manual, vale o automático. "O que mudou" mostra quem entrou/saiu de cada time.
+- **Fixar times**: os mesmos jogadores seguem nos mesmos times (sem sorteios, nem automáticos nem manuais); as próximas datas **herdam** os times
+  (banner "Times fixos, mantidos do último dia de jogo"); quem volta entra no próprio time ao confirmar presença. Não há campeonato no Pelada: para
+  isso, use o ArenaMaster. "Liberar times" desfaz.
+- **Jarvis (IA)**: resumo do jogo, explicação das mudanças e sugestão de sorteio (`POST .../jarvis`), e conselhos no painel do ArenaMaster. Usa
+  Groq → Gemini → OpenRouter, configurados **só por variáveis de ambiente** (`GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, na Vercel);
+  sem chaves (ou se falharem) o app mostra os textos prontos. Nunca coloque chaves no repositório (`*.env` está no `.gitignore`).
+- **Avisos push** (barra de notificações do celular, mesmo com o app fechado): Web Push sem dependências (VAPID + aes128gcm, `lib/push.js`);
+  chaves geradas na primeira vez e guardadas no banco. **Um convite aparece logo no primeiro acesso** (e no próximo, para quem já usava)
+  pedindo para ativar os avisos; "Agora não" só volta a perguntar depois de 7 dias, e permissão bloqueada no navegador nunca é perguntada de
+  novo. Também dá para ativar/desativar em *Configurações → Avisos no celular* e tocar em *Enviar teste* (desligar ali é respeitado:
+  o app não religa sozinho). Quem já deu permissão é reinscrito automaticamente se o navegador descartar a inscrição.
+  **Android (Chrome/Edge/Samsung)**: funciona no navegador ou no app instalado, mesmo fechado. **iPhone**: exige iOS 16.4+ e o app **instalado na
+  Tela de Início** (Compartilhar › Adicionar à Tela de Início), aberto por lá ao ativar. Se o teste falhar, a mensagem mostra o código devolvido
+  pelo serviço do aparelho (ex.: 403/404/410): desative e ative de novo. A inscrição acompanha a conta logada (troca de conta e sair desligam
+  o aparelho da conta anterior). O remetente VAPID é o endereço https do site (ou `PUSH_SUBJECT`).
+- **Apito e relógio**: no fim do tempo toca o apito (`public/pelada/sounds/apito.m4a`) e o relógio pisca em vermelho por alguns segundos.
+- **Pelada feminina**: todos os textos (avisos, telas e mensagens) usam o feminino (`shared/gender.js`).
 - **Partidas e súmula**: botão "Adicionar partida", escolha dos dois times, cronômetro configurável, gols por jogador (lista de presentes,
   "jogador de fora" e "sem autor"). Ao encerrar (ou quando o tempo acaba), a **próxima partida é criada sozinha**. A partida encerrada
   guarda os elencos de quem jogou (os times mudam de jogadores nos sorteios). **Só o organizador pode corrigir uma partida encerrada**
@@ -251,8 +286,18 @@ legacy/                 protótipo original
 
 ## Limitações conhecidas / próximos passos
 
+- A premiação masculina/feminina é só informativa: o torneio tem **um único chaveamento**. Não há ainda times com categoria
+  (masculino/feminino) nem chaves separadas por categoria.
+
 - **Recuperação de senha por e-mail** ainda não existe (exige provedor de e-mail, ex.: Resend).
 - **Documentos em PDF** (torneio oficial): só nome/tamanho do arquivo são registrados; o arquivo não é armazenado (exigiria Vercel Blob/S3). CPF e RG são validados e exibidos ao organizador.
 - **Biometria (FaceMatch)** do protótipo original não foi mantida: era uma simulação. O painel mostra "Atletas validados" e "Fraudes barradas" com base em dados reais (elencos válidos e CPFs duplicados entre times).
 - O "sorteio inteligente" é um algoritmo de otimização (não usa modelo de IA); a semente garante auditoria.
 - Atualização ao vivo por *polling* (3–6 s); pode evoluir para SSE/WebSocket.
+
+## Campeonato de pontos corridos (ArenaMaster)
+Ao criar o torneio (ou em *Configurações*, antes do sorteio) escolha **Pontos corridos (campeonato)** em vez de **Mata-mata**. Defina o
+**máximo de partidas por time** (vazio = todos contra todos uma vez; acima disso entra o returno com mando invertido). Em *Campeonato* gere a
+tabela de jogos (rodadas pelo método do círculo, `lib/domain/league.js`), lance os resultados e acompanhe a **classificação** (vitória 3, empate 1;
+desempate: vitórias, saldo de gols, gols pró). Quando todos os jogos terminam, o time com **mais pontos é o campeão**. Visitantes veem a aba
+*Tabela*. O modo mata-mata continua igual.

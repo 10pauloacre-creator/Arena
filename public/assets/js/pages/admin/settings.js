@@ -8,6 +8,15 @@ import { session } from '../../session.js';
 import { navigate } from '../../router.js';
 import { BRACKET_SIZES, TOURNAMENT_TYPES } from '../../shared/sports.js';
 import { fmtDateTime } from '../../shared/format.js';
+import {
+  feeDraft, feeFieldsHTML, readFeeDraft, feeFromDraft,
+  rulesDraft, rulesFieldsHTML, readRulesDraft, rulesFromDraft,
+  prizesDraft, prizesFieldsHTML, readPrizesDraft, prizesFromDraft, prizeAdd, prizeDel,
+  detailsFieldHTML, wireTourneyForm,
+} from '../../ui/tourneyform.js';
+import { RULE_DEFS, normalizeRules, normalizePrizes } from '../../shared/rules.js';
+
+const sameRules = (a, b) => RULE_DEFS.every(d => a[d.key] === b[d.key]) && a.custom.join('\n') === b.custom.join('\n');
 
 export default function (app) {
   let draft = null, lastInvite = null, forceReset = false;
@@ -15,8 +24,9 @@ export default function (app) {
   function fromTournament(t) {
     const dl = isoToLocalParts(t.regDeadline);
     return {
-      registrationOpen: t.registrationOpen, deadlineDate: t.regDeadline ? dl.date : '', deadlineTime: dl.time, fee: centsToInput(t.fee), maxTeams: t.maxTeams, type: t.type,
-      venue: t.venue || '', description: t.description || '', donationEnabled: t.donationEnabled, minDonation: centsToInput(t.minDonation), causes: t.causes.join('\n'),
+      registrationOpen: t.registrationOpen, deadlineDate: t.regDeadline ? dl.date : '', deadlineTime: dl.time, fee: feeDraft(t), maxTeams: t.maxTeams, type: t.type, format: t.format || 'knockout', leagueMax: t.leagueMax || '',
+      venue: t.venue || '', description: t.description || '', details: t.details || '', donationEnabled: t.donationEnabled, minDonation: centsToInput(t.minDonation), causes: t.causes.join('\n'),
+      rules: rulesDraft(t.rules, t.sport), prizes: prizesDraft(t.prizes),
     };
   }
   const reset = () => { draft = fromTournament(app.t); };
@@ -35,21 +45,32 @@ export default function (app) {
     <form class="settings" id="settingsForm" novalidate>
       <div class="card"><h3 class="card-title">${ic('door-open')} Inscrições</h3>
         <div class="stack">
-          <label class="switch"><input type="checkbox" name="registrationOpen" ${d.registrationOpen ? 'checked' : ''} ${t.bracket ? 'disabled' : ''}><span class="track"></span><span><b>Inscrições abertas</b><br><span class="muted small">Desligue para encerrar as inscrições antes do prazo.</span></span></label>
+          <label class="switch"><input type="checkbox" name="registrationOpen" ${d.registrationOpen ? 'checked' : ''} ${t.bracket || t.league ? 'disabled' : ''}><span class="track"></span><span><b>Inscrições abertas</b><br><span class="muted small">Desligue para encerrar as inscrições antes do prazo.</span></span></label>
           <div class="cols-3">
-            <div class="field" data-f="deadlineDate"><label for="s-dd">Prazo final — data</label><input id="s-dd" type="date" name="deadlineDate" value="${d.deadlineDate}" ${t.bracket ? 'disabled' : ''}><span class="field-error"></span></div>
-            <div class="field" data-f="deadlineTime"><label for="s-dt">Prazo final — horário</label><input id="s-dt" type="time" name="deadlineTime" value="${d.deadlineTime}" ${t.bracket ? 'disabled' : ''}><span class="field-error"></span></div>
-            <div class="field" data-f="maxTeams"><label for="s-mt">Vagas (times)</label><select id="s-mt" name="maxTeams" ${t.bracket ? 'disabled' : ''}>${BRACKET_SIZES.map(n => html`<option value="${n}" ${+d.maxTeams === n ? 'selected' : ''}>${n} times</option>`)}</select><span class="field-error"></span></div>
+            <div class="field" data-f="deadlineDate"><label for="s-dd">Prazo final — data</label><input id="s-dd" type="date" name="deadlineDate" value="${d.deadlineDate}" ${t.bracket || t.league ? 'disabled' : ''}><span class="field-error"></span></div>
+            <div class="field" data-f="deadlineTime"><label for="s-dt">Prazo final — horário</label><input id="s-dt" type="time" name="deadlineTime" value="${d.deadlineTime}" ${t.bracket || t.league ? 'disabled' : ''}><span class="field-error"></span></div>
+            <div class="field" data-f="maxTeams"><label for="s-mt">Vagas (times)</label><select id="s-mt" name="maxTeams" ${t.bracket || t.league ? 'disabled' : ''}>${BRACKET_SIZES.map(n => html`<option value="${n}" ${+d.maxTeams === n ? 'selected' : ''}>${n} times</option>`)}</select><span class="field-error"></span></div>
           </div>
           <p class="hint" style="margin-top:-6px">${ic('clock', { size: 14 })} Deixe a data em branco para não ter prazo (encerre manualmente). Horário no fuso do seu navegador.</p>
-          <div class="cols-2">
-            <div class="field" data-f="fee"><label for="s-fee">Valor da inscrição por time</label><div class="input-affix"><span class="prefix">R$</span><input id="s-fee" name="fee" inputmode="decimal" value="${d.fee}" placeholder="0,00"></div><span class="hint">Use 0 para inscrição gratuita. Com valor, o time só entra na lista após o pagamento (PIX ou cartão).</span><span class="field-error"></span></div>
-            <div class="field" data-f="venue"><label for="s-venue">Local dos jogos</label><input id="s-venue" name="venue" maxlength="80" value="${d.venue}" placeholder="Ex.: Ginásio Municipal"><span class="field-error"></span></div>
-          </div>
+          ${feeFieldsHTML(d.fee)}
+          <div class="field" data-f="format"><span class="label">Formato da competição</span><div class="tiles c2 stack-mobile">${[['knockout', 'Mata-mata (torneio)', 'network'], ['league', 'Pontos corridos (campeonato)', 'trophy']].map(([k, label, ico]) => html`<div class="tile sm"><input type="radio" name="format" id="fm-${k}" value="${k}" ${d.format === k ? 'checked' : ''} ${t.bracket || t.league ? 'disabled' : ''}><label for="fm-${k}"><span class="t-ico">${ic(ico)}</span><span><span class="t-title">${label}</span></span></label></div>`)}</div>
+            ${t.bracket || t.league ? html`<span class="hint">O sorteio já foi feito: reinicie o chaveamento para trocar o formato.</span>` : ''}<span class="field-error"></span></div>
+          ${d.format === 'league' ? html`<div class="field" data-f="leagueMax"><label for="s-lmax">Máximo de partidas por time</label><input id="s-lmax" type="number" name="leagueMax" min="1" max="80" inputmode="numeric" value="${d.leagueMax}" placeholder="Vazio = todos contra todos uma vez" ${t.league ? 'disabled' : ''}><span class="hint">Vitória vale 3 pontos e empate 1; no fim, quem tem mais pontos é o campeão. Acima de "todos uma vez", entra o returno.</span><span class="field-error"></span></div>` : ''}
+          <div class="field" data-f="venue"><label for="s-venue">Local dos jogos</label><input id="s-venue" name="venue" maxlength="80" value="${d.venue}" placeholder="Ex.: Ginásio Municipal"><span class="field-error"></span></div>
           <div class="field" data-f="type"><span class="label">Tipo de torneio</span><div class="tiles c2 stack-mobile">${Object.entries(TOURNAMENT_TYPES).map(([k, label]) => html`<div class="tile sm"><input type="radio" name="type" id="ty-${k}" value="${k}" ${d.type === k ? 'checked' : ''} ${hasTeams ? 'disabled' : ''}><label for="ty-${k}"><span class="t-ico">${ic(k === 'oficial' ? 'badge-check' : 'users', { size: 20 })}</span><span><span class="t-title">${label}</span><span class="t-sub">${k === 'oficial' ? 'CPF, RG e documento em PDF de cada atleta' : 'Apenas nome e número da camisa'}</span></span></label></div>`)}</div>${hasTeams ? html`<span class="hint">${ic('lock', { size: 13 })} Travado: já existem times inscritos.</span>` : ''}</div>
-          <div class="field" data-f="description"><label for="s-desc">Descrição (aparece na página do visitante)</label><textarea id="s-desc" name="description" maxlength="400" placeholder="Regras, premiação, informações importantes…">${d.description}</textarea><span class="field-error"></span></div>
+          <div class="field" data-f="description"><label for="s-desc">Descrição curta (aparece no topo da página do visitante)</label><textarea id="s-desc" name="description" maxlength="400" rows="2" placeholder="Uma ou duas linhas sobre o torneio.">${d.description}</textarea><span class="field-error"></span></div>
           ${mock ? html`<div class="form-note warn">${ic('triangle-alert')}<span><b>Pagamentos em modo de teste.</b> Nenhum valor é cobrado de verdade e o PIX pode ser "simulado" pelo capitão. Para cobrar de verdade, configure o Mercado Pago (veja o README).</span></div>` : html`<div class="form-note ok">${ic('shield-check')}<span>Pagamentos reais ativos via ${session.config.payments.name === 'mercadopago' ? 'Mercado Pago' : session.config.payments.name}.</span></div>`}
         </div></div>
+
+      <div class="card"><h3 class="card-title">${ic('list-checks')} Regras do torneio</h3>
+        <p class="card-sub">Marque o que vale no seu torneio. As conferidas pelo sistema barram a inscrição; nas demais, o capitão aceita as regras ao inscrever o time.${hasTeams ? ' Mudanças valem para novas inscrições: times já inscritos não são afetados.' : ''}</p>
+        ${rulesFieldsHTML(d.rules, t.sport)}</div>
+
+      <div class="card"><h3 class="card-title">${ic('info')} Detalhes e avisos</h3>${detailsFieldHTML(d.details)}</div>
+
+      <div class="card"><h3 class="card-title">${ic('medal')} Premiação</h3>
+        <p class="card-sub">Adicione as colocações (1º, 2º, 3º…) de cada categoria. Use o texto, o valor em dinheiro ou os dois.</p>
+        ${prizesFieldsHTML(d.prizes)}</div>
 
       <div class="card"><h3 class="card-title">${ic('hand-heart')} Repescagem beneficente</h3>
         <div class="stack">
@@ -83,18 +104,20 @@ export default function (app) {
   function readForm(root) {
     const f = $('#settingsForm', root);
     return {
-      registrationOpen: f.registrationOpen.checked, deadlineDate: f.deadlineDate.value, deadlineTime: f.deadlineTime.value, fee: f.fee.value, maxTeams: Number(f.maxTeams.value),
-      type: (f.type.value || draft.type), venue: f.venue.value, description: f.description.value, donationEnabled: f.donationEnabled.checked, minDonation: f.minDonation.value, causes: f.causes.value,
+      registrationOpen: f.registrationOpen.checked, deadlineDate: f.deadlineDate.value, deadlineTime: f.deadlineTime.value, fee: readFeeDraft(f), maxTeams: Number(f.maxTeams.value),
+      type: (f.type.value || draft.type), format: f.format.value || draft.format, leagueMax: f.leagueMax ? f.leagueMax.value : draft.leagueMax, venue: f.venue.value, description: f.description.value, details: f.details.value, donationEnabled: f.donationEnabled.checked, minDonation: f.minDonation.value, causes: f.causes.value,
+      rules: readRulesDraft(f), prizes: readPrizesDraft(f),
     };
   }
 
   async function save(root) {
     const f = $('#settingsForm', root); clearErrors(f);
     const d = readForm(root); draft = d;
-    const bad = (n, m) => { setFieldError($(`[data-f=${n}]`, f), m); $(`[name=${n}]`, f)?.focus(); return true; };
-    const feeC = parseMoney(d.fee), minC = parseMoney(d.minDonation);
-    if (!Number.isFinite(feeC) || feeC < 0) return bad('fee', 'Valor inválido.');
-    if (feeC > 0 && feeC < 500) return bad('fee', 'O valor mínimo cobrável é R$ 5,00 (ou use 0 para gratuita).');
+    const bad = (n, m) => { const fld = $(`[data-f="${n}"]`, f); setFieldError(fld, m); $('input,textarea,select', fld)?.focus(); return true; };
+    const minC = parseMoney(d.minDonation);
+    const feeR = feeFromDraft(d.fee); if (feeR.error) return bad(feeR.error.field, feeR.error.message);
+    const rulesR = rulesFromDraft(d.rules, app.t.sport); if (rulesR.error) return bad(rulesR.error.field, rulesR.error.message);
+    const prizesR = prizesFromDraft(d.prizes); if (prizesR.error) return bad(prizesR.error.field, prizesR.error.message);
     if (!Number.isFinite(minC) || minC < 500) return bad('minDonation', 'A doação mínima é de R$ 5,00.');
     if (d.deadlineDate && !d.deadlineTime) return bad('deadlineTime', 'Informe o horário limite.');
     const causes = d.causes.split('\n').map(s => s.trim()).filter(Boolean);
@@ -103,11 +126,16 @@ export default function (app) {
     const iso = d.deadlineDate ? localPartsToIso(d.deadlineDate, d.deadlineTime) : null;
     if (iso !== t.regDeadline) body.regDeadline = iso;
     if (d.registrationOpen !== t.registrationOpen) body.registrationOpen = d.registrationOpen;
-    if (feeC !== t.fee) body.fee = feeC;
+    if (feeR.fee !== t.fee) Object.assign(body, feeR.freeRegistration ? { freeRegistration: true } : { freeRegistration: false, fee: feeR.fee });
     if (d.maxTeams !== t.maxTeams) body.maxTeams = d.maxTeams;
     if (d.type !== t.type) body.type = d.type;
+    if (d.format !== (t.format || 'knockout')) body.format = d.format;
+    if (d.format === 'league' && String(d.leagueMax || '') !== String(t.leagueMax || '')) body.leagueMax = d.leagueMax ? Number(d.leagueMax) : null;
     if (d.venue.trim() !== (t.venue || '')) body.venue = d.venue.trim();
     if (d.description.trim() !== (t.description || '')) body.description = d.description.trim();
+    if (d.details.trim() !== (t.details || '')) body.details = d.details;
+    if (!sameRules(rulesR.rules, normalizeRules(t.rules))) body.rules = rulesR.rules;
+    if (JSON.stringify(prizesR.prizes) !== JSON.stringify(normalizePrizes(t.prizes))) body.prizes = prizesR.prizes;
     if (d.donationEnabled !== t.donationEnabled) body.donationEnabled = d.donationEnabled;
     if (minC !== t.minDonation) body.minDonation = minC;
     if (causes.join('\n') !== t.causes.join('\n')) body.causes = causes;
@@ -128,13 +156,24 @@ export default function (app) {
       render(root, view());
       const refreshBar = () => { const bar = $('#saveBar', root); if (!bar) return; draft = readForm(root); bar.hidden = !dirty(); };
       root.addEventListener('input', e => { if (e.target.closest('#settingsForm')) refreshBar(); });
-      root.addEventListener('change', e => { if (e.target.closest('#settingsForm')) refreshBar(); });
+      root.addEventListener('change', e => {
+        if (!e.target.closest('#settingsForm')) return;
+        if (e.target.name === 'format') { draft = readForm(root); render(root, view()); const bar = $('#saveBar', root); if (bar) bar.hidden = !dirty(); return; } // mostra/esconde o máximo de partidas
+        refreshBar();
+      });
       root.addEventListener('submit', e => { e.preventDefault(); });
+      wireTourneyForm(root);
       root.addEventListener('focusin', e => { if (e.target.matches('[data-select]')) e.target.select(); });
       on(root, 'click', '[data-act]', async (e, el) => {
         const act = el.dataset.act, t = app.t;
         if (act === 'save') await save(root);
         if (act === 'discard') { reset(); render(root, view()); }
+        if (act === 'prize-add' || act === 'prize-del') {
+          draft = readForm(root); const cat = el.dataset.cat;
+          if (act === 'prize-add') prizeAdd(draft.prizes, cat); else prizeDel(draft.prizes, cat, Number(el.dataset.i));
+          render(root, view());
+          $(act === 'prize-add' ? `[name="prize-${cat}-${draft.prizes[cat].length - 1}-description"]` : `[data-act="prize-add"][data-cat="${cat}"]`, root)?.focus();
+        }
         if (act === 'copy-link') toast((await copyText(visitorLink())) ? 'Link copiado!' : 'Copie manualmente.', { type: 'success', ms: 2000 });
         if (act === 'copy-id') toast((await copyText('#' + t.id)) ? 'ID copiado!' : 'Copie manualmente.', { type: 'success', ms: 2000 });
         if (act === 'copy-invite') toast((await copyText(el.dataset.url)) ? 'Link de convite copiado!' : 'Copie manualmente.', { type: 'success', ms: 2200 });

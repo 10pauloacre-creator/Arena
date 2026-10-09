@@ -92,7 +92,7 @@ await test('presença confirmada com o app aberto: aviso na tela + contador', as
     await poke(orgPage); await orgPage.waitForTimeout(400); // primeira leitura desta página (não gera aviso)
     await ana.call('POST', `${dayPath}/presence`, { present: true });
     await poke(orgPage);
-    const t = orgPage.locator('.toast', { hasText: `Presença confirmada: ${ana.name} confirmou presença no jogo de hoje (1 confirmado).` });
+    const t = orgPage.locator('.toast', { hasText: `Presença confirmada: ${ana.name} confirmou presença no jogo de hoje (1 confirmada).` });
     await t.waitFor(T);
     assert((await orgPage.locator('[data-bell-count]').textContent()) === '1', 'contador = 1');
     await shot(orgPage, '02_aviso_presenca');
@@ -153,6 +153,93 @@ await test('configurações: desligar um tipo vale na hora e fica salvo; ligar "
     await anaPage.getByRole('checkbox', { name: /Presenças no jogo do dia/ }).waitFor({ state: 'attached', ...T });
     assert(!(await anaPage.getByRole('checkbox', { name: /Presenças no jogo do dia/ }).isChecked()), 'continua desligado depois de recarregar');
   });
+});
+
+await test('avisos no celular: ativar neste aparelho (permissão + inscrição enviada ao servidor), botão de teste e desativar', async () => {
+  const cp = await apiPlayer(`Push ${stamp}`);
+  const ctx = await contextFor(cp, MOBILE);
+  await ctx.grantPermissions(['notifications'], { origin: app.base });
+  // o Chromium de teste não alcança os serviços reais de push: uma inscrição de mentira (com chaves de verdade) prova a ligação do app
+  await ctx.addInitScript(() => {
+    const fake = {
+      endpoint: 'https://fcm.googleapis.com/fcm/send/e2e-' + Math.random().toString(36).slice(2),
+      toJSON() { return { endpoint: this.endpoint, keys: { p256dh: window.__p256dh, auth: window.__auth } }; },
+      unsubscribe: async () => { window.__unsubscribed = true; window.__sub = null; return true; },
+    };
+    window.__subscribeCalls = [];
+    PushManager.prototype.getSubscription = async function () { return window.__sub || null; };
+    PushManager.prototype.subscribe = async function (opts) { window.__subscribeCalls.push(opts); window.__sub = fake; return fake; };
+  });
+  const p = await ctx.newPage(); watch(p, 'push');
+  const calls = [];
+  p.on('response', r => { if (r.url().includes('/api/pelada/push/')) calls.push(`${r.request().method()} ${r.url().split('/api/pelada/push/')[1]} ${r.status()}`); });
+  const { createECDH, randomBytes } = await import('node:crypto');
+  const e = createECDH('prime256v1'); e.generateKeys();
+  await p.addInitScript(({ k, a }) => { window.__p256dh = k; window.__auth = a; }, { k: e.getPublicKey().toString('base64url'), a: randomBytes(16).toString('base64url') });
+  await guard(p, async () => {
+    await p.goto(app.base + '/pelada/configuracoes');
+    await p.getByText('Avisos no celular').first().waitFor(T);
+    await p.getByRole('button', { name: /Ativar neste aparelho/ }).click();
+    await p.getByRole('button', { name: /Desativar neste aparelho/ }).waitFor(T);
+    const sub = await p.evaluate(() => window.__subscribeCalls.map(o => ({ vis: o.userVisibleOnly, keyLen: new Uint8Array(o.applicationServerKey).length })));
+    assert(sub.length === 1 && sub[0].vis === true && sub[0].keyLen === 65, 'inscrição pedida com a chave VAPID do servidor: ' + JSON.stringify(sub));
+    assert(calls.includes('GET key 200') && calls.includes('POST subscribe 200'), 'o servidor recebeu a inscrição: ' + calls.join(', '));
+    assert(calls.some(c => c.startsWith('POST test')), 'aviso de teste enviado ao ativar (a rede real pode recusar a inscrição de mentira)');
+    await shot(p, '06_push_ativo');
+    await p.getByRole('button', { name: /Desativar neste aparelho/ }).click();
+    await p.getByRole('button', { name: /Ativar neste aparelho/ }).waitFor(T);
+    assert(await p.evaluate(() => window.__unsubscribed === true), 'inscrição do navegador removida');
+    assert(calls.includes('POST unsubscribe 200'), 'o servidor removeu o aparelho: ' + calls.join(', '));
+  });
+  await ctx.close();
+});
+
+await test('convite para ativar os avisos: aparece no acesso, "Agora não" só volta depois de dias e "Ativar avisos" inscreve o aparelho', async () => {
+  const cp = await apiPlayer(`Convite ${stamp}`);
+  const ctx = await contextFor(cp, MOBILE);
+  await ctx.addInitScript(() => {
+    localStorage.setItem('pelada.pushAskTest', '1'); // navegador automatizado só vê o convite com esta chave
+    // permissão e inscrição "do navegador" sobrevivem a recarregamentos, como no aparelho de verdade
+    Object.defineProperty(Notification, 'permission', { get: () => localStorage.getItem('fake.perm') || 'default' });
+    Notification.requestPermission = async () => { localStorage.setItem('fake.perm', 'granted'); return 'granted'; };
+    const fake = () => ({ endpoint: 'https://fcm.googleapis.com/fcm/send/prompt-fixed', toJSON() { return { endpoint: this.endpoint, keys: { p256dh: window.__p256dh, auth: window.__auth } }; }, unsubscribe: async () => { localStorage.removeItem('fake.sub'); return true; } });
+    PushManager.prototype.getSubscription = async function () { return localStorage.getItem('fake.sub') ? fake() : null; };
+    PushManager.prototype.subscribe = async function () { localStorage.setItem('fake.sub', '1'); return fake(); };
+  });
+  const { createECDH, randomBytes } = await import('node:crypto');
+  const e = createECDH('prime256v1'); e.generateKeys();
+  await ctx.addInitScript(({ k, a }) => { window.__p256dh = k; window.__auth = a; }, { k: e.getPublicKey().toString('base64url'), a: randomBytes(16).toString('base64url') });
+  const p = await ctx.newPage(); watch(p, 'convite-push');
+  const calls = [];
+  p.on('response', r => { if (r.url().includes('/api/pelada/push/')) calls.push(`${r.request().method()} ${r.url().split('/api/pelada/push/')[1]} ${r.status()}`); });
+  await guard(p, async () => {
+    await p.goto(app.base + '/pelada/painel');
+    const dlg = p.locator('dialog[open]').filter({ hasText: 'Receber os avisos da pelada?' });
+    await dlg.waitFor({ timeout: 12000 });
+    assert((await dlg.textContent()).includes('barra do celular'), 'explica onde os avisos aparecem');
+    await shot(p, '07_convite_push');
+    await dlg.getByRole('button', { name: 'Agora não' }).click();
+    await dlg.waitFor({ state: 'detached', ...T });
+    assert(!calls.some(c => c.startsWith('POST subscribe')), '"Agora não" não inscreve');
+    await p.reload();
+    await p.waitForTimeout(3500);
+    assert(await p.locator('dialog[open]').count() === 0, 'não pergunta de novo logo em seguida');
+    // passados os dias: pergunta de novo e, ao aceitar, inscreve o aparelho
+    await p.evaluate(() => localStorage.setItem('pelada.pushAsk', String(Date.now() - 8 * 86400_000)));
+    await p.reload();
+    const again = p.locator('dialog[open]').filter({ hasText: 'Receber os avisos da pelada?' });
+    await again.waitFor({ timeout: 12000 });
+    await again.getByRole('button', { name: /Ativar avisos/ }).click();
+    await again.waitFor({ state: 'detached', ...T });
+    await p.getByText('Avisos ativados!').first().waitFor(T);
+    assert(calls.includes('POST subscribe 200'), 'o servidor recebeu a inscrição: ' + calls.join(', '));
+    // quem já ativou não é perguntado outra vez
+    await p.evaluate(() => localStorage.removeItem('pelada.pushAsk'));
+    await p.reload();
+    await p.waitForTimeout(3500);
+    assert(await p.locator('dialog[open]').count() === 0, 'quem já tem os avisos ativos não vê o convite');
+  });
+  await ctx.close();
 });
 
 await test('silenciar só esta pelada pela página da pelada e reativar', async () => {

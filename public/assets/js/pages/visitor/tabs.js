@@ -2,8 +2,10 @@
 import { html, ic, $ } from '../../ui/dom.js';
 import { emblem, streamEmbedHTML } from '../../ui/util.js';
 import { scoreboardHTML, teamMap, minuteOf, scoreValues } from '../../ui/match.js';
+import { tourneyExtras } from '../../ui/tourneyinfo.js';
 import { SPORTS, TOURNAMENT_TYPES } from '../../shared/sports.js';
 import { fmtBRL, fmtDay, fmtDateTime } from '../../shared/format.js';
+import { leagueTableHTML, leagueRoundsHTML } from '../../ui/league.js';
 
 const allMatches = t => t.bracket ? [...t.bracket.rounds.flatMap(r => r.matches), ...t.bracket.playins].filter(m => !m.bye) : [];
 
@@ -36,6 +38,12 @@ export function infoCard(t) {
     <ul class="stack-sm">${rows.map(([i, l, v]) => html`<li class="row small">${ic(i, { size: 18 })}<span class="muted" style="min-width:110px">${l}</span><b>${v}</b></li>`)}</ul></div>`;
 }
 
+/** Pontos corridos na página inicial: classificação e a rodada em andamento. */
+function leagueHome(t) {
+  const next = t.league.rounds.find(rd => rd.matches.some(m => !m.done));
+  return html`${leagueTableHTML(t)}${next ? leagueRoundsHTML(t, { only: [next.r] }) : ''}`;
+}
+
 export function homeTab(v) {
   const t = v.t, now = v.now, teams = teamMap(t);
   const ms = allMatches(t);
@@ -45,16 +53,18 @@ export function homeTab(v) {
   const champ = t.champion ? teams.get(t.champion) : null;
   return html`<div class="stack">
     ${champ ? html`<div class="champion-banner">${ic('trophy')}${emblem(champ, 'lg')}<div><span class="label">CAMPEÃO</span><div style="font-size:24px;font-weight:800;line-height:1.2">${champ.name}</div>${champ.repescada ? html`<span class="tag-benef">${ic('heart', { size: 11 })} Equipe Repescada · Benfeitora</span>` : ''}</div></div>` : ''}
+    ${t.league ? leagueHome(t) : ''}
     ${live.length ? section(html`<span class="badge live"><span class="dot"></span>Ao vivo agora</span>`, html`${live.slice(0, 1).map(m => html`<div data-open="${m.key}" style="cursor:pointer">${scoreboardHTML(t, m, { now })}</div>`)}${live.slice(1).map(m => matchRow(t, m, now))}`) : ''}
     ${t.stream ? section('Transmissão ao vivo', streamEmbedHTML(t.stream)) : ''}
     ${next.length ? section('Próximos jogos', html`<div class="stack-sm">${next.map(m => matchRow(t, m, now))}</div>`, html`<a class="small" href="/t/${t.id}/jogos">Ver todos</a>`) : ''}
     ${done.length ? section('Resultados recentes', html`<div class="stack-sm">${done.map(m => matchRow(t, m, now))}</div>`) : ''}
-    ${!t.bracket ? html`<div class="card"><h3 class="card-title">${ic('users')} Times confirmados (${t.teamsConfirmed})</h3>${t.teams.length ? html`<div class="row wrap" style="gap:10px">${t.teams.map(x => html`<span class="row" style="gap:8px;padding:6px 12px 6px 6px;border:1px solid var(--line);border-radius:99px;background:#fff">${emblem(x, 'sm')}<b class="small">${x.name}</b></span>`)}</div>` : html`<div class="empty">${ic('users')}<span>Nenhum time confirmado ainda. Seja o primeiro!</span></div>`}<p class="hint" style="margin-top:10px">O chaveamento é publicado depois do sorteio, quando as inscrições terminam.</p></div>` : ''}
-    ${infoCard(t)}</div>`;
+    ${!t.bracket && !t.league ? html`<div class="card"><h3 class="card-title">${ic('users')} Times confirmados (${t.teamsConfirmed})</h3>${t.teams.length ? html`<div class="row wrap" style="gap:10px">${t.teams.map(x => html`<span class="row" style="gap:8px;padding:6px 12px 6px 6px;border:1px solid var(--line);border-radius:99px;background:#fff">${emblem(x, 'sm')}<b class="small">${x.name}</b></span>`)}</div>` : html`<div class="empty">${ic('users')}<span>Nenhum time confirmado ainda. Seja o primeiro!</span></div>`}<p class="hint" style="margin-top:10px">O chaveamento é publicado depois do sorteio, quando as inscrições terminam.</p></div>` : ''}
+    ${infoCard(t)}${tourneyExtras(t)}</div>`;
 }
 
 export function matchesTab(v) {
   const t = v.t, now = v.now, ms = allMatches(t);
+  if (t.league) return leagueRoundsHTML(t);
   if (!t.bracket) return html`<div class="empty" style="padding:48px 16px">${ic('calendar-clock', { size: 34 })}<strong style="font-size:18px">Os jogos ainda não foram definidos</strong><span>As partidas aparecem aqui depois do sorteio do chaveamento.</span></div>`;
   const groups = [
     ['Ao vivo', ms.filter(m => m.phase === 'live' || m.phase === 'paused')],
@@ -69,11 +79,12 @@ export function teamsTab(v) {
   const t = v.t;
   if (!t.teams.length) return html`<div class="empty" style="padding:48px 16px">${ic('users', { size: 34 })}<strong style="font-size:18px">Nenhum time confirmado</strong><span>Os times aparecem aqui assim que a inscrição (e o pagamento) for confirmada.</span>${t.registration.open ? html`<a class="btn btn-primary" href="/t/${t.id}/inscricao">Inscrever meu time</a>` : ''}</div>`;
   return html`<div class="t-grid">${t.teams.map(x => html`<div class="card team-card"><div class="tc-head">${emblem(x, 'md')}<div class="grow" style="min-width:0"><b class="ellipsis" style="display:block">${x.name}</b><span class="muted small">${x.origin || 'Sem bairro/clube'}</span></div>${x.repescada ? html`<span class="tag-benef">${ic('heart', { size: 11 })}</span>` : ''}${x.eliminated ? html`<span class="badge">Eliminado</span>` : ''}</div>
-    <details><summary>Elenco (${x.players.length})</summary><ul class="player-grid">${x.players.map(p => html`<li class="player"><span class="jersey">${p.number}</span><div class="p-n ellipsis">${p.name}</div></li>`)}</ul></details></div>`)}</div>`;
+    <details><summary>Elenco (${x.players.length})</summary><ul class="player-grid">${x.players.map(p => html`<li class="player"><span class="jersey">${p.number ?? '–'}</span><div class="p-n ellipsis">${p.name}</div></li>`)}</ul></details></div>`)}</div>`;
 }
 
 export function bracketTab(v) {
   const t = v.t;
+  if (t.league) return leagueTableHTML(t);
   if (!t.bracket) return html`<div class="empty" style="padding:48px 16px">${ic('network', { size: 34 })}<strong style="font-size:18px">O chaveamento será publicado após o sorteio</strong><span>Volte quando as inscrições terminarem para ver os confrontos.</span></div>`;
   return html`<div class="card flush" id="bracketCard"></div>`;
 }

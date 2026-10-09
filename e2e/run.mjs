@@ -34,6 +34,7 @@ const noOverflow = async (page, label) => {
   assert(over <= 1, `${label}: rolagem horizontal de ${over}px`);
 };
 const T = { timeout: 8000 };
+const shotSafe = async (page, name) => { try { await page.screenshot({ path: `${SHOTS}${name}.png`, fullPage: true }); } catch { /* ignora */ } };
 const seen = (page, text, o = T) => page.getByText(text, { exact: false }).filter({ visible: true }).first().waitFor(o);
 
 console.log(`\nArenaMaster AI — E2E em ${app.base}\n`);
@@ -70,13 +71,18 @@ await test('login: senha errada mostra erro; logout e login corretos', async () 
   await ctx.close();
 });
 
-await test('criar torneio pelo modal e abrir o painel', async () => {
+await test('criar torneio pela página: validações, inscrição gratuita e abrir o painel', async () => {
   await guard(orgPage, async () => {
     await orgPage.getByRole('button', { name: 'Criar meu primeiro torneio' }).click();
+    await orgPage.waitForURL(/\/novo-torneio$/); await orgPage.waitForSelector('#nt-name');
     await orgPage.fill('#nt-name', 'x');
     await orgPage.click('#ntGo');
     await seen(orgPage, 'mínimo 3 letras');
     await orgPage.fill('#nt-name', tname);
+    await orgPage.click('#ntGo');
+    await seen(orgPage, 'Informe o valor da inscrição'); // por padrão a inscrição é paga: precisa de valor ou da opção gratuita
+    await orgPage.locator('.switch').filter({ hasText: 'Inscrição gratuita' }).click();
+    assert(await orgPage.locator('#f-fee').isDisabled(), 'o valor deveria ficar desabilitado com inscrição gratuita');
     await orgPage.click('#ntGo');
     await orgPage.waitForURL(/\/admin\/AM-\d{4}-\d+$/);
     tid = orgPage.url().split('/').pop();
@@ -123,17 +129,19 @@ await test('configurações: prazo, valor, vagas e salvar', async () => {
     await seen(orgPage, 'Inscrições abertas');
     const d = new Date(Date.now() + 5 * 86400_000); const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     await orgPage.fill('#s-dd', day); await orgPage.fill('#s-dt', '23:59');
-    await orgPage.fill('#s-fee', '50,00');
+    assert(await orgPage.locator('#f-fee').isDisabled(), 'torneio gratuito: valor desabilitado');
+    await orgPage.locator('.switch').filter({ hasText: 'Inscrição gratuita' }).click(); // passa a cobrar
+    assert(await orgPage.locator('#f-fee').isEnabled(), 'valor habilita ao desligar a inscrição gratuita');
     await orgPage.selectOption('#s-mt', '4');
     await orgPage.fill('#s-venue', 'Ginásio da Vila');
     await orgPage.locator('#saveBtn').waitFor();
-    await orgPage.fill('#s-fee', '2,00'); await orgPage.click('#saveBtn');
-    await seen(orgPage, 'mínimo cobrável');
-    await orgPage.fill('#s-fee', '50,00'); await orgPage.click('#saveBtn');
+    await orgPage.fill('#f-fee', '2,00'); await orgPage.click('#saveBtn');
+    await seen(orgPage, 'de R$ 5,00 a R$ 10.000,00');
+    await orgPage.fill('#f-fee', '50,00'); await orgPage.click('#saveBtn');
     await seen(orgPage, 'Configurações salvas.');
     await orgPage.reload();
     await seen(orgPage, 'Inscrições abertas');
-    assert((await orgPage.inputValue('#s-fee')) === '50,00', 'valor persistido');
+    assert((await orgPage.inputValue('#f-fee')) === '50,00', 'valor persistido');
     assert((await orgPage.inputValue('#s-mt')) === '4', 'vagas persistidas');
   });
 });
@@ -517,6 +525,39 @@ await test('chaveamento: visitante e admin abrem os detalhes da partida (lance a
   await vc.close(); await octx.close();
 });
 
+await test('navegação: botão Voltar fecha o modal da partida (admin e visitante)', async () => {
+  const org = await apiSignup(app.base, 'Dono Voltar');
+  const call = (m, p, b) => apiCall(app.base, org.cookie, m, p, b);
+  const t = (await call('POST', '/tournaments', { name: 'Copa Voltar', sport: 'futebol', demo: true })).data.tournament;
+  const v = (await call('POST', `/tournaments/${t.id}/draw`)).data.tournament; const key = v.bracket.rounds[0].matches[0].key;
+  await call('POST', `/tournaments/${t.id}/matches/${key}`, { action: 'start' });
+  const dialogs = p => p.evaluate(() => document.querySelectorAll('dialog').length);
+  const octx = await loginContext(browser, app.base, org); const op = await octx.newPage(); watch(op, 'voltar-admin');
+  await guard(op, async () => {
+    await op.goto(`${app.base}/admin/${t.id}`);
+    await op.locator('a[href$="/chaveamento"]').first().click(); await op.waitForURL(/\/chaveamento$/);
+    await op.locator('#bracketCard .match.live').first().click(); await op.locator('dialog[open]').waitFor();
+    await op.goBack(); await op.waitForURL(u => !u.pathname.endsWith('/chaveamento'));
+    assert(await dialogs(op) === 0, 'o modal da partida ficou aberto no admin depois de Voltar');
+    // pelo link "Gerenciar ao vivo": o modal sai do DOM na hora, sem placar duplicado
+    await op.goto(`${app.base}/admin/${t.id}/chaveamento`);
+    await op.locator('#bracketCard .match.live').first().click();
+    await op.getByRole('link', { name: 'Gerenciar ao vivo' }).click(); await op.waitForURL(/\/ao-vivo\?m=/);
+    assert(await dialogs(op) === 0, 'o modal da partida continuou no DOM depois de "Gerenciar ao vivo"');
+    await op.locator('.scoreboard').first().waitFor(); // a página ao vivo carrega depois da troca de URL
+    assert(await op.locator('.scoreboard').count() === 1, 'placar duplicado depois de "Gerenciar ao vivo"');
+  });
+  const vc = await browser.newContext(DESKTOP); const vp = await vc.newPage(); watch(vp, 'voltar-visitante');
+  await guard(vp, async () => {
+    await vp.goto(`${app.base}/t/${t.id}`);
+    await vp.locator('a[href$="/chaveamento"]').first().click(); await vp.waitForURL(/\/chaveamento$/);
+    await vp.locator('.match.live').first().click(); await vp.locator('dialog[open]').waitFor();
+    await vp.goBack(); await vp.waitForURL(u => !u.pathname.endsWith('/chaveamento'));
+    assert(await dialogs(vp) === 0, 'o modal da partida ficou aberto no visitante depois de Voltar');
+  });
+  await vc.close(); await octx.close();
+});
+
 await test('times: admin edita (nome, força) e remove um time pela interface', async () => {
   const org = await apiSignup(app.base, 'Dona Edição');
   const call = (m, p, b) => apiCall(app.base, org.cookie, m, p, b);
@@ -603,6 +644,174 @@ await test('mobile: inscrição gratuita completa sem rolagem horizontal', async
     }
   });
   await c.close(); await mctx.close();
+});
+
+// ---------------------------------------------------------------- inscrição gratuita, regras, detalhes e premiação
+await test('criação completa (valor, regras, detalhes, premiação) → configurações → visitante vê e se inscreve aceitando as regras', async () => {
+  const org = await apiSignup(app.base, 'Dono Completo');
+  const octx = await loginContext(browser, app.base, org); const op = await octx.newPage(); watch(op, 'criacao-completa');
+  const vc = await browser.newContext(DESKTOP); const vp = await vc.newPage(); watch(vp, 'visitante-completo');
+  let id;
+  await guard(op, async () => {
+    await op.goto(`${app.base}/novo-torneio`);
+    await op.fill('#nt-name', 'Copa Completa');
+    await op.fill('#f-fee', '25,00');
+    await op.locator('.rule-row[data-rule=minPlayers] label.check').click(); await op.fill('#rv-minPlayers', '6');
+    await op.locator('.rule-row[data-rule=uniform] label.check').click();
+    await op.locator('.rule-row[data-rule=shirtNumbers] label.check').click(); // vem ligada: desliga
+    await op.fill('#r-custom', 'Levar bola própria\nProibido chuteira de trava');
+    await op.fill('#t-details', 'Portões abrem às 8h.\nSem som alto.');
+    await op.locator('[data-act=prize-add][data-cat=masculino]').click();
+    await op.fill('[name="prize-masculino-0-description"]', 'Troféu + medalhas'); await op.fill('[name="prize-masculino-0-amount"]', '1000,00');
+    await op.locator('[data-act=prize-add][data-cat=masculino]').click();
+    await op.fill('[name="prize-masculino-1-description"]', 'Medalhas');
+    await op.locator('[data-act=prize-add][data-cat=feminino]').click();
+    await op.fill('[name="prize-feminino-0-description"]', 'Troféu feminino'); await op.fill('[name="prize-feminino-0-amount"]', '800');
+    // colocação vazia é recusada; ao remover, o que foi digitado nas outras linhas continua lá
+    await op.locator('[data-act=prize-add][data-cat=geral]').click();
+    await op.click('#ntGo'); await seen(op, 'informe o prêmio (texto ou valor) ou remova a colocação');
+    await op.locator('[data-act=prize-del][data-cat=geral]').click();
+    assert(await op.inputValue('[name="prize-masculino-1-description"]') === 'Medalhas', 'linhas preservadas ao remover colocação');
+    await op.click('#ntGo');
+    await op.waitForURL(/\/admin\/AM-\d{4}-\d+$/); id = op.url().split('/').pop();
+
+    // tudo foi salvo e aparece nas configurações
+    await op.goto(`${app.base}/admin/${id}/configuracoes`); await seen(op, 'Regras do torneio');
+    assert(await op.inputValue('#f-fee') === '25,00' && await op.locator('#f-fee').isEnabled(), 'valor da inscrição persistido');
+    assert(await op.locator('[name=rule-uniform]').isChecked(), 'regra do uniforme persistida');
+    assert(!(await op.locator('[name=rule-shirtNumbers]').isChecked()), 'regra de camisa desligada persistida');
+    assert(await op.inputValue('#rv-minPlayers') === '6', 'mínimo de jogadores persistido');
+    assert(await op.inputValue('#r-custom') === 'Levar bola própria\nProibido chuteira de trava', 'regras livres persistidas');
+    assert(await op.inputValue('#t-details') === 'Portões abrem às 8h.\nSem som alto.', 'detalhes persistidos');
+    assert(await op.inputValue('[name="prize-feminino-0-amount"]') === '800,00', 'premiação feminina persistida');
+    await noOverflow(op, 'configurações com regras e premiação');
+
+    // edita pelas configurações: remove a 2ª colocação masculina, liga "inscrição gratuita" e salva
+    await op.locator('[data-act=prize-del][data-cat=masculino][data-i="1"]').click();
+    await seen(op, 'Você tem alterações não salvas');
+    await op.locator('.switch').filter({ hasText: 'Inscrição gratuita' }).click();
+    await op.locator('#saveBtn').click(); await seen(op, 'Configurações salvas');
+    await op.reload(); await seen(op, 'Regras do torneio');
+    assert(await op.locator('[data-cat=masculino] .prize-row').count() === 1, 'colocação removida e salva');
+    assert(await op.locator('#f-fee').isDisabled(), 'inscrição gratuita salva');
+
+    // o texto de divulgação cita o prêmio do 1º lugar de cada categoria e a inscrição gratuita
+    await op.goto(`${app.base}/admin/${id}/marketing`); await op.waitForSelector('#caption');
+    const cap = (await op.locator('#caption').innerText()).replace(/\s/g, ' ');
+    assert(cap.includes('1º lugar: Masculino R$ 1.000,00 · Feminino R$ 800,00') && cap.includes('gratuitas'), 'texto de divulgação sem a premiação/inscrição gratuita: ' + cap);
+  });
+
+  await guard(vp, async () => {
+    await vp.goto(`${app.base}/t/${id}`);
+    for (const txt of ['Premiação', 'Masculino', 'Feminino', 'Troféu + medalhas', 'R$ 1.000,00', 'Troféu feminino', 'R$ 800,00', 'Detalhes e avisos', 'Portões abrem às 8h.', 'Sem som alto.', 'Regras do torneio', 'Mínimo de 6 jogadores por time', 'Uniforme padronizado', 'Levar bola própria', 'Proibido chuteira de trava', 'Inscrição gratuita']) await seen(vp, txt);
+    assert(await vp.getByText('Medalhas', { exact: true }).count() === 0, 'a colocação removida não aparece mais');
+    assert(await vp.getByText('Cada jogador com seu número de camisa').count() === 0, 'regra desligada não aparece');
+    await noOverflow(vp, 'visitante com premiação e regras');
+    await vp.screenshot({ path: `${SHOTS}visitante_premiacao_regras.png`, fullPage: true });
+
+    // inscrição: regras visíveis, número opcional, mínimo de 6 e aceite obrigatório
+    await vp.goto(`${app.base}/t/${id}/inscricao`);
+    await seen(vp, 'Regras do torneio (');
+    await vp.fill('#tf-name', 'Time Das Regras'); await vp.fill('#tf-cname', 'Capitão Regras'); await vp.fill('#tf-cphone', '11987654321'); await vp.fill('#tf-cmail', 'regras@teste.com');
+    await vp.getByRole('button', { name: 'Continuar' }).click();
+    await seen(vp, 'O número da camisa é opcional'); await seen(vp, 'Mínimo de 6 atletas');
+    await vp.fill('[data-in=name]', 'Fulano Sem Numero'); await vp.locator('[data-act=add]').click(); // sem número: aceito
+    await vp.locator('.jersey', { hasText: '–' }).first().waitFor();
+    await vp.locator('[data-act=next2]').click(); await seen(vp, 'O elenco precisa de ao menos 6 atletas (faltam 5)');
+    await vp.getByRole('button', { name: 'Preencher elenco de exemplo' }).click();
+    await vp.locator('[data-act=next2]').click(); await seen(vp, 'Revise e conclua');
+    await vp.getByRole('button', { name: 'Concluir inscrição' }).click(); await seen(vp, 'Aceite as regras do torneio');
+    await vp.locator('[name=accept]').check();
+    await vp.getByRole('button', { name: 'Concluir inscrição' }).click();
+    await seen(vp, 'Inscrição confirmada!'); // gratuita: entra na lista sem pagamento
+  });
+
+  await guard(op, async () => {
+    await op.goto(`${app.base}/admin/${id}/times`); await seen(op, 'Time Das Regras');
+    await op.locator('.team-row', { hasText: 'Time Das Regras' }).getByRole('button', { name: 'Detalhes' }).click();
+    await seen(op, 'Regras aceitas em');
+  });
+  await octx.close(); await vc.close();
+});
+
+await test('regra de emblema obrigatório bloqueia o primeiro passo da inscrição', async () => {
+  const org = await apiSignup(app.base, 'Dono Escudo');
+  const t = (await apiCall(app.base, org.cookie, 'POST', '/tournaments', { name: 'Copa Escudo', sport: 'futsal', rules: { emblemRequired: true } })).data.tournament;
+  const vc = await browser.newContext(DESKTOP); const vp = await vc.newPage(); watch(vp, 'escudo');
+  await guard(vp, async () => {
+    await vp.goto(`${app.base}/t/${t.id}/inscricao`);
+    await vp.fill('#tf-name', 'Sem Escudo FC'); await vp.fill('#tf-cname', 'Capitão Escudo'); await vp.fill('#tf-cphone', '11987654321'); await vp.fill('#tf-cmail', 'escudo@teste.com');
+    await vp.getByRole('button', { name: 'Continuar' }).click();
+    await seen(vp, 'exige o emblema do time');
+    assert(await vp.getByText('Elenco de Sem Escudo FC').count() === 0, 'não deveria avançar sem o emblema');
+  });
+  await vc.close();
+});
+
+await test('mobile: criação, configurações e página do visitante com regras e premiação sem rolagem horizontal', async () => {
+  const org = await apiSignup(app.base, 'Dona Mobile Regras');
+  const t = (await apiCall(app.base, org.cookie, 'POST', '/tournaments', {
+    name: 'Copa Mobile Regras', sport: 'futsal', freeRegistration: true, details: 'Aviso importante\nSegunda linha com um texto bem longo para testar a quebra de linha no celular sem estourar a largura da tela.',
+    rules: { minPlayers: 6, uniform: true, custom: ['Levar bola própria'] },
+    prizes: { masculino: [{ description: 'Troféu + medalhas + churrasco para o time inteiro', amount: 100000 }], feminino: [{ description: 'Troféu', amount: 80000 }, { description: 'Medalhas' }] },
+  })).data.tournament;
+  const mctx = await loginContext(browser, app.base, org, MOBILE); const mp = await mctx.newPage(); watch(mp, 'mobile-regras');
+  const vc = await browser.newContext(MOBILE); const vp = await vc.newPage(); watch(vp, 'mobile-regras-visitante');
+  await guard(mp, async () => {
+    await mp.goto(`${app.base}/novo-torneio`); await mp.waitForSelector('#nt-name'); await noOverflow(mp, 'criação mobile');
+    await mp.locator('[data-act=prize-add][data-cat=masculino]').click(); await noOverflow(mp, 'criação mobile com premiação');
+    await mp.screenshot({ path: `${SHOTS}mobile_criacao.png`, fullPage: true });
+    await mp.goto(`${app.base}/admin/${t.id}/configuracoes`); await seen(mp, 'Regras do torneio'); await noOverflow(mp, 'configurações mobile');
+  });
+  await guard(vp, async () => {
+    await vp.goto(`${app.base}/t/${t.id}`); await seen(vp, 'Premiação'); await seen(vp, 'Regras do torneio'); await noOverflow(vp, 'visitante mobile com premiação');
+    await vp.screenshot({ path: `${SHOTS}mobile_visitante_premiacao.png`, fullPage: true });
+  });
+  await mctx.close(); await vc.close();
+});
+
+await test('pontos corridos: criar campeonato, gerar a tabela, lançar resultados, classificação e campeão (organizador e visitante)', async () => {
+  const org = await apiSignup(app.base, 'Dona Liga');
+  const octx = await loginContext(browser, app.base, org); const p = await octx.newPage(); watch(p, 'liga');
+  const vc = await browser.newContext(DESKTOP); const vp = await vc.newPage(); watch(vp, 'liga-visitante');
+  await guard(p, async () => {
+    await p.goto(`${app.base}/novo-torneio`);
+    await p.fill('#nt-name', 'Campeonato dos Amigos');
+    await p.locator('label[for=nt-f-league]').click();
+    await p.locator('#leagueBox').waitFor({ state: 'visible', timeout: 8000 });
+    await p.fill('#nt-lmax', '3');
+    await p.fill('#f-fee', '5,00');
+    await p.locator('input[name=demo]').evaluate(el => el.click());
+    await p.click('#ntGo');
+    await p.waitForURL(/\/admin\/AM-/);
+    const id = p.url().match(/AM-\d{4}-\d+/)[0];
+    await p.goto(`${app.base}/admin/${id}/chaveamento`);
+    await seen(p, 'Campeonato de pontos corridos');
+    await seen(p, 'Máximo de partidas por time');
+    await p.getByRole('button', { name: 'Gerar tabela de jogos' }).click();
+    await seen(p, 'Rodada 1');
+    assert(await p.locator('.league-table tbody tr').count() === 8, 'classificação com os 8 times');
+    assert(await p.locator('[data-lg]').count() === 12, '3 rodadas de 4 jogos');
+    const f = p.locator('[data-lg]').first();
+    await f.locator('input[name=sa]').fill('3'); await f.locator('input[name=sb]').fill('1');
+    await f.getByRole('button', { name: 'Salvar' }).click();
+    await p.waitForFunction(() => document.querySelector('.league-table tbody tr td.pts')?.textContent === '3', null, T);
+    await shotSafe(p, 'liga-admin');
+    // visitante vê a tabela e a classificação
+    await vp.goto(`${app.base}/t/${id}`);
+    await seen(vp, 'Classificação');
+    await vp.getByRole('link', { name: /Tabela/ }).first().click();
+    await vp.locator('.league-table').waitFor(T);
+    // simular o restante (demo): campeão aparece
+    for (let i = 0; i < 3; i++) await apiCall(app.base, org.cookie, 'POST', `/tournaments/${id}/demo/simulate`);
+    await p.reload();
+    await p.locator('.champion-banner').waitFor(T);
+    await seen(p, 'CAMPEÃO');
+    await p.getByRole('button', { name: 'Reiniciar campeonato' }).click();
+    await p.locator('dialog [data-close=ok]').click();
+    await seen(p, 'A tabela aparece aqui');
+  });
+  await octx.close(); await vc.close();
 });
 
 await test('sem erros de JavaScript no console durante todo o fluxo', async () => {
