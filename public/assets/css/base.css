@@ -264,3 +264,18 @@ dialog[open] { animation: dlgIn .22s var(--ease); }
 .menu-pop .who b { display: block; }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+
+/* ---------- Compartilhar link ---------- */
+.share-opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
+.share-opt { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 84px; padding: 12px 8px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; text-decoration: none; cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
+.share-opt:hover { background: rgb(14 23 48 / .05); border-color: var(--ink-2); }
+.share-opt:active { transform: scale(.97); }
+.share-opt:focus-visible { outline: 3px solid var(--focus, #2f6bff); outline-offset: 2px; }
+.share-link { display: flex; gap: 8px; align-items: stretch; }
+.share-link input { flex: 1 1 auto; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2, transparent); color: var(--ink); font: inherit; font-size: 14px; }
+@media (max-width: 480px) { .share-link { flex-direction: column; } .share-opts { grid-template-columns: repeat(3, minmax(0, 1fr)); } .share-opt { padding: 12px 4px; font-size: 12.5px; } }
+
+/* ---------- Flyer do confronto (compartilhar partida) ---------- */
+.share-flyer { margin: 0 0 14px; }
+.share-flyer img { display: block; width: 100%; height: auto; aspect-ratio: 1200 / 630; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2, #eef1f7); }
+.share-flyer figcaption { margin-top: 8px; }

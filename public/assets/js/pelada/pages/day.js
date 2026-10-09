@@ -13,6 +13,8 @@ import { resultsData, runShare } from '../ui/share.js';
 import { playShuffle } from '../ui/shuffle.js';
 import { fetchPelada } from '../data.js';
 import { poll } from '../ui/poll.js';
+import { shareButton, wireShare } from '../../ui/share-link.js';
+import { dayPath, slugToDay } from '../../shared/peladalink.js';
 import { fmtClock, timerRemaining, planTeams, autoDrawLabel, GENDERS } from '../../shared/pelada.js';
 
 const NO_TEAMS_TEXT = 'Esta opção desativa o sorteio automático de equipes. O sistema gerará apenas a lista de presença e permitirá a anotação individual de gols para o ranking de artilharia';
@@ -40,7 +42,9 @@ function patch(el, markup) {
 }
 
 export default async function (ctx) {
-  const { id, day: dayId } = ctx.params;
+  const { id } = ctx.params;
+  let dayId = ctx.params.day;          // /p/:id/d/:day (id interno) ou /pelada/:id/dd-mm-aaaa (data)
+  const wantedDate = ctx.params.date ? slugToDay(ctx.params.date) : null;
   const st = { pel: null, etag: null, offset: 0 };
   const ui = { expanded: new Set(), fixOpen: new Set(), podScope: 'day', seenDraw: undefined, fresh: null, ended: new Set(), pending: 0, drawing: false, chain: Promise.resolve() };
   document.title = 'Dia de jogo · Pelada';
@@ -55,7 +59,8 @@ export default async function (ctx) {
   }
   const notFound = (title, msg) => render(ctx.root, page(html`<div class="empty" style="margin-top:40px">${ic('search')}<strong>${title}</strong><span>${msg}</span><a class="btn btn-primary" href="${id ? '/pelada/p/' + id : '/pelada/'}">Voltar</a></div>`));
   try { await load(); } catch (err) { if (!ctx.isCurrent()) return; return notFound(err.status === 404 ? 'Pelada não encontrada' : 'Não foi possível abrir', err.message); }
-  if (!st.pel.days.some(d => d.id === dayId)) return notFound('Data não encontrada', 'Esta data de jogo não existe (ou foi removida).');
+  if (wantedDate) dayId = st.pel.days.find(d => d.date === wantedDate)?.id;
+  if (!dayId || !st.pel.days.some(d => d.id === dayId)) return notFound('Data não encontrada', 'Esta data de jogo não existe (ou foi removida).');
 
   const pel = () => st.pel;
   const day = () => st.pel.days.find(d => d.id === dayId);
@@ -69,6 +74,10 @@ export default async function (ctx) {
   render(ctx.root, page(html`<div data-sec="head"></div><div class="day-grid"><div class="stack-lg"><div data-sec="presence"></div><div data-sec="draw"></div><div data-sec="matches"></div></div><div class="stack-lg"><div data-sec="podium"></div></div></div>`, { cls: 'day' }));
   wireShell(ctx.root, ctx.signal);
   const sec = n => $(`[data-sec=${n}]`, ctx.root);
+  wireShare(ctx.root, () => {
+    const p = pel(), d = day(), path = dayPath(p.id, d.date);
+    return path ? { title: 'Compartilhar o dia', heading: `${p.name} — ${dayLong(d.date)}`, text: `${p.name}: ${dayLong(d.date)} · ${d.attendance.length} ${d.attendance.length === 1 ? 'confirmado' : 'confirmados'}`, url: path } : null;
+  }, ctx.signal);
 
   // ------------------------------------------------------------ seções
   function headSec() {
@@ -77,7 +86,7 @@ export default async function (ctx) {
     return html`<a class="btn btn-ghost btn-sm" href="/pelada/p/${p.id}">${ic('arrow-left', { size: 16 })} ${p.name}</a>
       <header class="day-hero ${p.gender}"><div><span class="eyebrow">${ic('calendar', { size: 15 })} ${label}</span><h1>${dayLong(d.date)}</h1>
         <div class="row wrap" style="gap:8px;margin-top:10px"><span class="badge dark-on">${GENDERS[p.gender].emoji} ${GENDERS[p.gender].label}</span>${d.org.noTeams ? html`<span class="badge warn">Sem formação de times</span>` : html`<span class="badge dark-on">mín. ${d.org.minPerTeam} por time</span><span class="badge dark-on">${ic('timer', { size: 13 })} ${d.org.matchMinutes} min por partida</span>${d.org.autoDraw ? html`<span class="badge dark-on" title="Sorteio automático de jogadores">${ic('shuffle', { size: 13 })} ${autoDrawLabel(d.org).replace('Sorteio automático ', 'Auto ')}</span>` : ''}`}${d.custom ? html`<span class="badge info">Organização personalizada</span>` : ''}${p.demo ? html`<span class="badge warn">Demonstração</span>` : ''}</div></div>
-        <div class="hero-count"><b>${d.attendance.length}</b><span>${d.attendance.length === 1 ? 'confirmado' : 'confirmados'}</span></div></header>`;
+        <div class="hero-side"><div class="hero-count"><b>${d.attendance.length}</b><span>${d.attendance.length === 1 ? 'confirmado' : 'confirmados'}</span></div>${shareButton('Compartilhar', { cls: 'btn btn-sm share-day' })}</div></header>`;
   }
 
   function presenceSec() {

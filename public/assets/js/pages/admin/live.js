@@ -74,7 +74,7 @@ export default function (app, ctx) {
       ${m ? html`
         <div class="live-grid">
           <div class="stack">${scoreboardHTML(t, m, { now: app.now, controls: controls(t, m) })}
-            <div class="row wrap"><button class="btn btn-sm" data-act="result">${ic('pencil', { size: 15 })} Lançar resultado direto</button>${m.note ? html`<span class="muted small">${m.note}</span>` : ''}</div></div>
+            <div class="row wrap"><button class="btn btn-sm" data-act="schedule">${ic('calendar', { size: 15 })} ${m.when ? 'Editar data e local' : 'Agendar partida'}</button><button class="btn btn-sm" data-act="result">${ic('pencil', { size: 15 })} Lançar resultado direto</button>${m.note ? html`<span class="muted small">${m.note}</span>` : ''}</div></div>
           <div class="stack"><div class="card"><h3 class="card-title">${ic('list-checks')} Linha do tempo</h3>${evForm(t, m)}${timelineHTML(t, m)}</div></div>
         </div>`
         : html`<div class="empty" style="padding:48px 16px">${ic(t.champion ? 'trophy' : 'clock', { size: 34 })}<strong style="font-size:18px">${t.champion ? 'Torneio finalizado!' : 'Nenhuma partida disponível agora'}</strong><span>${t.champion ? 'Todas as partidas foram encerradas.' : 'As próximas partidas aparecem quando os dois times estiverem definidos.'}</span><a class="btn" href="/admin/${t.id}/chaveamento">Ver chaveamento</a></div>`}
@@ -145,6 +145,25 @@ export default function (app, ctx) {
     });
   }
 
+  /** Data/hora e local da partida: aparecem no flyer do confronto (pré-visualização do link). Vazio limpa. */
+  function scheduleDialog(m) {
+    const t = app.t;
+    const d = openDialog({
+      title: 'Data e local da partida',
+      body: html`<p class="muted small">Aparecem no flyer do confronto, na pré-visualização do link. Se ficar vazio, usa o local do torneio${t.venue ? ` (${t.venue})` : ''}.</p>
+        <form id="schForm" class="stack" novalidate><div class="field"><label for="sw">Data e horário</label><input id="sw" name="when" type="datetime-local" value="${m.when || ''}"></div>
+        <div class="field"><label for="sv">Local</label><input id="sv" name="venue" type="text" maxlength="80" autocomplete="off" placeholder="${t.venue || 'Ex.: Ginásio Municipal'}" value="${m.venue || ''}"></div></form><div class="form-error" hidden></div>`,
+      foot: html`<button class="btn" data-close>Cancelar</button><button class="btn btn-primary" type="submit" form="schForm" id="schGo">Salvar</button>`,
+    });
+    const form = $('#schForm', d.el), box = $('.form-error', d.el);
+    form.addEventListener('submit', async e => {
+      e.preventDefault(); box.hidden = true;
+      const btn = $('#schGo', d.el); setBusy(btn, true);
+      try { await run({ action: 'schedule', when: form.when.value, venue: form.venue.value }, { silent: true, ok: 'Partida agendada.' }); d.close('ok'); render(app.main, view()); }
+      catch (err) { setBusy(btn, false); box.hidden = false; box.textContent = err.message; }
+    });
+  }
+
   let stopTicker = null;
   return {
     mount(root) {
@@ -164,6 +183,7 @@ export default function (app, ctx) {
         if (act === 'undo' && m) await run({ action: 'undo' }).catch(() => {});
         if (act === 'finalize' && m) await finalize(m);
         if (act === 'result' && m) resultDialog(m);
+        if (act === 'schedule' && m) scheduleDialog(m);
         if (act === 'stream-off') await app.act(() => api.del(`/tournaments/${app.t.id}/stream`), { ok: 'Transmissão removida.' }).catch(() => {});
       });
       root.addEventListener('submit', async e => {

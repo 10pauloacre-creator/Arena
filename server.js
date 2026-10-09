@@ -64,6 +64,14 @@ export function createAppServer() {
         req.url = '/api/pelada/page/' + invite[1] + url.search;
         return await apiHandler(req, res);
       }
+      // link de um dia da pelada (/pelada/PL-XXXXXX/12-10-2026) e de uma partida (/AM-2026-9843/time-a-x-time-b): mesmas reescritas do vercel.json
+      const day = /^\/pelada\/(PL-[A-Za-z0-9]{6})\/(\d{2}-\d{2}-\d{4})\/?$/.exec(url.pathname);
+      const game = /^\/(AM-\d{4}-\d{4,6})\/([^/]+)\/?$/.exec(url.pathname);
+      if (day || game) {
+        res.setHeader('Content-Security-Policy', CSP); res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+        req.url = day ? `/api/pelada/page/${day[1]}?day=${day[2]}` : `/api/match-page/${game[1]}/${game[2]}`;
+        return await apiHandler(req, res);
+      }
       return await serveStatic(req, res, url.pathname);
     } catch (err) {
       console.error(err);

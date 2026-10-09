@@ -15,6 +15,8 @@ addRoute('/pelada/nova', () => import('./pages/form.js'));
 addRoute('/pelada/p/:id/editar', () => import('./pages/form.js'));
 addRoute('/pelada/p/:id/d/:day', () => import('./pages/day.js'));
 addRoute('/pelada/p/:id/:tab?', () => import('./pages/pelada.js'));
+// link curto do dia: /pelada/PL-XXXXXX/12-10-2026
+addRoute('/pelada/:id/:date', () => import('./pages/day.js'));
 addRoute('*', () => import('./pages/notfound.js'));
 
 initPwa();

@@ -3,6 +3,8 @@ import { html, ic, raw, esc, $, $$ } from './dom.js';
 import { openDialog } from './dialog.js';
 import { emblem } from './util.js';
 import { SPORTS, EVENT_LABELS } from '../shared/sports.js';
+import { allMatches, matchPath, matchTitle, flyerImage } from '../shared/matchlink.js';
+import { openShareDialog } from './share-link.js';
 
 export const teamMap = t => new Map((t.teams || []).map(x => [x.id, x]));
 
@@ -108,7 +110,7 @@ export function timelineHTML(t, m) {
 
 // ---------------------------------------------------------------- detalhe (modal)
 export function openMatchDialog(getTournament, getNow, key) {
-  const find = t => t.bracket && [...t.bracket.rounds.flatMap(r => r.matches), ...t.bracket.playins].find(m => m.key === key);
+  const find = t => allMatches(t).find(m => m.key === key);
   const draw = () => {
     const t = getTournament(), m = find(t);
     if (!m) return html`<div class="empty">Partida não encontrada.</div>`;
@@ -116,7 +118,14 @@ export function openMatchDialog(getTournament, getNow, key) {
       ${m.note ? html`<div class="form-note">${ic('info')}<span>${m.note}</span></div>` : ''}
       <h4>Lance a lance</h4>${timelineHTML(t, m)}`;
   };
-  const d = openDialog({ title: 'Partida', body: draw(), wide: true });
+  const d = openDialog({
+    title: 'Partida', body: draw(), wide: true,
+    foot: html`<button type="button" class="btn" data-share-match>${ic('share', { size: 16 })} Compartilhar partida</button><button type="button" class="btn btn-primary" data-close>Fechar</button>`,
+  });
+  d.el.querySelector('[data-share-match]').addEventListener('click', () => {
+    const t = getTournament(), m = find(t), path = m && matchPath(t, m.key);
+    if (path) openShareDialog({ title: 'Compartilhar partida', heading: matchTitle(t, m), text: `${matchTitle(t, m)} — ${t.name}`, url: path, image: flyerImage(t, m) });
+  });
   d.refresh = () => { const b = $('[data-body]', d.el); if (b) b.innerHTML = draw().s; };
   return d;
 }

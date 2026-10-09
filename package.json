@@ -4,7 +4,9 @@
   "description": "ArenaMaster AI — plataforma de torneios: painel do organizador e página do visitante",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
@@ -12,5 +14,8 @@
     "test:e2e": "node e2e/run.mjs",
     "icons": "node scripts/gen-icons.mjs node_modules/lucide-static/icons",
     "lint": "node scripts/lint-imports.mjs"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "2.6.2"
   }
 }

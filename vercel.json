@@ -2,13 +2,15 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "outputDirectory": "public",
   "functions": {
-    "api/index.js": { "maxDuration": 20, "includeFiles": "{lib/**,public/assets/js/shared/**,public/pelada/index.html}" }
+    "api/index.js": { "maxDuration": 20, "includeFiles": "{lib/**,public/assets/js/shared/**,public/pelada/index.html,public/index.html}" }
   },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index?__p=:path*" },
     { "source": "/pelada-img/:path*", "destination": "/api/index?__p=pelada/img/:path*" },
     { "source": "/pelada/p/:id", "destination": "/api/index?__p=pelada/page/:id" },
+    { "source": "/pelada/:id(PL-[A-Za-z0-9]{6})/:day(\\d{2}-\\d{2}-\\d{4})", "destination": "/api/index?__p=pelada/page/:id&day=:day" },
     { "source": "/pelada/:path*", "destination": "/pelada/index.html" },
+    { "source": "/:id(AM-\\d{4}-\\d{4,6})/:slug", "destination": "/api/index?__p=match-page/:id/:slug" },
     { "source": "/((?!api/|assets/).*)", "destination": "/index.html" }
   ],
   "headers": [

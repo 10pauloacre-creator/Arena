@@ -586,3 +586,11 @@ dialog.ntf-dlg .dlg-body { padding: 12px 14px; }
 .ntf-peladas { display: grid; gap: 2px; }
 .ntf-peladas li { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
 .ntf-peladas li:first-child { border-top: 0; }
+
+/* botão de compartilhar o dia, abaixo do contador do cabeçalho */
+.hero-side { display: grid; gap: 8px; justify-items: stretch; }
+.share-day { background: rgb(255 255 255 / .14); border-color: rgb(255 255 255 / .28); color: #fff; justify-content: center; }
+.share-day:hover { background: rgb(255 255 255 / .24); }
+
+/* opções da janela de compartilhar são <a>: mantêm a cor do texto em vez da cor de link da pelada */
+.pl a.share-opt, .pl a.share-opt:hover { color: var(--ink); text-decoration: none; }
