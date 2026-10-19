@@ -17,6 +17,7 @@ import { poll } from '../ui/poll.js';
 import { GENDERS, autoDrawLabel } from '../../shared/pelada.js';
 import { gx, cap } from '../../shared/gender.js';
 import { N, onNotif, savePrefs } from '../notify.js';
+import { openCoOrgTutorial, shouldAutoShow } from '../ui/tutorial.js';
 
 const TABS = [['jogos', 'Jogos', 'calendar'], ['historico', 'Histórico', 'clipboard-check'], ['artilharia', 'Artilharia', 'trophy'], ['jogadores', 'Jogadores', 'users']];
 const DOW = new Intl.DateTimeFormat('pt-BR', { month: 'short' });
@@ -49,7 +50,9 @@ export default async function (ctx) {
   document.title = st.pel.name + ' · Pelada';
 
   const pel = () => st.pel;
-  const isOwner = () => !!pel().viewer?.isOwner;
+  const isOwner = () => !!pel().viewer?.isOwner; // criador: o único que exclui a pelada e escolhe co-organizadores
+  const isOrg = () => !!pel().viewer?.isOrganizer; // criador ou co-organizador: faz todo o resto
+  const isCoOrg = pid => (pel().coOrganizers || []).includes(pid);
   const isMember = () => !!pel().viewer?.isMember;
   const G = () => gx(pel().gender); // textos no gênero da pelada (jogadora, organizadora, convidada…)
 
@@ -64,7 +67,7 @@ export default async function (ctx) {
         <div class="row wrap" style="gap:8px;margin-top:8px"><span class="badge ${p.gender === 'feminino' ? 'pink' : 'info'}">${g.emoji} ${g.label}</span><span class="badge">${ic('users', { size: 13 })} ${p.members.length} ${p.members.length === 1 ? 'participante' : 'participantes'}</span>
           <span class="badge">mín. ${p.minPerTeam} por time</span>${p.noTeams ? html`<span class="badge warn">Sem formação de times</span>` : p.autoDraw || p.generalDraw ? html`<span class="badge" title="Sorteios automáticos">${ic('shuffle', { size: 13 })} ${autoDrawLabel(p)}</span>` : ''}${p.demo ? html`<span class="badge warn">Demonstração</span>` : ''}
           <button type="button" class="badge idchip" data-copy="${p.id}" title="Copiar ID" aria-label="Copiar ID ${p.id}">ID ${p.id} ${ic('copy', { size: 13 })}</button></div>
-        <p class="muted-on-dark small" style="margin:8px 0 0">Organizada por <b>${ownerP?.name || '—'}</b></p></div></div>
+        <p class="muted-on-dark small" style="margin:8px 0 0">Organizada por <b>${ownerP?.name || '—'}</b>${(p.coOrganizers || []).length ? html` · Co-organização: <b>${(p.coOrganizers || []).map(pid => p.people[pid]?.name || '?').join(', ')}</b>` : ''}</p></div></div>
     </header>`;
   }
 
@@ -77,7 +80,7 @@ export default async function (ctx) {
 
   function actions() {
     const p = pel();
-    if (isOwner()) return html`<div class="pel-actions"><a class="btn btn-primary" href="/pelada/p/${p.id}/editar">${ic('pencil', { size: 16 })} Editar pelada</a><button type="button" class="btn" data-add-day>${ic('plus', { size: 16 })} Adicionar data</button><button type="button" class="btn btn-gold" data-invite aria-haspopup="dialog">${ic('qr-code', { size: 16 })} Convite</button><span class="badge gold">Você é ${G().o} ${G().owner}</span>${muteBtn()}</div>`;
+    if (isOrg()) return html`<div class="pel-actions"><a class="btn btn-primary" href="/pelada/p/${p.id}/editar">${ic('pencil', { size: 16 })} Editar pelada</a><button type="button" class="btn" data-add-day>${ic('plus', { size: 16 })} Adicionar data</button><button type="button" class="btn btn-gold" data-invite aria-haspopup="dialog">${ic('qr-code', { size: 16 })} Convite</button><span class="badge gold">Você é ${G().o} ${isOwner() ? G().owner : G().coOrganizer}</span>${isOwner() ? html`<button type="button" class="btn btn-sm" data-coorg-help aria-haspopup="dialog">${ic('shield-check', { size: 15 })} Co-organização</button>` : ''}${muteBtn()}</div>`;
     if (isMember()) return html`<div class="pel-actions"><span class="badge ok">${ic('circle-check', { size: 14 })} Você participa desta pelada</span>${muteBtn()}</div>`;
     return html`<div class="pel-actions"><button type="button" class="btn btn-lg btn-primary" data-join>${ic('user-plus', { size: 20 })} Participar da pelada</button><span class="muted small">${S.player ? 'Entre com um toque.' : 'Sem conta? Crie em 10 segundos.'}</span></div>`;
   }
@@ -101,13 +104,19 @@ export default async function (ctx) {
       const copy = e.target.closest('[data-copy]');
       if (copy) toast((await copyText(copy.dataset.copy)) ? 'Copiado!' : 'Não foi possível copiar.', { type: 'success', ms: 1800 });
     });
+    return d;
+  }
+
+  /** Tutorial da co-organização; "Ver os jogadores" leva à aba Jogadores. */
+  function openTutorial() {
+    return openCoOrgTutorial({ gender: pel().gender, onPlayers: () => { tab = 'jogadores'; paint(); } });
   }
 
   const tabsBar = () => html`<div class="seg tabs" role="group" aria-label="Seções da pelada">${TABS.map(([k, label, icon]) => html`<button type="button" data-tab="${k}" aria-pressed="${String(tab === k)}">${ic(icon, { size: 16 })} ${label}</button>`)}</div>`;
 
   function daysTab() {
     const p = pel();
-    if (!p.days.length) return html`<div class="empty">${ic('calendar')}<strong>Nenhuma data de jogo ainda</strong><span>${isOwner() ? 'Use "Adicionar data" para marcar o primeiro jogo.' : `${cap(G().o)} ${G().owner} ainda não marcou os jogos.`}</span></div>`;
+    if (!p.days.length) return html`<div class="empty">${ic('calendar')}<strong>Nenhuma data de jogo ainda</strong><span>${isOrg() ? 'Use "Adicionar data" para marcar o primeiro jogo.' : `${cap(G().o)} ${G().owner} ainda não marcou os jogos.`}</span></div>`;
     const upcoming = p.days.filter(d => !d.isPast), past = p.days.filter(d => d.isPast).reverse();
     const item = d => {
       const { d: dd, mon } = dayParts(d.date), jogos = d.matches.filter(m => m.status === 'finished').length;
@@ -142,7 +151,13 @@ export default async function (ctx) {
   function playersTab() {
     const p = pel(), goals = Object.fromEntries(p.ranking.map(r => [r.pid, r.goals]));
     const presences = pid => p.days.filter(d => d.attendance.some(a => a.pid === pid)).length;
-    return html`<ul class="player-list card flush">${p.members.map(pid => html`<li>${avatar(p.people[pid], pid, { size: 40 })}<div class="grow" style="min-width:0"><strong class="ellipsis" style="display:block">${p.people[pid]?.name || '?'}</strong><span class="muted small">${presences(pid)} ${presences(pid) === 1 ? 'presença' : 'presenças'}</span></div>${pid === p.owner ? html`<span class="badge gold">${cap(G().owner)}</span>` : ''}<span class="badge">${goals[pid] || 0} ${(goals[pid] || 0) === 1 ? 'gol' : 'gols'}</span>${isOwner() && pid !== p.owner ? html`<button type="button" class="icon-btn danger" data-rm-member="${pid}" aria-label="Excluir ${p.people[pid]?.name || G().player} da pelada" title="Excluir da pelada">${ic('trash', { size: 18 })}</button>` : ''}</li>`)}</ul>`;
+    const nameOf = pid => p.people[pid]?.name || '?';
+    // só o criador abre o menu do participante (tornar co-organizador); para os demais o nome é só texto
+    const nameCell = pid => isOwner() && pid !== p.owner
+      ? html`<button type="button" class="member-name ellipsis" data-member-menu="${pid}" aria-haspopup="dialog" title="Opções de ${nameOf(pid)}">${nameOf(pid)} ${ic('chevron-down', { size: 14 })}</button>`
+      : html`<strong class="ellipsis" style="display:block">${nameOf(pid)}</strong>`;
+    return html`${isOwner() && p.members.length > 1 ? html`<p class="muted small" style="margin:0 0 10px">${ic('shield-check', { size: 14 })} Toque no nome de quem participa para escolher quem ajuda você a organizar a pelada (co-organização). <button type="button" class="link-btn" data-coorg-help>Como funciona?</button></p>` : ''}
+      <ul class="player-list card flush">${p.members.map(pid => html`<li>${avatar(p.people[pid], pid, { size: 40 })}<div class="grow" style="min-width:0">${nameCell(pid)}<span class="muted small">${presences(pid)} ${presences(pid) === 1 ? 'presença' : 'presenças'}</span></div>${pid === p.owner ? html`<span class="badge gold">${cap(G().owner)}</span>` : isCoOrg(pid) ? html`<span class="badge info">${cap(G().coOrganizer)}</span>` : ''}<span class="badge">${goals[pid] || 0} ${(goals[pid] || 0) === 1 ? 'gol' : 'gols'}</span>${isOrg() && pid !== p.owner && !(isCoOrg(pid) && !isOwner()) ? html`<button type="button" class="icon-btn danger" data-rm-member="${pid}" aria-label="Excluir ${nameOf(pid)} da pelada" title="Excluir da pelada">${ic('trash', { size: 18 })}</button>` : ''}</li>`)}</ul>`;
   }
 
   const dangerZone = () => isOwner() ? html`<div class="danger-zone"><button type="button" class="btn btn-sm btn-outline-danger" data-delete>${ic('trash', { size: 15 })} Excluir esta pelada</button></div>` : '';
@@ -195,6 +210,7 @@ export default async function (ctx) {
     }
     if (t.closest('[data-add-day]')) { addDayDialog(); return; }
     if (t.closest('[data-invite]')) { openInvite(); return; }
+    if (t.closest('[data-coorg-help]')) { openTutorial(); return; }
     if (t.closest('[data-leave]')) {
       if (!(await confirmDialog({ title: 'Sair da pelada?', text: `Você deixa de participar de "${pel().name}": ela some das suas peladas e você sai das listas de hoje e das próximas datas. Os gols que você já marcou continuam na artilharia. Para voltar, é só abrir o link de convite de novo.`, ok: 'Sair da pelada', danger: true }))) return;
       try { await api.post(`/pelada/peladas/${id}/leave`); toast('Você saiu da pelada.'); navigate('/pelada/painel'); } catch (err) { toast(err.message, { type: 'error' }); }
@@ -207,6 +223,8 @@ export default async function (ctx) {
       if (await mutate(() => api.del(`/pelada/peladas/${id}/members/${encodeURIComponent(pid)}`))) toast(`${name} foi ${G().excluded} da pelada.`, { type: 'success' });
       return;
     }
+    const mm = t.closest('[data-member-menu]');
+    if (mm) { memberMenu(mm.dataset.memberMenu); return; }
     const mb = t.closest('[data-mute]');
     if (mb) {
       const muted = N.prefs.muted.includes(id);
@@ -234,6 +252,30 @@ export default async function (ctx) {
   }, true);
   ctx.root.addEventListener('change', e => { if (e.target.matches('[data-pod-day]')) { ui.podDay = e.target.value; paintBody(); } });
 
+  /** Menu do participante (só o criador): tornar co-organizador ou remover a co-organização. */
+  function memberMenu(pid) {
+    const p = pel(), name = p.people[pid]?.name || 'Participante', on = isCoOrg(pid);
+    const d = openDialog({
+      title: name,
+      body: html`<div class="stack-sm">
+        ${on ? html`<p style="margin:0"><span class="badge info">${cap(G().coOrganizer)}</span></p>` : ''}
+        <p style="margin:0">${on
+          ? `${name} ajuda a organizar a pelada: cria partidas, sorteia times, escolhe quem joga e marca gols. Só não pode excluir a pelada.`
+          : `Ao tornar ${name} ${G().coOrganizer}, a pessoa passa a ter autonomia geral: cria datas e partidas, sorteia times, escolhe quem joga, marca gols e convida a galera. Só não pode excluir a pelada.`}</p>
+        <div class="form-error" hidden role="alert"></div></div>`,
+      foot: html`<button class="btn" data-close>Fechar</button><button class="btn ${on ? 'btn-outline-danger' : 'btn-primary'}" id="co-go">${ic(on ? 'x' : 'shield-check', { size: 16 })} ${on ? 'Remover co-organização' : `Tornar ${G().coOrganizer}`}</button>`,
+    });
+    $('#co-go', d.el).addEventListener('click', async e => {
+      e.currentTarget.disabled = true;
+      try {
+        const r = on ? await api.del(`/pelada/peladas/${id}/co-organizers/${encodeURIComponent(pid)}`) : await api.post(`/pelada/peladas/${id}/co-organizers`, { pid });
+        st.pel = r.pelada; st.etag = null; if (r.now) st.offset = r.now - Date.now();
+        d.close('ok'); paint();
+        toast(on ? `${name} deixou de ser ${G().coOrganizer}.` : `${name} agora é ${G().coOrganizer} da pelada.`, { type: 'success' });
+      } catch (err) { e.currentTarget.disabled = false; const b = $('.form-error', d.el); b.hidden = false; b.textContent = err.message; }
+    });
+  }
+
   function addDayDialog() {
     const d = openDialog({
       title: 'Adicionar data de jogo',
@@ -251,7 +293,7 @@ export default async function (ctx) {
   // peladas criadas antes da prévia do link: o organizador gera a imagem (capa + foto + nome) uma vez, ao abrir a pelada
   async function ensurePreview() {
     const p = pel();
-    if (!isOwner() || p.img.preview || (!p.img.cover && !p.img.avatar)) return;
+    if (!isOrg() || p.img.preview || (!p.img.cover && !p.img.avatar)) return;
     const key = 'pelada.preview.' + p.id;
     try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, '1'); } catch { /* sem armazenamento */ }
     const preview = await composePreview({ name: p.name, gender: p.gender, coverUrl: peladaImg(p.id, 'cover', p.img.cover), avatarUrl: peladaImg(p.id, 'avatar', p.img.avatar) });
@@ -267,7 +309,12 @@ export default async function (ctx) {
     const k = JSON.stringify(N.prefs?.muted || null) + N.prefs?.enabled;
     if (k !== prefsKey && !document.querySelector('dialog[open]')) { prefsKey = k; paint(); }
   }));
-  if (ctx.query.novo === '1' && isOwner()) openInvite(); // pelada recém-criada: já mostra o convite
+  // pelada recém-criada: já mostra o convite; depois dele (ou direto, para quem já organiza e ainda não viu) vem o tutorial da co-organização
+  if (isOwner()) {
+    const invite = ctx.query.novo === '1' ? openInvite() : null;
+    if (invite) invite.closed.then(() => { if (ctx.isCurrent() && shouldAutoShow()) openTutorial(); });
+    else if (shouldAutoShow()) openTutorial();
+  }
 
   poll(ctx, async () => {
     if (document.querySelector('dialog[open]')) return;

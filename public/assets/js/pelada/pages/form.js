@@ -49,7 +49,7 @@ export default async function (ctx) {
       if (!ctx.isCurrent()) return;
       original = r.pelada;
     } catch (err) { return render(ctx.root, page(html`<div class="form-error" style="margin-top:24px">${err.message}</div>`)); }
-    if (!original.viewer?.isOwner) { toast('Só quem criou a pelada pode editar.', { type: 'warn' }); return navigate('/pelada/p/' + editId, { replace: true }); }
+    if (!original.viewer?.isOrganizer) { toast('Só quem organiza a pelada pode editar.', { type: 'warn' }); return navigate('/pelada/p/' + editId, { replace: true }); }
     Object.assign(st, { name: original.name, gender: original.gender, minPerTeam: original.minPerTeam, matchMinutes: original.matchMinutes, noTeams: original.noTeams, autoDraw: !!original.autoDraw, generalDraw: !!original.generalDraw, generalEvery: original.generalEvery ?? DEFAULT_GENERAL_EVERY });
     st.avatarUrl = peladaImg(original.id, 'avatar', original.img.avatar);
     st.coverUrl = peladaImg(original.id, 'cover', original.img.cover);

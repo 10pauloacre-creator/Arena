@@ -171,6 +171,11 @@ A interface é pré-carregada pelo service worker e abre sem internet; os dados 
 - **Sair da pelada / excluir jogador**: quem participa (menos o organizador) tem um ícone de sair no canto superior direito da página da
   pelada, com confirmação; a pelada some do painel dele e ele sai das listas de hoje em diante. O **organizador exclui jogadores** na aba
   *Jogadores*. Em ambos os casos **os gols já marcados continuam somando na artilharia** (dia e geral) e o histórico de datas passadas não muda.
+- **Co-organizadores**: o criador toca no nome de um jogador (aba *Jogadores*) e escolhe **"Tornar co-organizador"**. A pessoa passa a organizar tudo
+  (datas, partidas, sorteios, escalação, gols, editar a pelada, convidar), **menos excluir a pelada e escolher/remover co-organizadores**, que
+  continuam só do criador. Regra no servidor (`isOrganizer`/`ownerOnly` em `lib/routes/peladas.js`; `POST/DELETE /pelada/peladas/:id/co-organizers`).
+  Há um **tutorial** (`ui/tutorial.js`) que aparece uma vez por aparelho para quem organiza uma pelada (e logo após criar uma) e pode ser
+  reaberto no botão *Co-organização*.
 - **Pelada demo**: na tela de criação, o botão **"Criar pelada demo"** monta o jogo de hoje com **17 jogadores já confirmados** (nome e
   sobrenome + foto de perfil), para ver a organização de um dia de jogo sem convidar ninguém: 17 ÷ 5 = 3 times, com as 2 sobras
   na **Cerca**. O elenco é sorteado a cada clique entre 40 jogadores fictícios e **não é gravado no banco** (ficam só dentro da pelada;

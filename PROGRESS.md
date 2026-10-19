@@ -44,6 +44,12 @@ Este arquivo existe para que uma sessão interrompida possa continuar de onde pa
 - Testes: `tests/unit/pelada-notifications.test.js` (10) e `e2e/pelada-notificacoes.mjs` (7 cenários); telas novas na auditoria `e2e/pelada-a11y.mjs`.
 - Web Push (aviso com o app fechado) já está implementado (`lib/push.js`).
 
+## Co-organizadores + tutorial — adicionado
+- Domínio: `addCoOrganizer`/`removeCoOrganizer`/`isOrganizer` em `lib/domain/pelada.js` (limite `MAX_COORGANIZERS`); rotas ownerOnly `co-organizers`; as demais rotas de organizador aceitam o co-organizador (`owner: true`). Só o criador exclui a pelada e gerencia co-organizadores.
+- Views com `coOrganizers` e `viewer.{isOwner,isCoOrganizer,isOrganizer}`; papel `coorg` em `/pelada/mine`; notificação do tipo `coorg`; textos com gênero em `shared/gender.js`.
+- Tutorial `public/assets/js/pelada/ui/tutorial.js` (uma vez por aparelho; não aparece sozinho em navegadores automatizados). SW em `pelada-v11`.
+- Testes: API (`pelada-api.test.js`) e E2E (`e2e/pelada.mjs`, 27 cenários).
+
 ## Pendências / ideias
 - Categoria de time (masculino/feminino) com chaves separadas: hoje a premiação por gênero é só informativa.
 - Conectar o Upstash Redis na Vercel (ação do dono do projeto) — sem isso o deploy roda em modo demonstração.

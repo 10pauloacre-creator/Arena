@@ -54,4 +54,7 @@ export async function logout() {
   saveToken(''); setPlayer(null);
 }
 
+/** Criador da pelada (único que pode excluí-la). */
 export const isOwner = pel => !!pel.viewer?.isOwner;
+/** Criador ou co-organizador: pode fazer tudo na pelada, menos excluí-la. */
+export const isOrganizer = pel => !!pel.viewer?.isOrganizer;

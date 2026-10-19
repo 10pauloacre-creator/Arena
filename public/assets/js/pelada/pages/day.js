@@ -61,7 +61,7 @@ export default async function (ctx) {
 
   const pel = () => st.pel;
   const day = () => st.pel.days.find(d => d.id === dayId);
-  const isOwner = () => !!pel().viewer?.isOwner;
+  const isOwner = () => !!pel().viewer?.isOrganizer; // criador ou co-organizador: ambos organizam a data (só excluir a pelada é do criador)
   const base = `/pelada/peladas/${id}/days/${dayId}`;
   const serverNow = () => Date.now() + st.offset;
   ui.seenDraw = day().draw?.id ?? null;

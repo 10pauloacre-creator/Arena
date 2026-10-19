@@ -12,6 +12,7 @@ export const NOTIF_TYPES = [
   { key: 'result', label: 'Resultados dos jogos', desc: 'Placar final de cada partida, com quem fez os gols.', icon: 'trophy', on: true },
   { key: 'schedule', label: 'Agenda de jogos', desc: 'Nova data de jogo marcada, jogo remarcado ou cancelado.', icon: 'calendar', on: true },
   { key: 'reminder', label: 'Lembrete no dia do jogo', desc: 'No dia do jogo, um aviso para confirmar presença.', icon: 'bell', on: true },
+  { key: 'coorg', label: 'Co-organização', desc: 'Alguém virou co-organizador da pelada (ou deixou de ser), inclusive você.', icon: 'shield-check', on: true },
 ];
 export const NOTIF_KEYS = NOTIF_TYPES.map(t => t.key);
 export const NOTIF_BY_KEY = Object.fromEntries(NOTIF_TYPES.map(t => [t.key, t]));
@@ -158,6 +159,17 @@ export function describe(ev, { viewerId, today, gender } = {}) {
       if (d.kind === 'moved') return { title: 'Jogo remarcado', text: `O jogo de ${dayName(d.from, today)} foi remarcado para ${day}.` };
       if (d.kind === 'cancel') return { title: 'Jogo cancelado', text: `${who} cancelou o ${jogo}.` };
       return { title: 'Nova data de jogo', text: `${who} marcou um jogo para ${day}.` };
+    case 'coorg': {
+      const target = d.name || 'Alguém';
+      if (d.uid && d.uid === viewerId) {
+        return d.on
+          ? { title: 'Você é co-organizador', text: `${who} tornou você ${G.coOrganizer} da pelada. Agora você pode criar jogos, sortear times e lançar partidas.` }
+          : { title: 'Co-organização encerrada', text: `${who} retirou você da co-organização da pelada.` };
+      }
+      return d.on
+        ? { title: 'Novo co-organizador', text: `${who} tornou ${target} ${G.coOrganizer} da pelada.` }
+        : { title: 'Co-organização encerrada', text: `${who} retirou ${target} da co-organização da pelada.` };
+    }
     case 'reminder':
       return d.present
         ? { title: 'Hoje tem jogo! ⚽', text: 'Sua presença está confirmada. Acompanhe a lista e o sorteio dos times.' }

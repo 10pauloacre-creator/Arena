@@ -464,6 +464,37 @@ test('permissões e exclusão: só o criador exclui a pelada; peladas apagadas s
   assert.equal((await s.players[1].get('/pelada/mine')).data.joined.length, 0);
 });
 
+test('co-organizador: o criador escolhe, a pessoa organiza tudo menos excluir a pelada nem mexer em co-organizadores', async () => {
+  const s = await setup({ count: 10, min: 5 });
+  const [, co, other] = s.players;
+  const copid = `u:${co.player.id}`, otherpid = `u:${other.player.id}`, ownerpid = `u:${s.owner.player.id}`;
+  const url = `/pelada/peladas/${s.id}/co-organizers`;
+  assert.equal((await co.post(url, { pid: otherpid })).status, 403);
+  assert.equal((await s.owner.post(url, { pid: ownerpid })).status, 409);
+  assert.equal((await s.owner.post(url, { pid: 'u:naoexiste' })).status, 404);
+  assert.equal((await co.post(`${s.base}/draw`)).status, 403);
+  const add = await s.owner.post(url, { pid: copid });
+  assert.equal(add.status, 200, JSON.stringify(add.data));
+  assert.deepEqual(add.data.pelada.coOrganizers, [copid]);
+  const cv = (await co.get(`/pelada/peladas/${s.id}`)).data.pelada.viewer;
+  assert.equal(cv.isCoOrganizer, true); assert.equal(cv.isOrganizer, true); assert.equal(cv.isOwner, false);
+  assert.equal((await co.get('/pelada/mine')).data.joined[0].role, 'coorg');
+  // autonomia geral: sorteia, cria partida e edita a pelada
+  assert.equal((await co.post(`${s.base}/draw`)).status, 200);
+  const [t1, t2] = (await s.view()).days.find(d => d.id === s.dayId).draw.teams;
+  assert.equal((await co.post(`${s.base}/matches`, { a: t1.id, b: t2.id })).status, 200);
+  assert.equal((await co.patch(`/pelada/peladas/${s.id}`, { name: 'Pelada do Co' })).status, 200);
+  // exceções: não exclui a pelada, não escolhe nem remove co-organizadores
+  assert.equal((await co.del(`/pelada/peladas/${s.id}`)).status, 403);
+  assert.equal((await co.post(url, { pid: otherpid })).status, 403);
+  assert.equal((await co.del(`${url}/${encodeURIComponent(copid)}`)).status, 403);
+  // o criador remove co-organizadores
+  assert.equal((await s.owner.post(url, { pid: otherpid })).status, 200);
+  assert.equal((await s.owner.del(`${url}/${encodeURIComponent(otherpid)}`)).status, 200);
+  assert.equal((await other.post(`${s.base}/draw`)).status, 403);
+  assert.equal((await s.owner.del(`/pelada/peladas/${s.id}`)).status, 200);
+});
+
 test('tempo esgotado: o cronômetro acaba e o encerramento automático é aceito', async () => {
   const s = await setup({ count: 10, min: 5 });
   await s.owner.post(`${s.base}/draw`);

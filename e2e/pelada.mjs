@@ -685,6 +685,53 @@ await test('sair da pelada: ícone no canto superior direito, confirmação, som
   });
 });
 
+await test('co-organizador: tutorial aparece uma vez, o criador toca no nome e torna co-organizador; ele organiza tudo menos excluir a pelada', async () => {
+  const boss = await apiPlayer(`Chefe Coorg ${stamp}`), helper = await apiPlayer(`Ajudante Coorg ${stamp}`);
+  const post = async (who, path, body) => (await fetch(app.base + '/api' + path, { method: 'POST', headers: { 'Content-Type': 'application/json', cookie: who.cookie }, body: JSON.stringify(body || {}) })).json();
+  const made = await post(boss, '/pelada/peladas', { name: 'Pelada Co-Org', gender: 'masculino', minPerTeam: 5, matchMinutes: 10, days: [{ date: todayIso }] });
+  const pid = made.pelada.id;
+  await post(helper, `/pelada/peladas/${pid}/join`);
+  const bctx = await playerContext(boss, DESKTOP);
+  await bctx.addInitScript(() => { try { localStorage.setItem('pelada.tutorial.coorgTest', '1'); } catch { /* sem armazenamento */ } });
+  const b = await bctx.newPage(); watch(b, 'coorg-dono');
+  const hctx = await playerContext(helper, DESKTOP); const h = await hctx.newPage(); watch(h, 'coorg-ajudante');
+  try {
+    await guard(b, async () => {
+      // o tutorial sai sozinho para o organizador e só na primeira vez
+      await b.goto(`${app.base}/pelada/p/${pid}`);
+      await b.locator('dialog .tutorial').waitFor(T);
+      await seen(b, 'Peça ajuda na organização');
+      await seen(b, 'Tornar co-organizador');
+      await b.locator('dialog [data-close]', { hasText: 'Entendi' }).click();
+      await b.locator('dialog').waitFor({ state: 'detached', timeout: 8000 });
+      await b.reload();
+      await b.locator('.pel-head').waitFor(T);
+      await b.waitForTimeout(800);
+      assert(await b.locator('dialog .tutorial').count() === 0, 'o tutorial não volta sozinho depois de visto');
+      // dá para rever pelo botão "Co-organização"
+      await b.locator('[data-coorg-help]').first().click();
+      await b.locator('dialog .tutorial').waitFor(T);
+      await b.locator('dialog [data-close="players"]').click();
+      // toca no nome e torna co-organizador
+      await b.locator('.member-name', { hasText: 'Ajudante Coorg' }).click();
+      await seen(b, 'autonomia geral');
+      await b.locator('dialog #co-go').click();
+      await b.locator('.player-list li', { hasText: 'Ajudante Coorg' }).locator('.badge.info', { hasText: 'Co-organizador' }).waitFor(T);
+    });
+    await guard(h, async () => {
+      await h.goto(`${app.base}/pelada/p/${pid}`);
+      await h.locator('.pel-head').waitFor(T);
+      await seen(h, 'Você é o co-organizador');
+      assert(await h.locator('[data-add-day]').count() === 1, 'co-organizador adiciona datas');
+      assert(await h.locator('a[href$="/editar"]').count() >= 1, 'co-organizador edita a pelada');
+      assert(await h.locator('[data-delete]').count() === 0, 'co-organizador não vê "Excluir esta pelada"');
+      assert(await h.locator('[data-coorg-help]').count() === 0, 'co-organizador não vê o botão de co-organização');
+      await h.locator('[data-tab=jogadores]').click();
+      assert(await h.locator('.member-name').count() === 0, 'só o criador abre o menu dos nomes');
+    });
+  } finally { await bctx.close(); await hctx.close(); }
+});
+
 await test('login salvo no aparelho: mesmo sem o cookie de sessão o app continua logado (e o link de convite mostra a pré-visualização)', async () => {
   const o = await apiPlayer(`Persistente ${stamp}`);
   const ctx = await playerContext(o, MOBILE); const p = await ctx.newPage(); watch(p, 'login-salvo');

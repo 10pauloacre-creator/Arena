@@ -5,7 +5,7 @@ const FORMS = {
   // chave: [masculino, feminino]
   player: ['jogador', 'jogadora'], players: ['jogadores', 'jogadoras'],
   guest: ['convidado', 'convidada'], guests: ['convidados', 'convidadas'],
-  owner: ['organizador', 'organizadora'], scorer: ['artilheiro', 'artilheira'], scorers: ['artilheiros', 'artilheiras'],
+  owner: ['organizador', 'organizadora'], coOrganizer: ['co-organizador', 'co-organizadora'], scorer: ['artilheiro', 'artilheira'], scorers: ['artilheiros', 'artilheiras'],
   captain: ['capitão', 'capitã'],
   confirmed: ['confirmado', 'confirmada'], confirmeds: ['confirmados', 'confirmadas'],
   first: ['primeiro', 'primeira'], newOne: ['novo', 'nova'], excluded: ['excluído', 'excluída'], removed: ['removido', 'removida'],
